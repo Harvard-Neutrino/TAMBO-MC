@@ -3,7 +3,7 @@ from numba.core.decorators import njit
 import numpy as np
 from numba import jit
 
-from tambo.geometry import Direction, Geometry, Point
+from geometry import Direction, Geometry, Point
 
 class Track: 
     """
@@ -13,66 +13,58 @@ class Track:
         """
         Constructs particle trajectory.
         """    
-        self.point = point
-        self.direction = direction
-        self.alpha = self.__get_line_eq()
+        self.start_track = self.__get_start_track()
+        self.point = self.start_track[0]
+        self.direction = self.start_track[1]
 
-    def __get_line_eq(self): 
+    def __get_start_track(self): 
         """
-        Builds auxiliary trajectory arrray.
+        Builds 6 item array defining starting position and direction of track
         """    
-        data = [self.point.x,self.point.y,self.point.z,
-                self.direction.x,self.direction.y,self.direction.z]
-        data = np.array(data, dtype=np.float32)
-        data = np.around(data,3)
-        return data
+        line_eq = [[self.point.x,self.point.y,self.point.z],
+                   [self.direction.x_dir,self.direction.y_dir,self.direction.z_dir]]
+        return np.around(np.array(line_eq, dtype = np.float32),3)
     
     def find_end_points(self, geometry: Geometry):
         """
         Returns the end points of the track for a given geometry.
-        """    
-        start_pts1 = np.around(np.array([self.alpha[0],self.alpha[1],self.alpha[2]], dtype = np.float32),3)
-        start_pts = [self.alpha[0],self.alpha[0],self.alpha[1],self.alpha[1],self.alpha[2],self.alpha[2]]
-        start_pts = np.array(start_pts,dtype = np.float32)
-        start_pts = np.around(start_pts,3)
-        direct_pts = [self.alpha[3],self.alpha[3],self.alpha[4],self.alpha[4],self.alpha[5],self.alpha[5]]
-        direct_pts = np.array(direct_pts,dtype = np.float32)
-        direct_pts = np.around(direct_pts,3)
-    
-        for count,g in enumerate(geometry.geometry_box):
+        """   
+
+        for i,boundaries in enumerate(geometry.geometry_box):
+
+            start_point = self.start_track[0][i%3]
+            start_direct = self.start_track[1][i%3]
         
             flag = False
         
-            if direct_pts[count] == 0: 
+            if start_direct == 0: 
                 continue       
         
-            t = (g - start_pts[count])/direct_pts[count]
+            t = (boundaries - start_point)/start_direct
         
             if t < 0 or t == 0:  
                 continue
-            potential_endps = ([self.alpha[0]+(t*self.alpha[3]),self.alpha[1]+(t*self.alpha[4]),
-                                self.alpha[2]+(t*self.alpha[5])])
-            potential_endps = np.array(potential_endps,dtype = np.float32)
-            potential_endps = np.around(potential_endps,3)
-            
-            for c,z in enumerate(potential_endps): 
 
-                if z < geometry.geometry_box[2*c] or z > geometry.geometry_box[2*c+1]:
+            pot_end = ([self.point.x+(t*self.point.x_dir),self.point.y+(t*self.point.y_dir),
+                                self.point.z+(t*self.point.z_dir)])
+            pot_end = np.around(np.array(pot_end,dtype = np.float32),3)
+            
+            for j,points in enumerate(pot_end): 
+
+                if points < geometry.geometry_box[2*j] or points > geometry.geometry_box[2*j+1]:
                     flag = True 
                     break 
                 
             if flag == False: 
-                data = np.array(potential_endps, dtype=np.float32)
-                data = np.around(data,3)
-                endps = np.subtract(data,start_pts1)
-                enpds = np.around(endps,3)
-                return start_pts1,endps
+                data = np.around(np.array(pot_end, dtype=np.float32),3)
+                end_pts = np.around(np.subtract(data,self.start_track[0]),3)
+                return self.start_track[0],end_pts
 
 if __name__ == "__main__":
     print("building geometry")
     geo = Geometry("../resources/ColcaValleyData.txt")
-    point = geo.Coordinate_points[0]
-    dir = Direction(0.1,0.1)
+    point = geo.coordinate_points[0]
+    dir = Direction(90,90)
     print("building track")
     track = Track(point,dir)
     print(track.find_end_points(geo))
