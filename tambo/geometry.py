@@ -31,8 +31,8 @@ class Point(object):
         delta_lat = latitude - self.lat_min 
         delta_long = longitude - self.long_min 
 
-        x = delta_long * (m_per_deg_lon * np.pi/180)
-        y = delta_lat * (m_per_deg_lat * np.pi/180)
+        x = delta_long * (m_per_deg_lon * 180/np.pi)
+        y = delta_lat * (m_per_deg_lat * 180/np.pi)
 
         return x,y
 

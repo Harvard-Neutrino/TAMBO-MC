@@ -13,9 +13,11 @@ class Track:
         """
         Constructs particle trajectory.
         """    
+        self.point = point 
+        self.direction = direction
         self.start_track = self.__get_start_track()
-        self.point = self.start_track[0]
-        self.direction = self.start_track[1]
+        self.point_array = self.start_track[0]
+        self.direction_array = self.start_track[1]
 
     def __get_start_track(self): 
         """
@@ -45,13 +47,15 @@ class Track:
             if t < 0 or t == 0:  
                 continue
 
-            pot_end = ([self.point.x+(t*self.point.x_dir),self.point.y+(t*self.point.y_dir),
-                                self.point.z+(t*self.point.z_dir)])
+            pot_end = ([self.start_track[0][0]+(t*self.start_track[1][0]),
+                        self.start_track[0][1]+(t*self.start_track[1][1]),
+                        self.start_track[0][2]+(t*self.start_track[1][2])])
+
             pot_end = np.around(np.array(pot_end,dtype = np.float32),3)
             
-            for j,points in enumerate(pot_end): 
+            for j,potential_end in enumerate(pot_end): 
 
-                if points < geometry.geometry_box[2*j] or points > geometry.geometry_box[2*j+1]:
+                if potential_end < geometry.geometry_box[2*j] or potential_end > geometry.geometry_box[2*j+1]:
                     flag = True 
                     break 
                 
@@ -63,8 +67,12 @@ class Track:
 if __name__ == "__main__":
     print("building geometry")
     geo = Geometry("../resources/ColcaValleyData.txt")
-    point = geo.coordinate_points[0]
+    print(geo.geometry_box)
+    point = geo.coordinate_points[9000]
+    print(point.x,point.y)
     dir = Direction(90,90)
     print("building track")
     track = Track(point,dir)
+    print(track.start_track)
+    print("building track vector")
     print(track.find_end_points(geo))
