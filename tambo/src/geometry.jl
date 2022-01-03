@@ -78,16 +78,16 @@ struct Geometry
         number_geo_points = length(latitude)
 
         # A coord. system in meters with the origin at latmin, latmax
-        coordinate_points = ([Point(longitude[i],
+        coordinate_points = [Point(longitude[i],
                                     latitude[i],
                                     elevation[i];
                                     lat_min, 
                                     long_min) 
-        for i in 1:number_geo_points])
+        for i in 1:number_geo_points]
         geometry_spline = Spline2D(map(p->p.x,coordinate_points),
                                    map(p->p.y,coordinate_points),
                                    map(p->p.z,coordinate_points);
-                                   kx=3,ky=3
+                                   kx=3,ky=3,s=100_000
                                    )
 
         x_max = max(map(p->p.x,coordinate_points))
