@@ -12,17 +12,16 @@ function get_distance_coordinate(latitude, longitude, latmin, longmin)
     x,y
 end
 
-function construct_point(latitude, longitude, elevation; latmin = 0.0, longmin = 0.0)
-    x,y = get_distance_coordinate(latitude,longitude,latmin, longmin)
-    Point(longitude, latitude, x, y, elevation)
-end
-
 struct Point{T<:Real}
     longitude::T
     latitude::T
     x::T
     y::T
     z::T
+    function Point(latitude::T, longitude::T, elevation::T; latmin = 0.0, longmin = 0.0) where T<:Real
+    x,y = get_distance_coordinate(latitude,longitude,latmin, longmin)
+    new{T}(longitude, latitude, x, y, elevation)
+    end
 end
 
 function construct_point(phi, theta)
