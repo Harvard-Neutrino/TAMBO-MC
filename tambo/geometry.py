@@ -114,7 +114,7 @@ class Geometry(object):
         x = [self.__coords_to_meters(g,i) for i,g in zip(self.lat,self.long)]
         meters_lat = [x[i][1] for i in range(len(x))]
         meters_long = [x[i][0] for i in range(len(x))]
-        return SmoothBivariateSpline(meters_long,meters_lat,self.elev,kx=3,ky=3)
+        return SmoothBivariateSpline(meters_long,meters_lat,self.elev,kx=3,ky=3,s=100000)
 
 if __name__ == "__main__":
     geo = Geometry("../resources/ColcaValleyData.txt")

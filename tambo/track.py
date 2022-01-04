@@ -34,8 +34,9 @@ class Track:
 
         for i,boundaries in enumerate(geometry.geometry_box):
 
-            start_point = self.start_track[0][i%3]
-            start_direct = self.start_track[1][i%3]
+            #((i/2)+((-1)**(i)-1)/4) = 0,0,1,1,2,2
+            start_point = self.start_track[0][int((i/2)+((-1)**(i)-1)/4)]
+            start_direct = self.start_track[1][int((i/2)+((-1)**(i)-1)/4)]
         
             flag = False
         
@@ -43,7 +44,7 @@ class Track:
                 continue       
         
             t = (boundaries - start_point)/start_direct
-        
+            
             if t < 0 or t == 0:  
                 continue
 
@@ -70,7 +71,7 @@ if __name__ == "__main__":
     print(geo.geometry_box)
     point = geo.coordinate_points[9000]
     print(point.x,point.y)
-    dir = Direction(90,90)
+    dir = Direction(90,45)
     print("building track")
     track = Track(point,dir)
     print(track.start_track)

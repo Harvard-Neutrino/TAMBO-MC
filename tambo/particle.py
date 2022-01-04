@@ -1,10 +1,10 @@
-from tambo.track import Track
+from track import Track
 
 class Particle(object): 
     """
     Particle Class representing a particle in TAMBO
     """
-    def __init__(self, pdg_id: int, energy: float, trajectory:Track):
+    def __init__(self, pdg_id: int, energy: float, trajectory: Track):
         self.pdg_id = pdg_id
         self.energy = energy
         self.trajectory = trajectory
