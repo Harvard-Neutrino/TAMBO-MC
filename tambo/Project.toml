@@ -2,3 +2,6 @@ name = "tambo"
 uuid = "d9a96183-4919-46da-8188-64ea4e10e0ed"
 authors = ["Carlos A. Arguelles <carguelles@fas.harvard.edu>"]
 version = "0.1.0"
+
+[deps]
+Dierckx = "39dd38d3-220a-591b-8e3c-4c3a8c710a94"

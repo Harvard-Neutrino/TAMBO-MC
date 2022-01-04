@@ -2,7 +2,8 @@ module geometry
 
 export Point,
        Direction,
-       Geometry
+       Geometry,
+       Coord
 
 # ----------------------------------------------------------------------------
 
@@ -19,30 +20,46 @@ function get_distance_coordinate(latitude, longitude, latmin, longmin)
     x,y
 end
 
-mutable struct Point{T<:Real}
-    longitude::T
-    latitude::T
+struct Point{T<:Real}
     x::T
     y::T
     z::T
-    function Point(longitude::T, latitude::T, elevation::T; lat_min = 0.0, long_min = 0.0) where T<:Real
-        x,y = get_distance_coordinate(latitude,longitude,lat_min, long_min)
-        new{T}(longitude, latitude, x, y, elevation)
+    function Point(c::Coord, elevation::T; lat_min = 0.0, long_min = 0.0) where T<:Real
+        x,y = get_distance_coordinate(c.lat, c.long,lat_min, long_min)
+        new{T}(x, y, elevation)
+    end
+    function Point(x::T, y::T, elevation::T) where T<:Real
+        new{T}(x, y, elevation)
     end
 end
 
-mutable struct Direction{T<:Real}
+struct Direction{T<:Real}
     phi::T
     theta::T
     x::T
     y::T
     z::T
+    function Direction(x::T, y::T, z::T) where T<:Real
+        using LinearAlgebra
+        len   = norm((x,y,z))
+        x     = x/len
+        y     = y/len
+        z     = z/len
+        phi   = atan(y,x)
+        theta = acos(z)
+        new{T}(phi, theta, x, y, z)
+    end
     function Direction(phi::T, theta::T) where T<:Real
         x = cos(theta)*sin(phi)
         y = sin(theta)*sin(phi)
         z = cos(phi)
-        new{T}(phi,theta,x,y,z)
+        new{T}(phi, theta, x, y, z)
     end
+end
+
+struct Coord{T<:Float64}
+    lat::T
+    long::T
 end
 
 # original FORTRAN interpolation library
