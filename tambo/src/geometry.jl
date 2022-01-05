@@ -1,67 +1,8 @@
 module geometry
 
-export Point,
-       Direction,
-       Geometry,
-       Coord
+export Geometry
 
 # ----------------------------------------------------------------------------
-
-function get_distance_coordinate(latitude, longitude, latmin, longmin)
-    latmid = (latitude + latmin)/2.0
-    m_per_deg_lon = (111132.954 - (559.822 * cos( 2.0 * latmid )) + (1.175 * cos( 4.0 * latmid)) + (0.0023 * cos( 6.0 * latmid)))
-    m_per_deg_lat = (111412.82 * cos(latmid)) - (93.5*cos(latmid*3)) + (0.118*cos(5*latmid))
-    delta_lat = latitude - latmin 
-    delta_long = longitude - longmin 
-
-    x = delta_long * (m_per_deg_lon * 180/pi)
-    y = delta_lat * (m_per_deg_lat * 180/pi)
-
-    x,y
-end
-
-struct Point{T<:Real}
-    x::T
-    y::T
-    z::T
-    function Point(c::Coord, elevation::T; lat_min = 0.0, long_min = 0.0) where T<:Real
-        x,y = get_distance_coordinate(c.lat, c.long,lat_min, long_min)
-        new{T}(x, y, elevation)
-    end
-    function Point(x::T, y::T, elevation::T) where T<:Real
-        new{T}(x, y, elevation)
-    end
-end
-
-struct Direction{T<:Real}
-    phi::T
-    theta::T
-    x::T
-    y::T
-    z::T
-    function Direction(x::T, y::T, z::T) where T<:Real
-        using LinearAlgebra
-        len   = norm((x,y,z))
-        x     = x/len
-        y     = y/len
-        z     = z/len
-        phi   = atan(y,x)
-        theta = acos(z)
-        new{T}(phi, theta, x, y, z)
-    end
-    function Direction(phi::T, theta::T) where T<:Real
-        x = cos(theta)*sin(phi)
-        y = sin(theta)*sin(phi)
-        z = cos(phi)
-        new{T}(phi, theta, x, y, z)
-    end
-end
-
-struct Coord{T<:Float64}
-    lat::T
-    long::T
-end
-
 # original FORTRAN interpolation library
 # that is inside scipy interpolate
 using Dierckx
@@ -95,7 +36,7 @@ struct Geometry
         number_geo_points = length(latitude)
 
         # A coord. system in meters with the origin at latmin, latmax
-        coordinate_points = [Point(longitude[i],
+        coordinate_points = [TPoint(longitude[i],
                                     latitude[i],
                                     elevation[i];
                                     lat_min, 
