@@ -37,7 +37,7 @@ module track
                 end
             end
         end
-        λ_f, Track(t.ipoint, t.direction*λ_f)
+        Track(t.ipoint, t.direction*λ_f)
     end
 
     function find_position(t::Track, λ)
