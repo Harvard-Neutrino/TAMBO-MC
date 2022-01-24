@@ -1,6 +1,6 @@
-module geometry
+module Geometry
 
-export Geometry
+export TAMBOGeometry
 
 # ----------------------------------------------------------------------------
 # original FORTRAN interpolation library
@@ -9,7 +9,7 @@ using Dierckx
 #using CSV,DataFrames,LinearAlgebra
 using DelimitedFiles
 
-struct Geometry
+struct TAMBOGeometry
     lat_min::Float64
     lat_max::Float64
     long_min::Float64
@@ -20,7 +20,7 @@ struct Geometry
     geometry_box::Vector{Float64}
     density_rock::Float64 #"kg/m^3"
     density_air::Float64 #"kg/m^3" 
-    function Geometry(textfile::String)
+    function TAMBOGeometry(textfile::String)
         data_input, header_input = readdlm(textfile,'\t', '\n', header = true)
         latitude = map(deg2rad,data_input[:,2])
         longitude = map(deg2rad,data_input[:,3])
@@ -62,6 +62,6 @@ end
 end #module
 
 if abspath(PROGRAM_FILE) == @__FILE__
-    geo = geometry.Geometry("../../resources/ColcaValleyData.txt")
+    geo = geometry.TAMBOGeometry("../../resources/ColcaValleyData.txt")
     println("hola")
 end
