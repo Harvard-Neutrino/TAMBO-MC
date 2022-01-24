@@ -1,5 +1,7 @@
 module Position
 
+using LinearAlgebra
+
 export Coord, 
        TPoint,
        Direction
@@ -26,7 +28,6 @@ function get_distance_coordinate(latitude, longitude, latmin, longmin)
     x,y
 end
 
-using LinearAlgebra
 struct TPoint
     x
     y
@@ -57,43 +58,78 @@ Base.:*(p::TPoint, t)           = t*p
 LinearAlgebra.norm(p::TPoint)    = norm((p.x, p.y, p.z))
 #-------------
 
-struct Direction
-    phi
-    theta
-    point::TPoint
-    function Direction(phi, theta, x, y, z)
-        len   = norm((x,y,z))
-        x     = x/len
-        y     = y/len
-        z     = z/len
-        new(phi, theta, TPoint(x, y, z))
-    end
-    function Direction(x, y, z)
-        len   = norm((x,y,z))
-        x     = x/len
-        y     = y/len
-        z     = z/len
-        phi   = atan(y,x)
-        theta = acos(z)
-        new(phi, theta, TPoint(x, y, z))
-    end
-    function Direction(phi, theta)
-        x = cos(theta)*sin(phi)
-        y = sin(theta)*sin(phi)
-        z = cos(phi)
-        new(phi, theta, TPoint(x, y, z))
-    end
+struct Box 
+    p1::TPoint
+    p2::TPoint
 end
 
-Base.:+(d::Direction, p::TPoint)  = d.point+p
-Base.:+(p::TPoint, d::Direction)  = d+p
-Base.:-(d::Direction, p::TPoint)  = d.point-p
-Base.:-(p::TPoint, d::Direction)  = p-d.point
-Base.:*(d::Direction, t::Float64) = d.point*t
-Base.:*(t::Float64, d::Direction) = d*t
-Base.:*(d::Direction, p::TPoint)  = d.point*p
-Base.:*(p::TPoint, d::Direction)  = d*p
-Base.:/(d::Direction, p::TPoint)  = d.point/p
-Base.:/(p::TPoint, d::Direction)  = p/d.point
+
+#struct Direction
+#    phi
+#    theta
+#    point::TPoint
+#    function Direction(phi, theta, x, y, z)
+#        len   = norm((x,y,z))
+#        x     = x/len
+#        y     = y/len
+#        z     = z/len
+#        new(phi, theta, TPoint(x, y, z))
+#    end
+#    function Direction(x, y, z)
+#        len   = norm((x,y,z))
+#        x     = x/len
+#        y     = y/len
+#        z     = z/len
+#        phi   = atan(y,x)
+#        theta = acos(z)
+#        new(phi, theta, TPoint(x, y, z))
+#    end
+#    function Direction(phi, theta)
+#        x = cos(theta)*sin(phi)
+#        y = sin(theta)*sin(phi)
+#        z = cos(phi)
+#        new(phi, theta, TPoint(x, y, z))
+#    end
+#end
+#
+#Base.:+(d::Direction, p::TPoint)  = d.point+p
+#Base.:+(p::TPoint, d::Direction)  = d+p
+#Base.:-(d::Direction, p::TPoint)  = d.point-p
+#Base.:-(p::TPoint, d::Direction)  = p-d.point
+#Base.:*(d::Direction, t::Float64) = d.point*t
+#Base.:*(t::Float64, d::Direction) = d*t
+#Base.:*(d::Direction, p::TPoint)  = d.point*p
+#Base.:*(p::TPoint, d::Direction)  = d*p
+#Base.:/(d::Direction, p::TPoint)  = d.point/p
+#Base.:/(p::TPoint, d::Direction)  = p/d.point
+
+function is_inside(p::TPoint, box::Box)
+    is_in = true
+    fieldnames = [:x, :y, :z]
+    for fn in fieldnames
+        edge_1 = getfield(box.p1, fn)
+        edge_2 = getfield(box.p2, fn)
+        s = sign((edge_2-edge_1))
+        is_in = is_in && (s*edge_1 < s*getfield(p, fn) < s*edge_2)
+        if !is_in
+            return false
+        end
+    end
+    is_in
+end
+
+function is_inside(x, y, z, f::Function)
+    fz = f(x, y)
+    if z<fz
+        is_in = true
+    else
+        is_in = false
+    end
+    is_in
+end
+
+function is_inside(p::TPoint, f::Function)
+    is_inside(p.x, p.y, p.z, f)
+end
 
 end
