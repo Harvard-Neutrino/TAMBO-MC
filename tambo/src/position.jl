@@ -1,4 +1,4 @@
-module position
+module Position
 
 export Coord, 
        TPoint,
