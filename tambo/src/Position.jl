@@ -1,10 +1,14 @@
 module Position
 
 using LinearAlgebra
+using Rotations
+using CoordinateTransformations
+using StaticArrays
 
 export Coord, 
        TPoint,
-       Direction
+       Box,
+       CoordinateTransform
 
 #-------------
 
@@ -47,70 +51,102 @@ struct TPoint
     end
 end
 
-
 Base.:+(p1::TPoint, p2::TPoint) = TPoint(p1.x+p2.x, p1.y+p2.y, p1.z+p2.z)
 Base.:-(p1::TPoint, p2::TPoint) = TPoint(p1.x-p2.x, p1.y-p2.y, p1.z-p2.z)
 Base.:/(p1::TPoint, p2::TPoint) = TPoint(p1.x/p2.x, p1.y/p2.y, p1.z/p2.z)
-Base.:/(p1::TPoint, t)          = TPoint(p1.x/t, p1.y/t, p1.z/t)
+Base.:/(p1::TPoint, t) = TPoint(p1.x/t, p1.y/t, p1.z/t)
 Base.:*(p1::TPoint, p2::TPoint) = TPoint(p1.x*p2.x, p1.y*p2.y, p1.z*p2.z)
-Base.:*(t, p::TPoint)           = TPoint(t*p.x, t*p.y, t*p.z)
-Base.:*(p::TPoint, t)           = t*p
-LinearAlgebra.norm(p::TPoint)    = norm((p.x, p.y, p.z))
-#-------------
-
-struct Box 
-    p1::TPoint
-    p2::TPoint
+Base.:*(t, p::TPoint) = TPoint(t*p.x, t*p.y, t*p.z)
+Base.:*(p::TPoint, t) = t*p
+LinearAlgebra.norm(p::TPoint) = norm((p.x, p.y, p.z))
+Base.:*(r::Rotations.Rotation, p::TPoint) = TPoint(r*[p.x, p.y, p.z]...)
+function (t::Translation)(p::TPoint)
+    TPoint(t([p.x, p.y, p.z])...)
 end
 
 
-#struct Direction
-#    phi
-#    theta
-#    point::TPoint
-#    function Direction(phi, theta, x, y, z)
-#        len   = norm((x,y,z))
-#        x     = x/len
-#        y     = y/len
-#        z     = z/len
-#        new(phi, theta, TPoint(x, y, z))
-#    end
-#    function Direction(x, y, z)
-#        len   = norm((x,y,z))
-#        x     = x/len
-#        y     = y/len
-#        z     = z/len
-#        phi   = atan(y,x)
-#        theta = acos(z)
-#        new(phi, theta, TPoint(x, y, z))
-#    end
-#    function Direction(phi, theta)
-#        x = cos(theta)*sin(phi)
-#        y = sin(theta)*sin(phi)
-#        z = cos(phi)
-#        new(phi, theta, TPoint(x, y, z))
-#    end
-#end
-#
-#Base.:+(d::Direction, p::TPoint)  = d.point+p
-#Base.:+(p::TPoint, d::Direction)  = d+p
-#Base.:-(d::Direction, p::TPoint)  = d.point-p
-#Base.:-(p::TPoint, d::Direction)  = p-d.point
-#Base.:*(d::Direction, t::Float64) = d.point*t
-#Base.:*(t::Float64, d::Direction) = d*t
-#Base.:*(d::Direction, p::TPoint)  = d.point*p
-#Base.:*(p::TPoint, d::Direction)  = d*p
-#Base.:/(d::Direction, p::TPoint)  = d.point/p
-#Base.:/(p::TPoint, d::Direction)  = p/d.point
+"""
+Construct the `CoordinateTransform` object for transforming between coordinate systems.
+These coordinate systems are related by a rotation and a translation. The new coordinate system
+is first rotated about the z-axis (ψ), then the y-axis (θ), then the x-axis (ϕ).
+After this it is translated by (x,y,z)
+"""
+struct CoordinateTransform
+    translation::Translation
+    rotation::RotXYZ
+    function CoordinateTransform(x::SVector{3}, r::SVector{3})
+        trans = Translation(x)
+        rot = RotXYZ(r...)
+        new(trans, rot)
+    end
+    function CoordinateTransform(x, r)
+        x = SVector{3}(x)
+        r = SVector{3}(r...)
+        CoordinateTransform(x, r)
+    end
+    function CoordinateTransform(x, y, z, ϕ, θ, ψ)
+        x = SVector{3}(x,y,z)
+        r = SVector{3}(ϕ, θ, ψ)
+        CoordinateTransform(x, r)
+    end
+end
+
+function (ct::CoordinateTransform)(x)
+    x = ct.rotation * x
+    ct.translation(x)
+end
+
+function Base.inv(ct::CoordinateTransform)
+    f(x) = inv(ct.rotation)*inv(ct.translation)(x)
+end
+
+struct Box
+    # User configurable points
+    lwh::SVector{3}
+    transform::CoordinateTransform
+    function Box(lwh)
+        lwh = SVector{3}(lwh)
+        # Make a null transform
+        transform = CoordinateTransform(0,0,0,0,0,0)
+        new(lwh, transform)
+    end
+    function Box(lwh, transform::CoordinateTransform)
+        if any(lwh.<=0)
+            error("The length width and height of the box must be strictly positive")
+        end
+        lwh = SVector{3}(lwh)
+        new(lwh, transform)
+    end
+end
+
+"Function to convert coordinates in a box to a common refernce frame"
+universal_coordinates(x, b::Box) = b.transform(x)
+"Function to convert coordinates in a common refernce frame to those in a box"
+box_coordinates(x, b::Box) = inv(b.transform)(x)
+function box_to_box(x, b1::Box, b2::Box)
+    x = universal_coordinates(x, b1)
+    x = box_coordinates(x, b2)
+end
 
 function is_inside(p::TPoint, box::Box)
+    # Convert to the coordinate system of the box
+    p = box_coordinates(p, box)
     is_in = true
     fieldnames = [:x, :y, :z]
-    for fn in fieldnames
-        edge_1 = getfield(box.p1, fn)
-        edge_2 = getfield(box.p2, fn)
-        s = sign((edge_2-edge_1))
-        is_in = is_in && (s*edge_1 < s*getfield(p, fn) < s*edge_2)
+    for idx in 1:length(fieldnames)
+        fn = fieldnames[idx]
+        # Get the lenght width or height of the box
+        dim = box.lwh[idx]/2
+        #=
+        Center of the box is the origin of this coordinate system
+        If you are more than half that away, then you are outside the box
+        =#
+        is_in = is_in && (-dim < getfield(p, fn) < dim)
+        #=
+        If it is out in one dimension, we don't need to keep checking
+        This probably offers next to no speed up but it's good habit
+        I guess
+        =#
         if !is_in
             return false
         end
