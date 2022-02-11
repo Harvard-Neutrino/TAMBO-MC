@@ -2,65 +2,119 @@ module Tracks
 
 push!(LOAD_PATH, @__DIR__)
 
-using Position: TPoint, Box, is_inside
-export Track, normalize_track, find_position
+using Geometry: TPoint, Box, is_inside
+using LinearAlgebra
+export Track, Direction, total_column_depth
 
-struct Track
-    ipoint::TPoint
-    direction::TPoint
-    function Track(ipoint::TPoint, direction::TPoint)
-        new(ipoint, direction)
+struct Direction
+    θ
+    ϕ
+    x_proj
+    y_proj
+    z_proj
+    function Direction(θ, ϕ)
+        θ, ϕ = Float64(θ), Float64(ϕ)
+        x = cos(ϕ)*sin(θ)
+        y = sin(ϕ)*sin(θ)
+        z = cos(θ)
+        new(θ, ϕ, x, y, z)
     end
-    function Track(ipoint::TPoint, theta::AbstractFloat, phi::AbstractFloat)
-        direction = TPoint(theta, phi)
-        new(ipoint, direction)
+    function Direction(x, y, z)
+        x,y,z = (x,y,z)./norm((x,y,z))
+        θ = acos(z)
+        ϕ = atan(y, x)
+        new(θ, ϕ, x, y, z)
+    end
+    function Direction(p::TPoint)
+        Direction(p.x, p.y, p.z)
+    end
+    function Direction(ip::TPoint, fp::TPoint)
+        Direction(ip-fp)
     end
 end
 
-# TODO Make this geneeralize to more complex shapes
-function normalize_track(t::Track, box::Box)
-    if !is_inside(t.ipoint, box)
+Base.:/(p::TPoint, d::Direction) = TPoint(p.x/d.x_proj, p.y/d.y_proj, p.z/d.z_proj)
+Base.:*(m, d::Direction) = TPoint(m*d.x_proj, m*d.y_proj, m*d.z_proj)
+
+struct Track
+    ipoint::TPoint
+    fpoint::TPoint
+    direction::Direction
+    norm
+    function Track(ipoint::TPoint, fpoint::TPoint)
+        d = Direction(fpoint, ipoint)
+        l = norm(fpoint-ipoint)
+        new(ipoint, fpoint, d, l)
+    end
+    function Track(ipoint::TPoint, d::Direction, b::Box)
+        fpoint = intersect_box(ipoint, d, b)
+        l = norm(fpoint-ipoint)
+        new(ipoint, fpoint, d, l)
+    end
+end
+
+function (t::Track)(λ)
+    t.ipoint+λ*t.norm*t.direction
+end
+
+function intersect_box(p::TPoint, d::Direction, box::Box)
+    if !is_inside(p, box)
         error("Track does not start inside the box")
     end
-    edges = [box.p1, box.p2]
+    edges = [box.c1, box.c2]
     #=
     λ is proportional to the distance the particle propagates
     We will use distance interchangably with λ
     =#
     λ_f = Inf
     # Iterate over points which define box
-    for i in 1:length(edges)
-        pt = edges[i]
+    for edge in edges
         # Points where track shares coordinate with box edges
-        prop_λs = (pt - t.ipoint)/t.direction
+        prop_λs = (edge - p)/d
         # Iterate over x, y, z
         for fn in fieldnames(TPoint)
+            λ = getfield(prop_λs, fn)
             #= 
             λ > 0 means the track is moving forward
             λ < 0 means the track is moving backwards
             λ = 0 means the tracks starts on an edge of the box
             We want a forward-going track
             =#
-            if getfield(prop_λs, fn) >= 0
+            if λ >= 0
                 #=
                 The track hits the box at minimum prop distance
                 Else it will be outside the box before travelling that distance
                 =#
-                λ_f = minimum((getfield(prop_λs, fn), λ_f))
+                λ_f = minimum((λ, λ_f))
             end
         end
     end
-    Track(t.ipoint, t.direction*λ_f)
+    λ_f*d+p
 end
 
-function complement(t::Track, b::Box)
-    nt = normalize_track(t, b)
-    # Make a track which starts on the edge of the box and points in
-    Track(find_position(nt, 1), -1*t.direction)
+function Base.reverse(t::Track)
+    Track(t.fpoint, t.ipoint)
 end
 
-function find_position(t::Track, λ)
-    t.ipoint+λ*t.direction
+function reduce_f(t::Track, f::Function)
+    g(λ) = f(t(λ).x, t(λ).y)
 end
 
+function total_column_depth(t::Track, valley::Function; ρ_air=1.225e-3, ρ_rock=2.6)
+    oned_valley = Tracks.reduce_f(t, my_valley)
+    root_func(λ) = oned_valley(λ)-t(λ).z
+    zeros = find_zeros(root_func, 0, 1)
+    rgen = vcat([0], zeros, [1])
+    ranges = [(x[2]-x[1], Position.is_inside(t((x[1]+x[2])/2), valley))
+              for x in zip(rgen[1:end-1], rgen[2:end])
+             ]
+    cd = 0
+    for x in ranges
+        width, in_mountain = x
+        ρ = in_mountain ? ρ_rock : ρ_air
+        cd += width*t.norm*ρ
+    end
+    cd
 end
+
+end # module

@@ -32,37 +32,6 @@ function get_distance_coordinate(latitude, longitude, latmin, longmin)
     x,y
 end
 
-struct TPoint
-    x
-    y
-    z
-    function TPoint(c::Coord, elevation; lat_min = 0.0, long_min = 0.0)
-        x,y = get_distance_coordinate(c.lat, c.long,lat_min, long_min)
-        new(x, y, elevation)
-    end
-    function TPoint(x, y, z)
-        new(x, y, z)
-    end
-    function TPoint(phi, theta)
-        x = cos(phi)*sin(theta)
-        y = sin(phi)*sin(theta)
-        z = cos(theta)
-        new(x, y, z)
-    end
-end
-
-Base.:+(p1::TPoint, p2::TPoint) = TPoint(p1.x+p2.x, p1.y+p2.y, p1.z+p2.z)
-Base.:-(p1::TPoint, p2::TPoint) = TPoint(p1.x-p2.x, p1.y-p2.y, p1.z-p2.z)
-Base.:/(p1::TPoint, p2::TPoint) = TPoint(p1.x/p2.x, p1.y/p2.y, p1.z/p2.z)
-Base.:/(p1::TPoint, t) = TPoint(p1.x/t, p1.y/t, p1.z/t)
-Base.:*(p1::TPoint, p2::TPoint) = TPoint(p1.x*p2.x, p1.y*p2.y, p1.z*p2.z)
-Base.:*(t, p::TPoint) = TPoint(t*p.x, t*p.y, t*p.z)
-Base.:*(p::TPoint, t) = t*p
-LinearAlgebra.norm(p::TPoint) = norm((p.x, p.y, p.z))
-Base.:*(r::Rotations.Rotation, p::TPoint) = TPoint(r*[p.x, p.y, p.z]...)
-function (t::Translation)(p::TPoint)
-    TPoint(t([p.x, p.y, p.z])...)
-end
 
 
 """
@@ -100,24 +69,6 @@ function Base.inv(ct::CoordinateTransform)
     f(x) = inv(ct.rotation)*inv(ct.translation)(x)
 end
 
-struct Box
-    # User configurable points
-    lwh::SVector{3}
-    transform::CoordinateTransform
-    function Box(lwh)
-        lwh = SVector{3}(lwh)
-        # Make a null transform
-        transform = CoordinateTransform(0,0,0,0,0,0)
-        new(lwh, transform)
-    end
-    function Box(lwh, transform::CoordinateTransform)
-        if any(lwh.<=0)
-            error("The length width and height of the box must be strictly positive")
-        end
-        lwh = SVector{3}(lwh)
-        new(lwh, transform)
-    end
-end
 
 "Function to convert coordinates in a box to a common refernce frame"
 universal_coordinates(x, b::Box) = b.transform(x)
