@@ -27,6 +27,7 @@ function make_sector(medium, start, stop)
 
         # Muon Test only
         sec_def.medium = pp.medium.Ice()
+        println("Ice")
     else 
         sec_def.medium = pp.medium.Air()
     end
@@ -162,7 +163,7 @@ function propagate_mcp(particle::Particle, energy::Float64, iterations::Int64, m
 
         secondaries = prop.propagate(mu)
 
-        push!(mu_length, secondaries.particles[end].position.magnitude()/100.0)
+        push!(mu_length, secondaries.particles[end].position.magnitude())
         push!(n_secondaries, size(secondaries.particles, 1))
 
         for sec in secondaries.particles
@@ -209,10 +210,11 @@ end # module
 
 using .ProposalInterface
 using Statistics
+using DelimitedFiles
 
 particle = Particle(1.0,1.0)
-medium = [(1,1e6)]
-energy = collect(6:0.33:11)
+medium = [(1,1e7)]
+energy = collect(6:0.5:11)
 prop = make_propagator(particle,medium)
 
 energies = Vector{Float64}()
@@ -221,9 +223,12 @@ error = Vector{Float64}()
 
 for e in energy
     println("\n\n\nLogEnergy: $e MeV")
-    mu_length, n_secondaries, E = ProposalInterface.propagate_mcp(particle, 10^e, 500, medium, prop)
+    mu_length, n_secondaries, E = ProposalInterface.propagate_mcp(particle, 10^e, 1000, medium, prop)
     d = mean(mu_length)
+    # d_logs = log.(10,mu_length./1000)
+    # d = mean(d_logs)
     err = std(mu_length)
+    # err = std(d_logs)
     println("Mean Range: $d")
     println("Standard Deviation: $err")
     push!(range, d)
@@ -235,7 +240,9 @@ println(error)
 println(range)
 println(energies)
 
-# writedlm( "Results/MuMinus_Length.csv",  mu_length, ',')
+writedlm( "/n/home08/jgarciaponce/Results/Range.csv",  range, ',')
+writedlm( "/n/home08/jgarciaponce/Results/Error.csv",  error, ',')
+writedlm( "/n/home08/jgarciaponce/Results/Energies.csv",  energies, ',')
 # writedlm( "Results/MuMinus_Secondaries.csv",  n_secondaries, ',')
 
 # println("Files saved in Results Folder")
