@@ -1,6 +1,7 @@
 module Geometry
 
 using LinearAlgebra, StaticArrays
+using PyCall
 
 export TAMBOGeometry,
        Coord, 
@@ -155,6 +156,14 @@ struct Box
     end
 end
 
+function sample(n::Int, b::Box)
+    [rand(3).*abs.(b.c1.-b.c2).+b.minxyz for _ in 1:n]
+end
+
+function sample(b::Box)
+    rand(3).*abs.(b.c1.-b.c2).+b.minxyz
+end
+
 function is_inside(p::TPoint, b::Box)
     is_in = true
     for idx in 1:3
@@ -178,13 +187,26 @@ is_inside(x, y, z, f::Function) = z < f(x, y)
 is_inside(p::TPoint, f::Function) = is_inside(p.x, p.y, p.z, f)
 sample_xyz(b::Box) = rand(3).*abs.(b.c1.-b.c2).+b.minxyz
 
+function load_spline(p)
+    #=
+    I don't really understand this PyNULL stuff
+    I took it from here:
+    https://github.com/JuliaPy/PyCall.jl#using-pycall-from-julia-modules
+    Might be useful for other modules we are making
+    =#
+    np = PyNULL()
+    copy!(np, pyimport("numpy"))
+    x = np.load(p, allow_pickle=true)
+    spl = x[1]
+end
+
 #=
 This does not work yet because we do not have a load
 =#
 struct GenerationRegion
     valley::Function
     box::Box
-    function GenerationRegion(spline::Function)
+    function GenerationRegion(spline)
         new(construct_generation_region(spline)...)
     end
     function GenerationRegion(spline_path::String)
@@ -195,17 +217,38 @@ struct GenerationRegion
 end
 
 function (gr::GenerationRegion)(x, y)
-    gr.valley(x,y)
+    gr.valley(x,y)[1,1]
 end
 
-function construct_generation_region(spline)
+function construct_generation_region(spl, zmin=-3e4, zmax=5e3)
     #=
     This function will need to return a spline which takes an x and y coordinate 
     and returns the height of the valley at that point.
     It will also need to return a Box which defines the generation region
     valley, box
     =#
+    knots = spl.get_knots()
+    xmin, xmax = minimum(knots[1]), maximum(knots[1])
+    ymin, ymax = minimum(knots[2]), maximum(knots[2])
+    #=
+    I think that this only works if the axes of our box
+    are aligned in a certain way. We may want to do something more general
+    =#
+    cmin = [xmin, ymin, zmin]
+    cmax = [xmax, ymax, zmax]
+    b = Box(cmin, cmax)
+    spl, b
 end
+
+
+function sample(n::Int, gr::GenerationRegion)
+    sample(n, gr.box)
+end
+
+function sample(gr::GenerationRegion)
+    sample(gr.box)
+end
+
 end #module
 
 if abspath(PROGRAM_FILE) == @__FILE__
