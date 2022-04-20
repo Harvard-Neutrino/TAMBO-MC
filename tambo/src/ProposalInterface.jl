@@ -208,41 +208,41 @@ end
 
 end # module
 
-using .ProposalInterface
-using Statistics
-using DelimitedFiles
+# using .ProposalInterface
+# using Statistics
+# using DelimitedFiles
 
-particle = Particle(1.0,1.0)
-medium = [(1,1e7)]
-energy = collect(6:0.5:11)
-prop = make_propagator(particle,medium)
+# particle = Particle(1.0,1.0)
+# medium = [(1,1e7)]
+# energy = collect(6:0.5:11)
+# prop = make_propagator(particle,medium)
 
-energies = Vector{Float64}()
-range = Vector{Float64}()
-error = Vector{Float64}()
+# energies = Vector{Float64}()
+# range = Vector{Float64}()
+# error = Vector{Float64}()
 
-for e in energy
-    println("\n\n\nLogEnergy: $e MeV")
-    mu_length, n_secondaries, E = ProposalInterface.propagate_mcp(particle, 10^e, 1000, medium, prop)
-    d = mean(mu_length)
-    # d_logs = log.(10,mu_length./1000)
-    # d = mean(d_logs)
-    err = std(mu_length)
-    # err = std(d_logs)
-    println("Mean Range: $d")
-    println("Standard Deviation: $err")
-    push!(range, d)
-    push!(energies, e)
-    push!(error, err)
-end
+# for e in energy
+#     println("\n\n\nLogEnergy: $e MeV")
+#     mu_length, n_secondaries, E = ProposalInterface.propagate_mcp(particle, 10^e, 1000, medium, prop)
+#     d = mean(mu_length)
+#     # d_logs = log.(10,mu_length./1000)
+#     # d = mean(d_logs)
+#     err = std(mu_length)
+#     # err = std(d_logs)
+#     println("Mean Range: $d")
+#     println("Standard Deviation: $err")
+#     push!(range, d)
+#     push!(energies, e)
+#     push!(error, err)
+# end
 
-println(error)
-println(range)
-println(energies)
+# println(error)
+# println(range)
+# println(energies)
 
-writedlm( "/n/home08/jgarciaponce/Results/Range.csv",  range, ',')
-writedlm( "/n/home08/jgarciaponce/Results/Error.csv",  error, ',')
-writedlm( "/n/home08/jgarciaponce/Results/Energies.csv",  energies, ',')
+# writedlm( "/n/home08/jgarciaponce/Results/Range.csv",  range, ',')
+# writedlm( "/n/home08/jgarciaponce/Results/Error.csv",  error, ',')
+# writedlm( "/n/home08/jgarciaponce/Results/Energies.csv",  energies, ',')
 # writedlm( "Results/MuMinus_Secondaries.csv",  n_secondaries, ',')
 
 # println("Files saved in Results Folder")
