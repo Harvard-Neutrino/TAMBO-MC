@@ -57,7 +57,7 @@ track  = tr.track.Chord(theta=0., depth=0.)
 
 tau_out = []
 for tau in exiting_taus
-    this_tau = tr.particle.Particle(tau['PDG_Encoding'], tau['Eout'], 0., 0., 0, xs, air_prop, proposal_lep, False, False)
+    this_tau = tr.particle.Particle(tau["PDG_Encoding"], tau["Eout"], 0., 0., 0, xs, air_prop, proposal_lep, False, False)
     this_tau.PropagateChargedLepton(atmosphere, track)
     #energy at decay in eV, distance to decay in km
     tau_out.append((this_tau.energy, this_tau.chargedposition))
