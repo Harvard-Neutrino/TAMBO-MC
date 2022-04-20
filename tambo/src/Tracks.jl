@@ -4,6 +4,7 @@ push!(LOAD_PATH, @__DIR__)
 
 using Geometry: TPoint, Box, is_inside
 using LinearAlgebra
+using Roots: find_zeros
 export Track, Direction, total_column_depth
 
 struct Direction
@@ -96,16 +97,19 @@ function Base.reverse(t::Track)
     Track(t.fpoint, t.ipoint)
 end
 
-function reduce_f(t::Track, f::Function)
+function reduce_f(t::Track, f)
     g(λ) = f(t(λ).x, t(λ).y)
 end
 
-function total_column_depth(t::Track, valley::Function; ρ_air=1.225e-3, ρ_rock=2.6)
-    oned_valley = Tracks.reduce_f(t, my_valley)
+function total_column_depth(t::Track, valley; ρ_air=1.225e-3, ρ_rock=2.6)
+    oned_valley = reduce_f(t, valley)
+    println(t(0.5).z)
+    println(oned_valley(0.5))
     root_func(λ) = oned_valley(λ)-t(λ).z
+    println(root_func(0.5))
     zeros = find_zeros(root_func, 0, 1)
     rgen = vcat([0], zeros, [1])
-    ranges = [(x[2]-x[1], Position.is_inside(t((x[1]+x[2])/2), valley))
+    ranges = [(x[2]-x[1], is_inside(t((x[1]+x[2])/2), valley))
               for x in zip(rgen[1:end-1], rgen[2:end])
              ]
     cd = 0
