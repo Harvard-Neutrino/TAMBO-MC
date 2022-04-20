@@ -7,7 +7,7 @@ struct PowerLaw
     emin::Float64
     emax::Float64
     norm::Float64
-    function PowerLaw(γ, emin; emax=Inf)
+    function PowerLaw(γ, emin, emax)
         """
         Returns a normalized PowerLaw
         """
@@ -29,12 +29,16 @@ function (pl::PowerLaw)(e)
 end
 
 function sample(pl::PowerLaw)
-    u = rand()
+    sample(1, pl::PowerLaw)
+end
+
+function sample(n::Int, pl::PowerLaw)
+    u = rand(n)
     if pl.γ==1
-        val = pl.emax^u/(pl.emin^(u-1))
+        val = pl.emax .^ u/(pl.emin.^(u .- 1))
     else
         mg = 1-pl.γ
-        val = (u*pl.emax^mg + (1-u)*pl.emin^mg)^(1/mg)
+        val = (u .* pl.emax .^ mg + (1 .- u) .* pl.emin^mg) .^ (1/mg)
     end
     val
 end
