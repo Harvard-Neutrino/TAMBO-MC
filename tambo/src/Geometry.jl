@@ -109,6 +109,9 @@ struct TPoint
         z = cos(θ)
         new(x, y, z)
     end
+    function TPoint(sv::SVector{3})
+        new(sv...)
+    end
     function TPoint(v::Vector)
         new(v...)
     end
