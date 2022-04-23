@@ -1,6 +1,6 @@
 module Particles
 
-using PowerLaws: PowerLaw, sample
+using PowerLaws
 
 struct Particle
     pdg_id::Int
