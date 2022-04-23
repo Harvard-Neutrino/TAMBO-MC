@@ -2,6 +2,7 @@ module Geometry
 
 using LinearAlgebra, StaticArrays
 using PyCall
+using Units: m
 
 export TAMBOGeometry,
        Coord, 
@@ -223,7 +224,25 @@ function (gr::GenerationRegion)(x, y)
     gr.valley(x,y)[1,1]
 end
 
-function construct_generation_region(spl, zmin=-3e4, zmax=5e3)
+"""
+    valley_helper(x, y)
+
+Function for calling the Python `valley_spl` using unitful Julia 
+`x` and `y` coordinates. It also accounts for the coordinate change `Δc` between
+the spline coordinates and TAMBO coordinates
+
+# Example
+```julia-repl
+julia> valley_helper(1km, 4000m, [1000m, 1000m, 1km], spl)
+```
+"""
+function valley_helper(x, y, Δc, valley_spl)
+    xt, yt = x + Δc[1]/2, y + Δc[2]
+    xm, ym = (xt |> m).val, (yt|> m).val
+    valley_spl(xm, ym)[1]*m
+end
+
+function construct_generation_region(spl, zmin=-3e4m, zmax=5e3m)
     #=
     This function will need to return a spline which takes an x and y coordinate 
     and returns the height of the valley at that point.
@@ -237,10 +256,14 @@ function construct_generation_region(spl, zmin=-3e4, zmax=5e3)
     I think that this only works if the axes of our box
     are aligned in a certain way. We may want to do something more general
     =#
-    cmin = [xmin, ymin, zmin]
-    cmax = [xmax, ymax, zmax]
-    b = Box(cmin, cmax)
-    spl, b
+    cmin = [xmin*m, ymin*m, zmin]
+    cmax = [xmax*m, ymax*m, zmax]
+    cmid = (cmin .+ cmax)/2
+    Δc = cmax .- cmin
+    # Make a box which is the size of the spline region and is centered at 0
+    b = Box(-Δc/2, Δc/2)
+    valley(x, y) = valley_helper(x, y, Δc, spl)
+    valley, b
 end
 
 
@@ -256,5 +279,4 @@ end #module
 
 if abspath(PROGRAM_FILE) == @__FILE__
     geo = geometry.TAMBOGeometry("../../resources/ColcaValleyData.txt")
-    println("hola")
 end
