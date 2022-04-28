@@ -104,9 +104,8 @@ function reduce_f(t::Track, f)
 end
 
 function inverse_column_depth(tr::Track, cd, valley)
-    f(λ) = (column_depth(tr, λ, valley) - cd).val
+    f(λ) = column_depth(tr, λ, valley) - cd
     λ_int = find_zero(f, (0,1))
-    println(λ_int)
     λ_int
 end
 
@@ -133,21 +132,5 @@ end
 function total_column_depth(t, valley; ρ_air=1.225e-3, ρ_rock=2.6)
     column_depth(t, 1, valley)
 end
-#function total_column_depth(t::Track, valley; ρ_air=1.225e-3, ρ_rock=2.6)
-#    oned_valley = reduce_f(t, valley)
-#    root_func(λ) = oned_valley(λ)-t(λ).z
-#    zeros = find_zeros(root_func, 0, 1)
-#    rgen = vcat([0], zeros, [1])
-#    ranges = [(x[2]-x[1], is_inside(t((x[1]+x[2])/2), valley))
-#              for x in zip(rgen[1:end-1], rgen[2:end])
-#             ]
-#    cd = 0
-#    for x in ranges
-#        width, in_mountain = x
-#        ρ = in_mountain ? ρ_rock : ρ_air
-#        cd += width*t.norm*ρ
-#    end
-#    cd
-#end
 
 end # module

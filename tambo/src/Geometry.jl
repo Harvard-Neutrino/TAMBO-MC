@@ -238,8 +238,9 @@ julia> valley_helper(1km, 4000m, [1000m, 1000m, 1km], spl)
 """
 function valley_helper(x, y, Δc, valley_spl)
     xt, yt = x + Δc[1]/2, y + Δc[2]
-    xm, ym = (xt |> m).val, (yt|> m).val
-    valley_spl(xm, ym)[1]*m
+    xm, ym = xt / m, yt / m
+    #xm, ym = (xt |> m).val, (yt|> m).val
+    valley_spl(xm, ym)[1]*m + Δc[3]
 end
 
 function construct_generation_region(spl, zmin=-3e4m, zmax=5e3m)
