@@ -11,7 +11,7 @@ pp = pyimport("proposal")
 
 # Make this useful
 struct Particle
-    pdg_mc::Float64
+    pdg_mc::Int64
     energy::Float64
 end
 
@@ -23,11 +23,10 @@ function make_sector(medium, start, stop)
     sec_def.geometry = pp.geometry.Sphere(pp.Vector3D(), stop, start)
 
     if medium == 1
-        # sec_def.medium = pp.medium.StandardRock()
-
-        # Muon Test only
-        sec_def.medium = pp.medium.Ice()
-        println("Ice")
+        sec_def.medium = pp.medium.StandardRock()
+        # leptonon Test only
+        # sec_def.medium = pp.medium.Ice()
+        # println("Ice")
     else 
         sec_def.medium = pp.medium.Air()
     end
@@ -53,12 +52,21 @@ function make_sector(medium, start, stop)
 
 end
 
-# Make this useful
+
 function define_particle(particle::Particle)
+    particles = Dict(
+        16 => :(pp.particle.TauMinusDef()),
+        -16 => :(pp.particle.TauPlusDef()),
+        14 => :(pp.particle.MuMinusDef()),
+        -14 => :(pp.particle.MuPlusDef()),
+        12 => :(pp.particle.EMinusDef()),
+        -12 => :(pp.particle.EPlusDef())
+    )
     # {16: 'TauMinusDef', -16: 'TauPlusDef',
     #          14: 'MuMinusDef',  -14: 'MuPlusDef',
     #          12: 'EMinusDef',   -12: 'EPlusDef',}
-    return pp.particle.MuMinusDef()
+
+    return eval(particles[particle.pdg_mc])
 end
 
 
@@ -93,14 +101,14 @@ function make_medium(medium)
     return sectors, detector_length
 end
 
-
-function make_propagator(particle::Particle, medium)
+function make_propagator(particle, medium, defined=0)
 
     sectors, detector_length = make_medium(medium)
 
     # particle = Particle(1.0,1.0)
 
     particle_def = define_particle(particle)
+
 
     # Interpolation tables
     interpolation_def = pp.InterpolationDef()
@@ -116,8 +124,49 @@ function make_propagator(particle::Particle, medium)
     
 end
 
+function analyze_secondaries(secondaries)
+    # decay_products = [p for i,p in zip(range(max(len(particles)-3,0),len(particles)), particles[-3:]) if int(p.type) <= 1000000001]
+    decay_products = Vector()
 
-function propagate_mcp(particle::Particle, energy::Float64, iterations::Int64, medium = nothing, propagator = nothing)
+    lepton_length = Vector{Float64}()
+    n_secondaries = Vector{Int64}()
+    continuous = Vector{Vector}()
+    epair = Vector{Vector}()
+    brems = Vector{Vector}()
+    ioniz = Vector{Vector}()
+    photo = Vector{Vector}()
+
+    for sec in secondaries.particles
+
+        push!(decay_products,sec)
+
+        log_sec_energy = log.(10,sec.parent_particle_energy .- sec.energy)
+        
+        if sec.type == convert(Int64, pp.particle.Interaction_Type.ContinuousEnergyLoss)
+            push!(continuous, [log_sec_energy, [sec.position.x, sec.position.y, sec.position.z]])
+        end
+        if sec.type == convert(Int64, pp.particle.Interaction_Type.Epair)
+            push!(epair, [log_sec_energy, [sec.position.x, sec.position.y, sec.position.z]])
+        end
+        if sec.type == convert(Int64, pp.particle.Interaction_Type.Brems)
+            push!(brems, [log_sec_energy, [sec.position.x, sec.position.y, sec.position.z]])
+        end
+        if sec.type == convert(Int64, pp.particle.Interaction_Type.DeltaE)
+            push!(ioniz, [log_sec_energy, [sec.position.x, sec.position.y, sec.position.z]])
+        end
+        if sec.type == convert(Int64, pp.particle.Interaction_Type.NuclInt)
+            push!(photo,[log_sec_energy, [sec.position.x, sec.position.y, sec.position.z]])
+        end
+
+    end
+
+    E = Dict("continuous" => continuous, "epair" => epair, "brems" => brems, "ioniz" => ioniz, "photo" => photo)
+
+    return E, decay_products
+end
+
+
+function propagate(particle::Particle, energy::Float64, iterations::Int64, medium = nothing, propagator = nothing)
 
     # medium = [(1,0.5e19),(0,0.5e19),(1,0.928e19),(0,0.01289e19),(0,0.1e19)]
 
@@ -131,82 +180,84 @@ function propagate_mcp(particle::Particle, energy::Float64, iterations::Int64, m
     end
 
     # Probably gonna have to fix this.
-    mu = pp.particle.DynamicData(particle_def.particle_type)
-    mu.position = pp.Vector3D(0, 0, 0)
-    mu.direction = pp.Vector3D(0, 0, -1)
-    # mu.energy = 1e7
-    mu.propagated_distance = 0.0
-    mu.time = 0.0
+    lepton = pp.particle.DynamicData(particle_def.particle_type)
+    lepton.position = pp.Vector3D(0, 0, 0)
+    lepton.direction = pp.Vector3D(0, 0, -1)
+    # lepton.energy = 1e7
+    lepton.propagated_distance = 0.0
+    lepton.time = 0.0
 
-    # mu_energies = Vector{Float64}()
-    mu_length = Vector{Float64}()
-    n_secondaries = Vector{Int64}()
+    # make this into a dict
 
-    continuous = Vector{Vector}()
-    epair = Vector{Vector}()
-    brems = Vector{Vector}()
-    ioniz = Vector{Vector}()
-    photo = Vector{Vector}()
+    lepton_length = Vector{Float64}()
 
-    # pp.RandomGenerator.get().set_seed(1234)
-    mu.energy = energy
+    lepton.energy = energy
 
     println("\n\nSTARTING PROPAGATION\n\n")
 
     for i in tqdm(1:1:iterations)
 
-        # secondaries = prop.propagate(mu).particles
-        # push!(mu_length, secondaries[end].position.magnitude()/100.0)
+        # secondaries = prop.propagate(lepton).particles
+        # push!(lepton_length, secondaries[end].position.magnitude()/100.0)
         # push!(n_secondaries, size(secondaries, 1))
 
-        #mu.energy = e
+        #lepton.energy = e
+        # check if the secondaries are long-lived
+        secondaries = prop.propagate(lepton)
 
-        secondaries = prop.propagate(mu)
-
-        push!(mu_length, secondaries.particles[end].position.magnitude())
-        push!(n_secondaries, size(secondaries.particles, 1))
-
-        for sec in secondaries.particles
-
-            log_sec_energy = log.(10,sec.parent_particle_energy .- sec.energy)
-            
-            if sec.type == convert(Int64, pp.particle.Interaction_Type.ContinuousEnergyLoss)
-                push!(continuous, [log_sec_energy, [sec.position.x, sec.position.y, sec.position.z]])
-            end
-            if sec.type == convert(Int64, pp.particle.Interaction_Type.Epair)
-                push!(epair, [log_sec_energy, [sec.position.x, sec.position.y, sec.position.z]])
-            end
-            if sec.type == convert(Int64, pp.particle.Interaction_Type.Brems)
-                push!(brems, [log_sec_energy, [sec.position.x, sec.position.y, sec.position.z]])
-            end
-            if sec.type == convert(Int64, pp.particle.Interaction_Type.DeltaE)
-                push!(ioniz, [log_sec_energy, [sec.position.x, sec.position.y, sec.position.z]])
-            end
-            if sec.type == convert(Int64, pp.particle.Interaction_Type.NuclInt)
-                push!(photo,[log_sec_energy, [sec.position.x, sec.position.y, sec.position.z]])
-            end
-
-        end
-
-        # secondaries = prop.propagate(mu,30000)
-        # secondaries = prop.propagate(mu,3000)
-        # energy = last(secondaries.energy)
-        # # println(energy)
-        # push!(mu_energies, energy)
+        push!(lepton_length, secondaries.particles[end].position.magnitude())
+        
+        global E
+        global decay_products
+        E, decay_products = analyze_secondaries(secondaries)
 
     end
 
-    E = Dict("continuous" => continuous, "epair" => epair, "brems" => brems, "ioniz" => ioniz, "photo" => photo)
+    event = Dict("range" => lepton_length, "E" => E, "Decay Products" => decay_products)
 
-    # writedlm( "Results/MuMinus_Length.csv",  mu_length, ',')
-    # writedlm( "Results/MuMinus_Secondaries.csv",  n_secondaries, ',')
-
-    # println("Files saved in Results Folder")
-
-    return mu_length, n_secondaries, E
+    return lepton_length, E, decay_products
 end
 
 end # module
+
+
+using .ProposalInterface
+using Statistics
+using DelimitedFiles
+
+particle = Particle(14,1.0)
+medium = [(1,1e7)]
+energy = collect(6:0.5:11)
+prop = make_propagator(particle,medium)
+
+lepton_length, E, decay_products = ProposalInterface.propagate(particle, 1e7, 1, medium, prop)
+
+print(decay_products[1].energy)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+##############################################################################################################
+# Muon Range Code
 
 # using .ProposalInterface
 # using Statistics
@@ -223,11 +274,11 @@ end # module
 
 # for e in energy
 #     println("\n\n\nLogEnergy: $e MeV")
-#     mu_length, n_secondaries, E = ProposalInterface.propagate_mcp(particle, 10^e, 1000, medium, prop)
-#     d = mean(mu_length)
-#     # d_logs = log.(10,mu_length./1000)
+#     lepton_length, n_secondaries, E = ProposalInterface.propagate_mcp(particle, 10^e, 1000, medium, prop)
+#     d = mean(lepton_length)
+#     # d_logs = log.(10,lepton_length./1000)
 #     # d = mean(d_logs)
-#     err = std(mu_length)
+#     err = std(lepton_length)
 #     # err = std(d_logs)
 #     println("Mean Range: $d")
 #     println("Standard Deviation: $err")
@@ -243,12 +294,12 @@ end # module
 # writedlm( "/n/home08/jgarciaponce/Results/Range.csv",  range, ',')
 # writedlm( "/n/home08/jgarciaponce/Results/Error.csv",  error, ',')
 # writedlm( "/n/home08/jgarciaponce/Results/Energies.csv",  energies, ',')
-# writedlm( "Results/MuMinus_Secondaries.csv",  n_secondaries, ',')
+# writedlm( "Results/leptonMinus_Secondaries.csv",  n_secondaries, ',')
 
 # println("Files saved in Results Folder")
 
-# mu_length, n_secondaries, E = propagate_mcp(particle, medium, mcp_energies)
+# lepton_length, n_secondaries, E = propagate_mcp(particle, medium, mcp_energies)
 
-# print(mu_length)
+# print(lepton_length)
 # print(n_secondaries)
 # print(E)
