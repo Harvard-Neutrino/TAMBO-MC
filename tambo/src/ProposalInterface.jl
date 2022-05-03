@@ -142,19 +142,30 @@ function analyze_secondaries(secondaries)
 
         log_sec_energy = log.(10,sec.parent_particle_energy .- sec.energy)
         
+        # 
         if sec.type == convert(Int64, pp.particle.Interaction_Type.ContinuousEnergyLoss)
+            println("continuous")
+            println(convert(Int64, pp.particle.Interaction_Type.ContinuousEnergyLoss))
             push!(continuous, [log_sec_energy, [sec.position.x, sec.position.y, sec.position.z]])
         end
         if sec.type == convert(Int64, pp.particle.Interaction_Type.Epair)
+            #println("epair")
+            #println(convert(Int64, pp.particle.Interaction_Type.Epair))
             push!(epair, [log_sec_energy, [sec.position.x, sec.position.y, sec.position.z]])
         end
         if sec.type == convert(Int64, pp.particle.Interaction_Type.Brems)
+            println("brems")
+            println(convert(Int64, pp.particle.Interaction_Type.Brems))
             push!(brems, [log_sec_energy, [sec.position.x, sec.position.y, sec.position.z]])
         end
         if sec.type == convert(Int64, pp.particle.Interaction_Type.DeltaE)
+            #println("DetaE")
+            #println(convert(Int64, pp.particle.Interaction_Type.DeltaE))
             push!(ioniz, [log_sec_energy, [sec.position.x, sec.position.y, sec.position.z]])
         end
         if sec.type == convert(Int64, pp.particle.Interaction_Type.NuclInt)
+            #println("NuclInt")
+            #println(convert(Int64, pp.particle.Interaction_Type.NuclInt))
             push!(photo,[log_sec_energy, [sec.position.x, sec.position.y, sec.position.z]])
         end
 
@@ -221,18 +232,18 @@ end
 end # module
 
 
-using .ProposalInterface
-using Statistics
-using DelimitedFiles
+# using .ProposalInterface
+# using Statistics
+# using DelimitedFiles
 
-particle = Particle(14,1.0)
-medium = [(1,1e7)]
-energy = collect(6:0.5:11)
-prop = make_propagator(particle,medium)
+# particle = Particle(14,1.0)
+# medium = [(1,1e7)]
+# energy = collect(6:0.5:11)
+# prop = make_propagator(particle,medium)
 
-lepton_length, E, decay_products = ProposalInterface.propagate(particle, 1e7, 1, medium, prop)
+# lepton_length, E, decay_products = ProposalInterface.propagate(particle, 1e7, 1, medium, prop)
 
-print(decay_products[1].energy)
+# print(decay_products[end].type)
 
 
 
