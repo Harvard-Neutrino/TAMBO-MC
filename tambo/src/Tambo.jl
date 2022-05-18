@@ -1,8 +1,10 @@
 module Tambo
 
+export TAMBOSim
+
 push!(LOAD_PATH, @__DIR__)
 
-using Geometry: GenerationRegion, TPoint, sample
+using Geometries: Geometry, TPoint, sample
 using Tracks
 using Particles: Particle
 using PowerLaws
@@ -10,10 +12,11 @@ using Units
 using StaticArrays
 using Rotations
 using Unitful
+using Random
 
 mutable struct TAMBOSim
     n::Int
-    gr::GenerationRegion
+    geo::Geometry
     ν_pdg::Int
     γ::Float64
     #emin::Quantity{Float64, Unitful.𝐋^2*Unitful.𝐌 /Unitful.𝐓^2}
@@ -29,10 +32,11 @@ mutable struct TAMBOSim
     #l_endcap::Quantity{Float64, Unitful.𝐋}
     r_injection::Float64
     l_endcap::Float64
+    seed::Int64
 
     function TAMBOSim()
         n = 0
-        gr = GenerationRegion("/Users/jlazar/research/TAMBO-MC/resources/tambo_spline.npy")
+        geo = Geometry("/Users/jlazar/research/TAMBO-MC/resources/tambo_spline.npy")
         ν_pdg = 16
         γ = 2
         emin = 1e6GeV
@@ -44,8 +48,15 @@ mutable struct TAMBOSim
         ϕmax = 2π
         r_injection = 900m
         l_endcap = 1km
-        new(n, gr, ν_pdg, γ, emin, emax, pl, θmin, θmax, ϕmin, ϕmax, r_injection, l_endcap)
+        seed = 0
+        new(n, geo, ν_pdg, γ, emin, emax, pl, θmin, θmax, ϕmin, ϕmax, r_injection, l_endcap, seed)
     end
+end
+
+function (ts::TAMBOSim)()
+    Random.seed!(ts.seed)
+    verify_ts!(ts)
+    inject_events(ts)
 end
 
 function verify_ts!(ts::TAMBOSim)
@@ -153,27 +164,52 @@ function perpendicular_plane(θ, ϕ, b, ψ; return_transform=false)
     # Make matrix to rotate to perpendicular plane
     r = (Rotations.RotX(θ) * RotZ(π/2-ϕ))'
     # Rotate to perpendicular plane
-    if return_transform
-        return r * bv, r
-    else
-        return r * bv
-    end
+    #if return_transform
+    #    return r * bv, r
+    #else
+    #    return r * bv
+    #end
+    r * bv
 end
 
-function sample_column_depth(ti::Track, to::Track, ts::TAMBOSim, range)
-    cdi = total_column_depth(ti, ts.gr.valley)
-    cdo = total_column_depth(to, ts.gr.valley)
+#function sample_column_depth(ti::Track, to::Track, ts::TAMBOSim, range)
+#    cdi = total_column_depth(ti, ts.geo.valley)
+#    cdo = total_column_depth(to, ts.geo.valley)
+#    if ti.norm <= ts.l_endcap
+#        #println("If you're seeing this a lot the injection region is too big")
+#        cdi_endcap = cdi
+#    else
+#        cdi_endcap = minimum(
+#            [column_depth(ti, ts.l_endcap/ti.norm, ts.geo.valley) + range, cdi]
+#        )
+#    end
+#    if to.norm <= ts.l_endcap
+#        #println("If you're seeing this a lot the injection region is too big")
+#        cdo_endcap = cdo
+#    else
+#        cdo_endcap = column_depth(to, ts.l_endcap/to.norm, ts.geo.valley)
+#    end
+#    cd = rand() * (cdo_endcap + cdi_endcap)
+#    cd < cdi_endcap ? tr = ti : tr = to
+#    cd = abs(cdi_endcap - cd)
+#    cd, tr
+#end
+
+function sample_column_depth(t::Track, ts::TAMBOSim, range)
+    tot_X = total_column_depth(t, ts.geo.valley)
     if ti.norm <= ts.l_endcap
+        #println("If you're seeing this a lot the injection region is too big")
         cdi_endcap = cdi
     else
         cdi_endcap = minimum(
-            [column_depth(ti, ts.l_endcap/ti.norm, ts.gr.valley) + range, cdi]
+            [column_depth(ti, ts.l_endcap/ti.norm, ts.geo.valley) + range, cdi]
         )
     end
     if to.norm <= ts.l_endcap
+        #println("If you're seeing this a lot the injection region is too big")
         cdo_endcap = cdo
     else
-        cdo_endcap = column_depth(to, ts.l_endcap/to.norm, ts.gr.valley)
+        cdo_endcap = column_depth(to, ts.l_endcap/to.norm, ts.geo.valley)
     end
     cd = rand() * (cdo_endcap + cdi_endcap)
     cd < cdi_endcap ? tr = ti : tr = to
@@ -185,8 +221,24 @@ function sample_tau_energy(eν, νtype, xs)
 
 end
 
+struct Event
+    e::Float64
+    θ::Float64
+    ϕ::Float64
+    impact_parameter::Float64
+    ψ::Float64
+    incoming_track::Track
+    outgoing_track::Track
+    column_depth::Float64
+    interaction_vertex::TPoint
+    # These are here for debugging. Will go away eventually
+    p_near::TPoint
+    tr::Track
+    λ_int::Float64
+end
 
 function inject_events(ts::TAMBOSim)
+    
     # Sample an energy
     e = rand(ts.n, ts.pl)
     range = lepton_range.(e, Ref(ts.ν_pdg))
@@ -202,23 +254,26 @@ function inject_events(ts::TAMBOSim)
     # This is the point of closest approach
     p_near = TPoint.(perpendicular_plane.(θ, ϕ, b, ψ))
     # Make track from point of closest approach to point of entry
-    ti = Track.(p_near, Direction.(θ, ϕ), Ref(ts.gr.box))
+    ti = Track.(p_near, Direction.(θ, ϕ), Ref(ts.geo.box))
     # Make track from point of closest approach to point of exit
-    to = Track.(p_near, Direction.(π.-θ, mod.(ϕ.+π, 2\pi)), Ref(ts.gr.box))
+    to = Track.(p_near, Direction.(π.-θ, mod.(ϕ.+π, 2π)), Ref(ts.geo.box))
+    ipoint = Tracks.intersect.(ti, Ref(ts.geo.box))
+    fpoint = Tracks.intersect.(to, Ref(ts.geo.box))
+    tr = Track.(ipoint, fpoint)
+    tot_cd = total_column_depth.(tr, Ref(ts.geo.valley))
+
     # Calculate the total column seen on the way in and way out
-    x = sample_column_depth.(ti, to, Ref(ts), range)
-    cd = [v[1] for v in x]
-    tr = [v[2] for v in x]
-    # Find affine parameter where we have traversed proper column depth
-    λ_int = inverse_column_depth.(tr, cd, Ref(ts.gr.valley))
-    # Convert affine parameter to a physical location
+    ## Find affine parameter where we have traversed proper column depth
+    λ_int = inverse_column_depth.(tr, cd, Ref(ts.geo.valley))
+    ## Convert affine parameter to a physical location
     p_int = [tr[i](λ_int[i]) for i in eachindex(tr)]
     # Sample an outgoing lepton energy
 
-    # Make a list of media that the lepton sample_properties
-    # Pass to Jorge's function
-    # Pass PROPOSAL output to CORSIKA
-    e, θ, ϕ, b, ψ, p_near, ti, to, tr, cd, λ_int, p_int
+    ## Make a list of media that the lepton sample_properties
+    ## Pass to Jorge's function
+    ## Pass PROPOSAL output to CORSIKA
+    Event.(e, θ, ϕ, b, ψ, ti, to, cd, p_int, p_near, tr, λ_int)
+    #e, θ, ϕ, b, ψ, p_near, ti, to, tr, cd, λ_int, p_int
 end
 
 end # module

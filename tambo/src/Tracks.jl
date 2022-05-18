@@ -2,42 +2,12 @@ module Tracks
 
 push!(LOAD_PATH, @__DIR__)
 
-using Geometry: TPoint, Box, is_inside
+using Geometries: TPoint, Box, is_inside
 using Units
 using Unitful
 using LinearAlgebra
 using Roots: find_zeros, find_zero
 export Track, Direction, total_column_depth, column_depth, inverse_column_depth
-
-struct Direction
-    θ
-    ϕ
-    x_proj
-    y_proj
-    z_proj
-    function Direction(θ, ϕ)
-        θ, ϕ = Float64(θ), Float64(ϕ)
-        x = cos(ϕ)*sin(θ)
-        y = sin(ϕ)*sin(θ)
-        z = cos(θ)
-        new(θ, ϕ, x, y, z)
-    end
-    function Direction(x, y, z)
-        x,y,z = (x,y,z)./norm((x,y,z))
-        θ = acos(z)
-        ϕ = atan(y, x)
-        new(θ, ϕ, x, y, z)
-    end
-    function Direction(p::TPoint)
-        Direction(p.x, p.y, p.z)
-    end
-    function Direction(ip::TPoint, fp::TPoint)
-        Direction(ip-fp)
-    end
-end
-
-Base.:/(p::TPoint, d::Direction) = TPoint(p.x/d.x_proj, p.y/d.y_proj, p.z/d.z_proj)
-Base.:*(m, d::Direction) = TPoint(m*d.x_proj, m*d.y_proj, m*d.z_proj)
 
 struct Track
     ipoint::TPoint
@@ -50,7 +20,7 @@ struct Track
         new(ipoint, fpoint, d, l)
     end
     function Track(ipoint::TPoint, d::Direction, b::Box)
-        fpoint = intersect_box(ipoint, d, b)
+        fpoint = intersect(ipoint, d, b)
         l = norm(fpoint-ipoint)
         new(ipoint, fpoint, d, l)
     end
@@ -60,7 +30,11 @@ function (t::Track)(λ)
     t.ipoint+λ*t.norm*t.direction
 end
 
-function intersect_box(p::TPoint, d::Direction, box::Box)
+function intersect(t::Track, b::Box)
+    intersect(t.ipoint, t.direction, b)
+end
+
+function intersect(p::TPoint, d::Direction, box::Box)
     if !is_inside(p, box)
         error("Track does not start inside the box")
     end
@@ -103,22 +77,35 @@ function reduce_f(t::Track, f)
     g(λ) = f(t(λ).x, t(λ).y)
 end
 
-function inverse_column_depth(tr::Track, cd, valley)
+function inverse_column_depth(
+    tr::Track, cd, valley; ρ_air=ρ_air0, ρ_rock=ρ_rock0, ranges=Nothing, ixs=Nothing
+)
     f(λ) = column_depth(tr, λ, valley) - cd
     λ_int = find_zero(f, (0,1))
     λ_int
 end
 
-function column_depth(t, Λ, valley; ρ_air=ρ_air0, ρ_rock=ρ_rock0)
-#function column_depth(t::Track, Λ, valley; ρ_air=ρ_air0, ρ_rock=ρ_rock0)
-    oned_valley = reduce_f(t, valley)
-    root_func(λ) = oned_valley(λ)-t(λ).z
-    zeros = find_zeros(root_func, 0, Λ)
-    rgen = vcat([0], zeros, [Λ])
+function compute_range(t, valley, ixs, λ)
+    ixs = ixs[ixs .< λ]
+    rgen = vcat([0], ixs, [λ])
     ranges = [
         (x[2]-x[1], is_inside(t((x[1]+x[2])/2), valley))
         for x in zip(rgen[1:end-1], rgen[2:end])
     ]
+end
+
+function intersect(t::Track, v)
+    oned_valley = reduce_f(t, valley)
+    root_func(λ) = oned_valley(λ)-t(λ).z
+    zeros = find_zeros(root_func, 0, 1)
+end
+
+function column_depth(t, λ, valley; ρ_air=ρ_air0, ρ_rock=ρ_rock0, ranges=Nothing, ixs=Nothing)
+    if ranges==Nothing
+        if ixs==Nothing
+            ixs = intersect(t, valley)
+        ranges = compute_ranges(t, valley; λ=λ)
+    end
     cd = 0mwe
     for x in ranges
         width, in_mountain = x
@@ -128,8 +115,7 @@ function column_depth(t, Λ, valley; ρ_air=ρ_air0, ρ_rock=ρ_rock0)
     cd
 end
 
-#function total_column_depth(t::Track, valley; ρ_air=1.225e-3, ρ_rock=2.6)
-function total_column_depth(t, valley; ρ_air=1.225e-3, ρ_rock=2.6)
+function total_column_depth(t, valley; ρ_air=ρ_air0, ρ_rock=ρ_rock0)
     column_depth(t, 1, valley)
 end
 
