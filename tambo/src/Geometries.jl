@@ -11,72 +11,11 @@ export Geometry,
        is_inside,
        sample_xyz
 
-# ----------------------------------------------------------------------------
-# original FORTRAN interpolation library
-# that is inside scipy interpolate
-#using Dierckx
-#using DelimitedFiles
-#
-#struct TAMBOGeometry
-#    lat_min::Float64
-#    lat_max::Float64
-#    long_min::Float64
-#    long_max::Float64
-#    elev_min::Float64
-#    elev_max::Float64
-#    geometry_spline::Spline2D
-#    geometry_box::Vector{Float64}
-#    density_rock::Float64 #"kg/m^3"
-#    density_air::Float64 #"kg/m^3" 
-#    function TAMBOGeometry(textfile::String)
-#        data_input, header_input = readdlm(textfile,'\t', '\n', header = true)
-#        latitude = map(deg2rad,data_input[:,2])
-#        longitude = map(deg2rad,data_input[:,3])
-#        elevation = data_input[:,4]
-#
-#        lat_min = minimum(latitude)
-#        lat_max = maximum(latitude)
-#        long_min = minimum(longitude)
-#        long_max = maximum(longitude)
-#        elev_min = minimum(elevation)
-#        elev_max = maximum(elevation)
-#
-#        number_geo_points = length(latitude)
-#
-#        # A coord. system in meters with the origin at latmin, latmax
-#        coordinate_points = [TPoint(longitude[i],
-#                                    latitude[i],
-#                                    elevation[i];
-#                                    lat_min, 
-#                                    long_min) 
-#        for i in 1:number_geo_points]
-#        geometry_spline = Spline2D(map(p->p.x,coordinate_points),
-#                                   map(p->p.y,coordinate_points),
-#                                   map(p->p.z,coordinate_points);
-#                                   kx=3,ky=3,s=100_000
-#                                   )
-#
-#        x_max = max(map(p->p.x,coordinate_points))
-#        y_max = max(map(p->p.y,coordinate_points))
-#        geometry_box = [0.0,x_max,0.0,y_max,elev_min,elev_max]
-#
-#        density_rock = 5520 #"kg/m^3"
-#        density_air = 1225 #"kg/m^3" 
-#
-#        new(lat_min,lat_max,long_min,long_max,elev_min,elev_max,geometry_spline,geometry_box,density_rock,density_air)
-#    end
-#end
-
-
-
-#-------------
 
 struct Coord{T<:Float64}
     lat::T
     long::T
 end
-
-#-------------
 
 function get_distance_coordinate(latitude, longitude, latmin, longmin)
     latmid = (latitude + latmin)/2.0
@@ -84,7 +23,6 @@ function get_distance_coordinate(latitude, longitude, latmin, longmin)
     m_per_deg_lat = (111412.82 * cos(latmid)) - (93.5*cos(latmid*3)) + (0.118*cos(5*latmid))
     delta_lat = latitude - latmin 
     delta_long = longitude - longmin 
-
     x = delta_long * (m_per_deg_lon * 180/pi)
     y = delta_lat * (m_per_deg_lat * 180/pi)
 
@@ -134,49 +72,54 @@ struct Direction
     x_proj
     y_proj
     z_proj
-    function Direction(θ, ϕ)
-        θ, ϕ = Float64(θ), Float64(ϕ)
-        x = cos(ϕ)*sin(θ)
-        y = sin(ϕ)*sin(θ)
-        z = cos(θ)
-        new(θ, ϕ, x, y, z)
-    end
-    function Direction(x, y, z)
-        x,y,z = (x,y,z)./norm((x,y,z))
-        θ = acos(z)
-        ϕ = atan(y, x)
-        new(θ, ϕ, x, y, z)
-    end
-    function Direction(p::TPoint)
-        Direction(p.x, p.y, p.z)
-    end
-    function Direction(ip::TPoint, fp::TPoint)
-        Direction(ip-fp)
-    end
+end
+function Direction(θ, ϕ)
+    θ, ϕ = Float64(θ), Float64(ϕ)
+    x = cos(ϕ)*sin(θ)
+    y = sin(ϕ)*sin(θ)
+    z = cos(θ)
+    Direction(θ, ϕ, x, y, z)
+end
+
+function Direction(x, y, z)
+    x,y,z = (x,y,z)./norm((x,y,z))
+    θ = acos(z)
+    ϕ = atan(y, x)
+    Direction(θ, ϕ, x, y, z)
+end
+
+function Direction(p::TPoint)
+    Direction(p.x, p.y, p.z)
+end
+
+function Direction(ip::TPoint, fp::TPoint)
+    Direction(ip-fp)
 end
 
 Base.:/(p::TPoint, d::Direction) = TPoint(p.x/d.x_proj, p.y/d.y_proj, p.z/d.z_proj)
 Base.:*(m, d::Direction) = TPoint(m*d.x_proj, m*d.y_proj, m*d.z_proj)
 
-
 struct Box
     c1::SVector{3}
     c2::SVector{3}
-    function Box(c1, c2)
-        c1 = SVector{3}(c1)
-        c2 = SVector{3}(c2)
-        new(c1, c2)
-    end
-    function Box(x, y, z)
-        c1 = SVector{3}([0,0,0])
-        c2 = SVector{3}([x,y,z])
-        new(c1, c2)
-    end
-    function Box(c)
-        c1 = SVector{3}([0,0,0])
-        c2 = SVector{3}(c)
-        new(c1, c2)
-    end
+end
+
+function Box(c1, c2)
+    c1 = SVector{3}(c1)
+    c2 = SVector{3}(c2)
+    Box(c1, c2)
+end
+
+function Box(x, y, z)
+    c1 = SVector{3}([0,0,0])
+    c2 = SVector{3}([x,y,z])
+    Box(c1, c2)
+end
+
+function Box(c)
+    c1 = SVector{3}([0,0,0])
+    c2 = SVector{3}(c)
+    Box(c1, c2)
 end
 
 function sample(n::Int, b::Box)
@@ -286,10 +229,8 @@ julia> v = valley_helper(
 function valley_helper(x, y, tc, valley_spl)
     # Translate to spline coordinate system
     xt, yt = x + tc.x, y + tc.y
-    # println((xt, yt))
     # Convert to meters
     xm, ym = xt / m, yt / m
-    # println((xm, ym))
     #xm, ym = (xt |> m).val, (yt|> m).val
     # Evaluate spline and convert back to natural units
     # println(valley_spl(xm, ym)[1])
