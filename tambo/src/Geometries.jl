@@ -73,6 +73,7 @@ struct Direction
     y_proj
     z_proj
 end
+
 function Direction(θ, ϕ)
     θ, ϕ = Float64(θ), Float64(ϕ)
     x = cos(ϕ)*sin(θ)
