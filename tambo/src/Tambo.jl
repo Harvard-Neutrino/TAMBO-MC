@@ -4,7 +4,7 @@ export TAMBOSim
 
 push!(LOAD_PATH, @__DIR__)
 
-using Geometries: Geometry, TPoint, sample
+using Geometries
 using Tracks
 using Particles: Particle
 using PowerLaws
@@ -260,11 +260,14 @@ function inject_events(ts::TAMBOSim)
     ipoint = Tracks.intersect.(ti, Ref(ts.geo.box))
     fpoint = Tracks.intersect.(to, Ref(ts.geo.box))
     tr = Track.(ipoint, fpoint)
-    tot_cd = total_column_depth.(tr, Ref(ts.geo.valley))
-
+    ixs = Tracks.intersect.(tr, ts.geo.valley)
+    tot_cd = total_column_depth.(tr, Ref(ts.geo.valley), ixs=ixs)
+    cd = rand(ts.n) .* tot_cd
     # Calculate the total column seen on the way in and way out
     ## Find affine parameter where we have traversed proper column depth
-    λ_int = inverse_column_depth.(tr, cd, Ref(ts.geo.valley))
+    # This is a really busted way to do this. TODO fix
+    #λ_int = inverse_column_depth.(tr, cd, Ref(ts.geo.valley))
+    λ_int = [inverse_column_depth(tr[i], cd[i], ts.geo.valley; ixs=ixs[i]) for i in 1:ts.n]
     ## Convert affine parameter to a physical location
     p_int = [tr[i](λ_int[i]) for i in eachindex(tr)]
     # Sample an outgoing lepton energy
@@ -272,8 +275,7 @@ function inject_events(ts::TAMBOSim)
     ## Make a list of media that the lepton sample_properties
     ## Pass to Jorge's function
     ## Pass PROPOSAL output to CORSIKA
-    Event.(e, θ, ϕ, b, ψ, ti, to, cd, p_int, p_near, tr, λ_int)
-    #e, θ, ϕ, b, ψ, p_near, ti, to, tr, cd, λ_int, p_int
+    Event.(e, θ, ϕ, b, ψ, ti, to, tot_cd, p_int, p_near, tr, λ_int)
 end
 
 end # module
