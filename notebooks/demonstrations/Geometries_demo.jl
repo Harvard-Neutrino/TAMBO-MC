@@ -18,7 +18,7 @@ begin
 	using Pkg
 	Pkg.activate(".")
 	tambo_path = "/Users/jlazar/research/TAMBO-MC/tambo/src/"
-	push!(LOAD_PATH, tambo_path)
+	push!(LOAD_PATH, tambo_path);
 end
 
 # ╔═╡ 78fb3deb-4202-4e91-96b3-b89fbd99eaf4
@@ -269,21 +269,6 @@ begin
 	scatter3d!(ax3, [0], [0], [0], markershape=:star, label="TAMBO", markersize=7)
 end
 
-# ╔═╡ f3b7f461-52dc-4c81-afb2-bd516f7dd2d6
-
-
-# ╔═╡ 1fcb7dac-a196-44cc-aeb2-3ef21654dc9e
-
-
-# ╔═╡ 6a06daea-f775-4089-b311-beea7eac9278
-
-
-# ╔═╡ eb746256-6f3c-4df1-bc4c-edcf3f757ecd
-
-
-# ╔═╡ c9cd5509-fccf-49ab-8558-205866787e5b
-
-
 # ╔═╡ Cell order:
 # ╠═d260f8b0-d780-11ec-1e84-695ebd7b2393
 # ╟─7ded89b6-496e-4bed-b3a2-53e8be42f6a3
@@ -322,9 +307,4 @@ end
 # ╠═e763ca9b-9118-4792-9362-44525b160605
 # ╟─6377ae93-1557-425f-9bad-46121d32779f
 # ╟─a356899f-fbe3-44f7-a981-e118bd3b6dc5
-# ╠═112bcacd-4bb4-4147-9531-0136e3cb5f43
-# ╠═f3b7f461-52dc-4c81-afb2-bd516f7dd2d6
-# ╠═1fcb7dac-a196-44cc-aeb2-3ef21654dc9e
-# ╠═6a06daea-f775-4089-b311-beea7eac9278
-# ╠═eb746256-6f3c-4df1-bc4c-edcf3f757ecd
-# ╠═c9cd5509-fccf-49ab-8558-205866787e5b
+# ╟─112bcacd-4bb4-4147-9531-0136e3cb5f43
