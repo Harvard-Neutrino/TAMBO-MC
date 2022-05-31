@@ -9,3 +9,6 @@ julia> Pluto.run()
 ```
 
 This will take you to a browser wherer you can load the notebooks by entering the path to them. I am trying to come up with a cleaner way of doing this, but this is what I got for now.
+
+You can also heck out a static html version of these notebooks here:
+[Geometries demo](./resources/Geometries_demo.jl.html)
