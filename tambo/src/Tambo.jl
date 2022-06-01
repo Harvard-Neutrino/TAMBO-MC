@@ -2,16 +2,20 @@ module Tambo
 
 export TAMBOSim
 
-push!(LOAD_PATH, @__DIR__)
+#include("Particles.jl")
+include("PowerLaws.jl")
+include("Geometries.jl")
+include("Tracks.jl")
+include("Units.jl")
 
 using Geometries
 using Tracks
+using Tracks.Geometries
 using Particles: Particle
 using PowerLaws
 using Units
 using StaticArrays
 using Rotations
-using Unitful
 using Random
 
 mutable struct TAMBOSim

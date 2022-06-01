@@ -1,51 +1,49 @@
-module Tracks
+include("Geometries.jl")
+include("Units.jl")
 
-push!(LOAD_PATH, @__DIR__)
-
-using Geometries
-using Units
-using Unitful
-using LinearAlgebra
+using LinearAlgebra: norm
 using Roots: find_zeros, find_zero
-export Track, total_column_depth, column_depth, inverse_column_depth, intersect
+using StaticArrays
 
-
-struct Track
-    ipoint::TPoint
-    fpoint::TPoint
+struct Track{T<:Number}
+    ipoint::SVector{3, T}
+    fpoint::SVector{3, T}
     direction::Direction
-    norm
+    norm::Float64
+    function Track(ipoint::T, fpoint::U, d::Direction, norm::Float64) where {T,U}
+        ipoint, fpoint = promote(ipoint, fpoint)
+        new{eltype(ipoint)}(ipoint, fpoint, d, norm)
+    end
 end
 
-function Track(fpoint::TPoint)
-    ipoint = TPoint(0, 0, 0)
+function Track(fpoint::SVector{3})
+    ipoint = SVector{3}([0, 0, 0])
     d = Direction(fpoint, ipoint)
-    l = norm(fpoint-ipoint)
+    l = norm(fpoint .- ipoint)
     Track(ipoint, fpoint, d, l)
 end
 
-function Track(ipoint::TPoint, fpoint::TPoint)
+function Track(ipoint::SVector{3}, fpoint::SVector{3})
     d = Direction(fpoint, ipoint)
-    l = norm(fpoint-ipoint)
+    l = norm(fpoint .- ipoint)
     Track(ipoint, fpoint, d, l)
 end
 
-function Track(ipoint::TPoint, d::Direction, b::Box)
+function Track(ipoint::SVector{3}, d::Direction, b::Box)
     fpoint = intersect(ipoint, d, b)
-    l = norm(fpoint-ipoint)
+    l = norm(fpoint .- ipoint)
     Track(ipoint, fpoint, d, l)
 end
 
 function (t::Track)(λ)
-    t.ipoint+λ*t.norm*t.direction
+    t.ipoint .+ λ*t.norm*t.direction
 end
 
 function Base.intersect(t::Track, b::Box)
     intersect(t.ipoint, t.direction, b)
 end
-∩(t::Track, b::Box) = intersect(t, b)
 
-function Base.intersect(p::TPoint, d::Direction, box::Box)
+function Base.intersect(p::SVector{3}, d::Direction, box::Box)
     if !is_inside(p, box)
         error("Track does not start inside the box")
     end
@@ -54,32 +52,24 @@ function Base.intersect(p::TPoint, d::Direction, box::Box)
     λ is proportional to the distance the particle propagates
     We will use distance interchangably with λ
     =#
-    λ_f = Inf*m
+    λf = Inf*units[:m]
     # Iterate over points which define box
     for edge in edges
         # Points where track shares coordinate with box edges
-        prop_λs = (edge - p)/d
-        # Iterate over x, y, z
-        for fn in fieldnames(TPoint)
-            λ = getfield(prop_λs, fn)
-            #= 
-            λ > 0 means the track is moving forward
-            λ < 0 means the track is moving backwards
-            λ = 0 means the tracks starts on an edge of the box
-            We want a forward-going track
-            =#
-            if λ >= 0m
-                #=
-                The track hits the box at minimum prop distance
-                Else it will be outside the box before travelling that distance
-                =#
-                λ_f = minimum((λ, λ_f))
-            end
-        end
+        # TODO Make ditection have a SVector and fix this
+        prop_λs = Vector((edge .- p) ./ d.proj)
+        prop_λs[prop_λs .<= 0] .= Inf
+        #= 
+        λ > 0 means the track is moving forward
+        λ < 0 means the track is moving backwards
+        λ = 0 means the tracks starts on an edge of the box
+        We want a forward-going track
+        =#
+        λf = minimum((λf, minimum(prop_λs)))
     end
-    λ_f*d+p
+    λf * d .+ p
 end
-∩(p::TPoint, d::Direction, b::Box) = intersect(p, d, b)
+∩(p::SVector{3}, d::Direction, b::Box) = intersect(p, d, b)
 
 function Base.reverse(t::Track)
     Track(t.fpoint, t.ipoint)
@@ -90,9 +80,9 @@ function reduce_f(t::Track, f)
 end
 
 function inverse_column_depth(
-    tr::Track, cd, valley; ρ_air=ρ_air0, ρ_rock=ρ_rock0, ixs=Nothing
+    tr::Track, cd, valley; ρ_air=units[:ρ_air0], ρ_rock=units[:ρ_rock0], ixs=Nothing
 )
-    f(λ) = column_depth(tr, λ, valley; ρ_air=ρ_air0, ρ_rock=ρ_rock0, ixs=ixs) - cd
+    f(λ) = column_depth(tr, λ, valley; ρ_air=ρ_air, ρ_rock=ρ_rock, ixs=ixs) - cd
     λ_int = find_zero(f, (0,1))
     λ_int
 end
@@ -111,14 +101,20 @@ function Base.intersect(t::Track, v)
     root_func(λ) = oned_valley(λ)-t(λ).z
     zeros = find_zeros(root_func, 0, 1)
 end
-#∩(t::Track, v) = intersect(t, v)
 
-function column_depth(t, λ, valley; ρ_air=ρ_air0, ρ_rock=ρ_rock0, ixs=Nothing)
+function column_depth(
+    t,
+    λ,
+    valley;
+    ρ_air=units[:ρ_air0],
+    ρ_rock=units[:ρ_rock0],
+    ixs=Nothing
+)
     if ixs==Nothing
         ixs = intersect(t, valley)
     end
     ranges = compute_ranges(t, valley, ixs, λ)
-    cd = 0mwe
+    cd = 0units[:mwe]
     for x in ranges
         width, in_mountain = x
         ρ = in_mountain ? ρ_rock : ρ_air
@@ -127,8 +123,12 @@ function column_depth(t, λ, valley; ρ_air=ρ_air0, ρ_rock=ρ_rock0, ixs=Nothi
     cd
 end
 
-function total_column_depth(t, valley; ρ_air=ρ_air0, ρ_rock=ρ_rock0, ixs=Nothing)
-    column_depth(t, 1, valley, ixs=ixs)
+function total_column_depth(
+    t,
+    valley;
+    ρ_air=units[:ρ_air0],
+    ρ_rock=units[:ρ_rock0],
+    ixs=Nothing
+)
+    column_depth(t, 1, valley, ρ_air=ρ_air, ρ_rock=ρ_rock, ixs=ixs)
 end
-
-end # module

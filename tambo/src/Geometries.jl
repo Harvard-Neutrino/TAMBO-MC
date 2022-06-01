@@ -1,16 +1,8 @@
-module Geometries
-
-using LinearAlgebra, StaticArrays
+using LinearAlgebra:norm
+using StaticArrays
 using PyCall
-using Units: m
 
-export Geometry,
-       TPoint,
-       Direction,
-       Box,
-       is_inside,
-       sample_xyz
-
+include("Units.jl")
 
 struct Coord{T<:Float64}
     lat::T
@@ -25,102 +17,61 @@ function get_distance_coordinate(latitude, longitude, latmin, longmin)
     delta_long = longitude - longmin 
     x = delta_long * (m_per_deg_lon * 180/pi)
     y = delta_lat * (m_per_deg_lat * 180/pi)
-
-    x,y
+    x, y
 end
-
-struct TPoint
-    x
-    y
-    z
-    function TPoint(c::Coord, elevation; lat_min = 0.0, long_min = 0.0)
-        x,y = get_distance_coordinate(c.lat, c.long,lat_min, long_min)
-        new(x, y, elevation)
-    end
-    function TPoint(x, y, z)
-        new(x, y, z)
-    end
-    function TPoint(θ, ϕ)
-        x = cos(ϕ)*sin(θ)
-        y = sin(ϕ)*sin(θ)
-        z = cos(θ)
-        new(x, y, z)
-    end
-    function TPoint(sv::SVector{3})
-        new(sv...)
-    end
-    function TPoint(v::Vector)
-        new(v...)
-    end
-end
-
-Base.:+(p1::TPoint, p2::TPoint) = TPoint(p1.x+p2.x, p1.y+p2.y, p1.z+p2.z)
-Base.:+(p::TPoint, sv::SVector{3}) = TPoint(p.x+sv[1], p.y+sv[2], p.z+sv[3])
-Base.:-(p1::TPoint, p2::TPoint) = TPoint(p1.x-p2.x, p1.y-p2.y, p1.z-p2.z)
-Base.:-(p::TPoint, sv::SVector) = TPoint(p.x-sv[1], p.y-sv[2], p.z-sv[3])
-Base.:-(sv::SVector{3}, p::TPoint) = -1*(p-sv)
-Base.:/(p1::TPoint, p2::TPoint) = TPoint(p1.x/p2.x, p1.y/p2.y, p1.z/p2.z)
-Base.:/(p1::TPoint, t) = TPoint(p1.x/t, p1.y/t, p1.z/t)
-Base.:*(p1::TPoint, p2::TPoint) = TPoint(p1.x*p2.x, p1.y*p2.y, p1.z*p2.z)
-Base.:*(t, p::TPoint) = TPoint(t*p.x, t*p.y, t*p.z)
-Base.:*(p::TPoint, t) = Base.:*(t, p)
-LinearAlgebra.norm(p::TPoint) = norm((p.x, p.y, p.z))
 
 struct Direction
-    θ
-    ϕ
-    x_proj
-    y_proj
-    z_proj
+    θ::Float64
+    ϕ::Float64
+    proj::SVector{3, Float64}
 end
 
 function Direction(θ, ϕ)
     θ, ϕ = Float64(θ), Float64(ϕ)
-    x = cos(ϕ)*sin(θ)
-    y = sin(ϕ)*sin(θ)
-    z = cos(θ)
-    Direction(θ, ϕ, x, y, z)
+    proj = SVector{3}([cos(ϕ)*sin(θ), sin(ϕ)*sin(θ), cos(θ)])
+    Direction(θ, ϕ, proj)
 end
 
 function Direction(x, y, z)
-    x,y,z = (x,y,z)./norm((x,y,z))
-    θ = acos(z)
-    ϕ = atan(y, x)
-    Direction(θ, ϕ, x, y, z)
+    proj = SVector{3}([x,y,z] ./ norm((x,y,z)))
+    θ = acos(proj.z)
+    ϕ = atan(proj.y, proj.x)
+    Direction(θ, ϕ, proj)
 end
 
-function Direction(p::TPoint)
-    Direction(p.x, p.y, p.z)
+function Direction(sv::SVector{3})
+    Direction(sv.x, sv.y, sv.z)
 end
 
-function Direction(ip::TPoint, fp::TPoint)
-    Direction(ip-fp)
+function Direction(ip::SVector{3}, fp::SVector{3})
+    Direction(ip .- fp)
 end
 
-Base.:/(p::TPoint, d::Direction) = TPoint(p.x/d.x_proj, p.y/d.y_proj, p.z/d.z_proj)
-Base.:*(m, d::Direction) = TPoint(m*d.x_proj, m*d.y_proj, m*d.z_proj)
+Base.:/(sv::SVector{3}, d::Direction) = sv ./ d.proj
+#Base.:/(sv::SVector{3}, d::Direction) = SVector{3}([sv[1]/d.x_proj, sv[2]/d.y_proj, sc[3]/d.z_proj])
+Base.:*(m, d::Direction) = m.*d.proj
+#Base.:*(m, d::Direction) = SVector{3}([m*d.x_proj, m*d.y_proj, m*d.z_proj])
 
-struct Box
-    c1::SVector{3}
-    c2::SVector{3}
+struct Box{T<:Number}
+    c1::SVector{3, T}
+    c2::SVector{3, T}
 end
 
 function Box(c1, c2)
-    c1 = SVector{3}(c1)
-    c2 = SVector{3}(c2)
-    Box(c1, c2)
-end
-
-function Box(x, y, z)
-    c1 = SVector{3}([0,0,0])
-    c2 = SVector{3}([x,y,z])
+    c1, c2 = promote(c1, c2)
+    c1, c2 = SVector{3}(c1), SVector{3}(c2)
     Box(c1, c2)
 end
 
 function Box(c)
-    c1 = SVector{3}([0,0,0])
-    c2 = SVector{3}(c)
+    c1 = [0,0,0]
+    c2 = c
     Box(c1, c2)
+end
+
+function Box(x, y, z)
+    c = [x,y,z]
+    Box(c)
 end
 
 function sample(n::Int, b::Box)
@@ -133,36 +84,24 @@ function sample(b::Box)
     rand(3) .* abs.(b.c1 .- b.c2) .+ minxyz
 end
 
-function is_inside(p::TPoint, b::Box)
-    is_in = true
-    for idx in 1:3
-        fn = fieldnames(TPoint)[idx]
-        e1 = b.c1[idx]
-        e2 = b.c2[idx]
-        s = sign(e2-e1)
-        is_in = is_in && (s*e1 < s*getfield(p, fn) < s*e2)
-        #=
-        If it is out in one dimension, we don't need to keep checking
-        This probably offers next to no speed up but it's good habit
-        I guess
-        =#
-        if !is_in
-            return false
-        end
-    end
+function is_inside(sv::SVector{3}, b::Box)
+    e1 = b.c1
+    e2 = b.c2
+    s = sign.(e2 .- e1)
+    is_in = all(s .* e1 .< s .* sv < s .* e2)
     is_in
 end
-is_inside(x, y, z, f::Function) = z < f(x, y)
-is_inside(p::TPoint, f::Function) = is_inside(p.x, p.y, p.z, f)
-sample_xyz(b::Box) = rand(3).*abs.(b.c1.-b.c2).+b.minxyz
 
+is_inside(x, y, z, f::Function) = z < f(x, y)
+is_inside(sv::SVector{3}, f::Function) = is_inside(sv[1], sv[2], sv[3], f)
+
+"""
+I don't really understand this PyNULL stuff
+I took it from here:
+https://github.com/JuliaPy/PyCall.jl#using-pycall-from-julia-modules
+Might be useful for other modules we are making
+"""
 function load_spline(p)
-    #=
-    I don't really understand this PyNULL stuff
-    I took it from here:
-    https://github.com/JuliaPy/PyCall.jl#using-pycall-from-julia-modules
-    Might be useful for other modules we are making
-    =#
     np = PyNULL()
     copy!(np, pyimport("numpy"))
     x = np.load(p, allow_pickle=true)
@@ -172,34 +111,71 @@ end
 struct Geometry
     valley::Function
     box::Box
-    tambo_center::TPoint
+    tambo_offset::SVector{3}
 end
 
-function Geometry(spl, tc::TPoint; zdown=3e4m, zup=5e3m)
-    knots = spl.get_knots()
-    xmin, xmax = minimum(knots[1]) * m, maximum(knots[1]) * m
-    ymin, ymax = minimum(knots[2]) * m, maximum(knots[2]) * m
-    # Just say that TAMBO lies on the mountain at the midpoint of the spline
-    xmid, ymid = (xmax - xmin)/2, (ymax - ymin)/2
-    xyzmin = [xmin-xmid, ymin-ymid, tc.z-zdown]
-    xyzmax = [xmax-xmid, ymax-ymid, tc.z+zup]
-    valley(x, y) = valley_helper(x, y, xyzmax.-xyzmin, spl)
-    b = Box(xyzmin, xyzmax)
-    Geometry(valley, b, tc)
+"""
+    Geometry(spl, xyoffset; zdown=3e4m, zup=5e3m)
+
+Function for creating a `Geometry`` structure using from `spl``, a spline object,
+and `xyoffset``, the offset between the TAMBO coordinate system in which TAMBO
+is at (0,0,0) and the spline coordinate system. With this function, we will
+assume that TAMBO lies on the mountainOn may optionally specify the amount of
+rock padding below TAMBO with `zdown` and the air padding above with `zup`
+"""
+function Geometry(spl, xyoffset::SVector{2}; zdown=3e4units[:m], zup=5e3units[:m])
+    # getindex hack for python spline
+    z = spl(xyoffset.x / units[:m], xyoffset.y / units[:m])[1] * units[:m]
+    xyzoffset = SVector{3}([xyoffset.x, xyoffset.y, z])
+    Geometry(spl, xyzoffset; zdown=zdown, zup=zup)
+    #knots = spl.get_knots()
+    #xmin, xmax = minimum(knots[1]) * m, maximum(knots[1]) * m
+    #ymin, ymax = minimum(knots[2]) * m, maximum(knots[2]) * m
+    ## Just say that TAMBO lies on the mountain at the midpoint of the spline
+    #xmid, ymid = (xmax - xmin)/2, (ymax - ymin)/2
+    #xyzmin = [xmin-xmid, ymin-ymid, tc[3]-zdown]
+    #xyzmax = [xmax-xmid, ymax-ymid, tc[3]+zup]
+    #valley(x, y) = valley_helper(x, y, xyzmax.-xyzmin, spl)
+    #b = Box(xyzmin, xyzmax)
+    #Geometry(valley, b, tc)
 end
 
-function Geometry(spl; zdown=3e4m, zup=5e3m)
+function Geometry(spl; zdown=3e4units[:m], zup=5e3units[:m])
     knots = spl.get_knots()
-    xmin, xmax = minimum(knots[1]) * m, maximum(knots[1]) * m
-    ymin, ymax = minimum(knots[2]) * m, maximum(knots[2]) * m
-    # Just say that TAMBO lies on the mountain at the midpoint of the spline
+    xmin, xmax = minimum(knots[1]) * units[:m], maximum(knots[1]) * units[:m]
+    ymin, ymax = minimum(knots[2]) * units[:m], maximum(knots[2]) * units[:m]
+    # If offset not provided, TAMBO lies on the mountain at the xy-midpoint of the spline
     xmid, ymid = (xmax - xmin)/2, (ymax - ymin)/2
-    tc = TPoint(xmid, ymid, spl(xmid / m, ymid / m)[1] * m)
-    xyzmin = [xmin-tc.x, ymin-tc.y, -zdown]
-    xyzmax = [xmax-tc.x, ymax-tc.y, zup]
-    valley(x, y) = valley_helper(x, y, tc, spl)
+    xyzoffset = SVector{3}([
+        xmid,
+        ymid,
+        spl(xmid / units[:m], ymid / units[:m])[1] * units[:m]
+    ])
+    xyzmin = [xmin-xyzoffset.x, ymin-xyzoffset.y, -zdown]
+    xyzmax = [xmax-xyzoffset.x, ymax-xyzoffset.y, zup]
+    valley(x, y) = valley_helper(x, y, xyzoffset, spl)
     b = Box(xyzmin, xyzmax)
-    Geometry(valley, b, tc)
+    Geometry(valley, b, xyzoffset)
+end
+
+"""
+    Geometry(spl, xyoffset; zdown=3e4m, zup=5e3m)
+
+Function for creating a `Geometry`` structure using from `spl``, a spline object,
+and `xyzoffset``, the offset between the TAMBO coordinate system in which TAMBO
+is at (0,0,0) and the spline coordinate system. On may optionally specify the
+amount of rock padding below TAMBO with `zdown` and the air padding above with
+`zup`
+"""
+function Geometry(spl, xyzoffset::SVector{3}; zdown=3e4units[:m], zup=5e3units[:m])
+    knots = spl.get_knots()
+    xmin, xmax = minimum(knots[1]) * units[:m], maximum(knots[1]) * units[:m]
+    ymin, ymax = minimum(knots[2]) * units[:m], maximum(knots[2]) * units[:m]
+    xyzmin = SVector{3}([xmin-xyzoffset.x, ymin-xyzoffset.y, xyzoffset.z-zdown])
+    xyzmax = SVector{3}([xmax-xyzoffset.x, ymax-xyzoffset.y, xyzoffset.z+zup])
+    valley(x, y) = valley_helper(x, y, xyzoffset, spl)
+    b = Box(xyzmin, xyzmax)
+    Geometry(valley, b, xyzoffset)
 end
 
 function Geometry(spl_path::String)
@@ -227,27 +203,16 @@ julia> v = valley_helper(
        488.4400118544429
 ```
 """
-function valley_helper(x, y, tc, valley_spl)
+function valley_helper(x, y, xyzoffset, valley_spl)
     # Translate to spline coordinate system
-    xt, yt = x + tc.x, y + tc.y
+    xt, yt = x + xyzoffset[1], y + xyzoffset[2]
     # Convert to meters
-    xm, ym = xt / m, yt / m
-    #xm, ym = (xt |> m).val, (yt|> m).val
+    xm, ym = xt / units[:m], yt / units[:m]
     # Evaluate spline and convert back to natural units
     # println(valley_spl(xm, ym)[1])
-    valley_spl(xm, ym)[1]*m - tc.z
+    valley_spl(xm, ym)[1]*units[:m] - xyzoffset[3]
 end
 
 function (g::Geometry)(x, y)
     g.valley(x,y)[1,1]
 end
-
-function sample(n::Int, g::Geometry)
-    sample(n, g.box)
-end
-
-function sample(g::Geometry)
-    sample(g.box)
-end
-
-end #module

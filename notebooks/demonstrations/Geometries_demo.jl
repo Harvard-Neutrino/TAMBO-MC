@@ -15,52 +15,16 @@ end
 
 # ╔═╡ d260f8b0-d780-11ec-1e84-695ebd7b2393
 begin
-	using Pkg
-	Pkg.activate(".")
 	tambo_path = "/Users/jlazar/research/TAMBO-MC/tambo/src/"
-	push!(LOAD_PATH, tambo_path);
+	using Pkg
+	Pkg.activate(tambo_path)
+	include(joinpath(tambo_path, "Geometries.jl"))
 end
 
 # ╔═╡ 78fb3deb-4202-4e91-96b3-b89fbd99eaf4
 begin
 	using StaticArrays
 	using BenchmarkTools
-end
-
-# ╔═╡ 4b006b1e-f0bc-4afc-8544-4b1d44d29afe
-begin
-	using Geometries: Direction
-	θ = π/3
-	ϕ = π/4
-	d = Direction(θ, ϕ)
-end
-
-# ╔═╡ 0312f8e0-50b5-41d0-9342-1d0835c4f846
-begin
-	using Geometries: Box
-	c0 = [2,5,9]
-	c1 = [-2, -5, -9]
-	b = Box(c0, c1)
-end
-
-# ╔═╡ f28c2ca0-e241-4e02-bfc2-445688c81bc6
-begin
-	using Geometries: is_inside
-	pt0 = SVector{3}([0, 0, 0])
-	is_inside(pt0, b)
-end
-
-# ╔═╡ 38ac33c5-a9e6-40cd-9244-afd6547f6488
-begin
-	using Geometries: Geometry, load_spline
-	spl = load_spline(tambo_path * "../../resources/tambo_spline.npy")
-	geo1 = Geometry(spl)
-end
-
-# ╔═╡ c04d426a-0e52-4d5b-a0a2-0b16c4688e93
-begin
-	using Units
-	geo1(0m, 0m) / m
 end
 
 # ╔═╡ 9ea8bd84-efa1-4f54-a077-bf8faa9698d4
@@ -90,15 +54,35 @@ md"""
 We also define our own class called a direction, which contains the zenith angle, `θ`, and azimuth angle, `ϕ`, as well as the projection onto the x-, y-, and z-axes. This last bit may not be necessary but I had it so I kept it. I might combine these into a SVector{3} which would probably be more efficient.
 """
 
+# ╔═╡ 4b006b1e-f0bc-4afc-8544-4b1d44d29afe
+begin
+	θ = π/3
+	ϕ = π/4
+	d = Direction(θ, ϕ)
+end
+
 # ╔═╡ c48ccde2-e02e-44dd-9b4a-400bae03b1ab
 md"""
 We are also able to define a `Box` which defines the region where we will consider injection. As long as the principle axes of a `Box` are aligned with our coordinate system, we can define a `Box` only by the two, opposite corners. Since this box will be the region in which our spline is defined, aligning the axes of the box and our coordinate system is a natural choice.
 """
 
+# ╔═╡ 0312f8e0-50b5-41d0-9342-1d0835c4f846
+begin
+	c0 = [2,5,9]
+	c1 = [-2, -5, -9]
+	b = Box(c0, c1)
+end
+
 # ╔═╡ 617a55f9-4d41-45a3-b386-04aeafef1f18
 md"""
 We may often want to know if points are inside or outside a `Box`
 """
+
+# ╔═╡ f28c2ca0-e241-4e02-bfc2-445688c81bc6
+begin
+	pt0 = SVector{3}([0, 0, 0])
+	is_inside(pt0, b)
+end
 
 # ╔═╡ 5e8a10d6-e5b6-4d48-9d46-45608b096d61
 begin
@@ -111,9 +95,15 @@ md"""
 We make the actual Geometry, which has a spline of the Colca valley in the `valley` field, a `Box` defining the injection region in the the `box` field, and a `SVector{3}` defining where TAMBO is. This last attribute is mostly used for internal conversions and likely will not need to be interacted with.
 """
 
+# ╔═╡ 38ac33c5-a9e6-40cd-9244-afd6547f6488
+begin
+	spl = load_spline(tambo_path * "../../resources/tambo_spline.npy")
+	geo1 = Geometry(spl)
+end
+
 # ╔═╡ 59344208-d1b1-498f-ab00-56c67b2dd1c3
 md"""
-There are a handfull of ways to construct a `Geometry`. The first is only with a spline. In this case, we just put TAMBO in the middle of the spline, on surface of the mountain. This is a mostly just a convenience for developing.
+As you can see, there are a handfull of ways to construct a `Geometry`. The first is only with a spline. In this case, we just put TAMBO in the middle of the spline, on surface of the mountain. This is a mostly just a convenience for developing.
 """
 
 # ╔═╡ 13d9450f-a3ea-4849-b377-c440f54f9c0b
@@ -121,8 +111,11 @@ md"""
 TAMBO is always at the center of the coordinate system, and since we placed it on the mountain, we expect the spline evaluated at the origin should be 0.
 """
 
+# ╔═╡ c04d426a-0e52-4d5b-a0a2-0b16c4688e93
+geo1(0units[:m], 0units[:m]) / units[:m]
+
 # ╔═╡ 80705622-261a-4c5f-b8a6-adaa403c157c
-geo1(100m, 100m) / m
+geo1(100units[:m], 100units[:m]) / units[:m]
 
 # ╔═╡ c9e51ad8-f1dd-4b80-94b5-3797516513bd
 md"""
@@ -169,7 +162,7 @@ Another way to construct a geometry is to specify only the xy-offset of TAMBO. I
 
 # ╔═╡ c15f9b51-2710-4a47-9eb9-5d064d2f87ac
 begin
-	xyoffset = SVector{2}([12500m, 12000m])
+	xyoffset = SVector{2}([12500units[:m], 12000units[:m]])
 	geo2 = Geometry(spl, xyoffset)
 end
 
@@ -225,7 +218,7 @@ Lastly, we can tell the code directly where to put the TAMBO offset. This is use
 
 # ╔═╡ d5207b17-556f-43ed-b4f4-34c69b47cd3e
 begin
-	xyzoffset = SVector{3}([8000m, 12000m, 3000m])
+	xyzoffset = SVector{3}([8000units[:m], 12000units[:m], 3000units[:m]])
 	geo3 = Geometry(spl, xyzoffset)
 end
 
@@ -235,7 +228,7 @@ In this `Geometry` we have placed the offset suspended in the valley, and thus w
 """
 
 # ╔═╡ e763ca9b-9118-4792-9362-44525b160605
-geo3(0,0)/m
+geo3(0,0)/units[:m]
 
 # ╔═╡ 6377ae93-1557-425f-9bad-46121d32779f
 @bind azimuth3 Slider(0:90; show_value=true, default=0)
@@ -283,8 +276,8 @@ end
 # ╠═f28c2ca0-e241-4e02-bfc2-445688c81bc6
 # ╠═5e8a10d6-e5b6-4d48-9d46-45608b096d61
 # ╟─14c3bea4-5ce7-4b14-a40b-830b247ac708
-# ╟─59344208-d1b1-498f-ab00-56c67b2dd1c3
 # ╠═38ac33c5-a9e6-40cd-9244-afd6547f6488
+# ╟─59344208-d1b1-498f-ab00-56c67b2dd1c3
 # ╟─13d9450f-a3ea-4849-b377-c440f54f9c0b
 # ╠═c04d426a-0e52-4d5b-a0a2-0b16c4688e93
 # ╠═80705622-261a-4c5f-b8a6-adaa403c157c
@@ -300,7 +293,7 @@ end
 # ╟─ece09865-1b47-4c85-9f8c-53d49906d874
 # ╟─17da74ea-3a82-41f5-8422-c88a52bf71b4
 # ╟─bedf04fa-fffd-468d-8e1b-23d90c0016e5
-# ╠═2a457860-7221-4715-87ab-aacd8b84d68c
+# ╟─2a457860-7221-4715-87ab-aacd8b84d68c
 # ╟─7ebf33b9-4aa9-4671-a920-d6886b8cb482
 # ╠═d5207b17-556f-43ed-b4f4-34c69b47cd3e
 # ╟─2808c118-d4d2-48fc-a162-a2fbae5bec4f
