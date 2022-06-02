@@ -1,6 +1,7 @@
 using LinearAlgebra:norm
 using StaticArrays
-using PyCall
+using JLD2
+using Dierckx
 
 include("Units.jl")
 
@@ -48,9 +49,7 @@ function Direction(ip::SVector{3}, fp::SVector{3})
 end
 
 Base.:/(sv::SVector{3}, d::Direction) = sv ./ d.proj
-#Base.:/(sv::SVector{3}, d::Direction) = SVector{3}([sv[1]/d.x_proj, sv[2]/d.y_proj, sc[3]/d.z_proj])
 Base.:*(m, d::Direction) = m.*d.proj
-#Base.:*(m, d::Direction) = SVector{3}([m*d.x_proj, m*d.y_proj, m*d.z_proj])
 
 struct Box{T<:Number}
     c1::SVector{3, T}
@@ -95,17 +94,10 @@ end
 is_inside(x, y, z, f::Function) = z < f(x, y)
 is_inside(sv::SVector{3}, f::Function) = is_inside(sv[1], sv[2], sv[3], f)
 
-"""
-I don't really understand this PyNULL stuff
-I took it from here:
-https://github.com/JuliaPy/PyCall.jl#using-pycall-from-julia-modules
-Might be useful for other modules we are making
-"""
-function load_spline(p)
-    np = PyNULL()
-    copy!(np, pyimport("numpy"))
-    x = np.load(p, allow_pickle=true)
-    spl = x[1]
+function load_spline(p, key="spline")
+    f = jldopen(p, "r")
+    spl = f[key]
+    spl
 end
 
 struct Geometry
@@ -125,23 +117,14 @@ rock padding below TAMBO with `zdown` and the air padding above with `zup`
 """
 function Geometry(spl, xyoffset::SVector{2}; zdown=3e4units[:m], zup=5e3units[:m])
     # getindex hack for python spline
-    z = spl(xyoffset.x / units[:m], xyoffset.y / units[:m])[1] * units[:m]
+    z = spl(xyoffset.x / units[:m], xyoffset.y / units[:m]) * units[:m]
     xyzoffset = SVector{3}([xyoffset.x, xyoffset.y, z])
     Geometry(spl, xyzoffset; zdown=zdown, zup=zup)
-    #knots = spl.get_knots()
-    #xmin, xmax = minimum(knots[1]) * m, maximum(knots[1]) * m
-    #ymin, ymax = minimum(knots[2]) * m, maximum(knots[2]) * m
-    ## Just say that TAMBO lies on the mountain at the midpoint of the spline
-    #xmid, ymid = (xmax - xmin)/2, (ymax - ymin)/2
-    #xyzmin = [xmin-xmid, ymin-ymid, tc[3]-zdown]
-    #xyzmax = [xmax-xmid, ymax-ymid, tc[3]+zup]
-    #valley(x, y) = valley_helper(x, y, xyzmax.-xyzmin, spl)
-    #b = Box(xyzmin, xyzmax)
-    #Geometry(valley, b, tc)
 end
 
 function Geometry(spl; zdown=3e4units[:m], zup=5e3units[:m])
-    knots = spl.get_knots()
+    knots = spl.tx, spl.ty
+    #knots = spl.get_knots()
     xmin, xmax = minimum(knots[1]) * units[:m], maximum(knots[1]) * units[:m]
     ymin, ymax = minimum(knots[2]) * units[:m], maximum(knots[2]) * units[:m]
     # If offset not provided, TAMBO lies on the mountain at the xy-midpoint of the spline
@@ -149,7 +132,7 @@ function Geometry(spl; zdown=3e4units[:m], zup=5e3units[:m])
     xyzoffset = SVector{3}([
         xmid,
         ymid,
-        spl(xmid / units[:m], ymid / units[:m])[1] * units[:m]
+        evaluate(spl, xmid / units[:m], ymid / units[:m]) * units[:m]
     ])
     xyzmin = [xmin-xyzoffset.x, ymin-xyzoffset.y, -zdown]
     xyzmax = [xmax-xyzoffset.x, ymax-xyzoffset.y, zup]
@@ -209,10 +192,9 @@ function valley_helper(x, y, xyzoffset, valley_spl)
     # Convert to meters
     xm, ym = xt / units[:m], yt / units[:m]
     # Evaluate spline and convert back to natural units
-    # println(valley_spl(xm, ym)[1])
-    valley_spl(xm, ym)[1]*units[:m] - xyzoffset[3]
+    evaluate(valley_spl, xm, ym)*units[:m] - xyzoffset[3]
 end
 
 function (g::Geometry)(x, y)
-    g.valley(x,y)[1,1]
+    g.valley(x,y)
 end
