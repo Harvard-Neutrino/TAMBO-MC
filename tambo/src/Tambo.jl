@@ -4,16 +4,10 @@ export TAMBOSim
 
 #include("Particles.jl")
 include("PowerLaws.jl")
-include("Geometries.jl")
+#include("Geometries.jl")
 include("Tracks.jl")
 include("Units.jl")
 
-using Geometries
-using Tracks
-using Tracks.Geometries
-using Particles: Particle
-using PowerLaws
-using Units
 using StaticArrays
 using Rotations
 using Random
@@ -43,15 +37,15 @@ mutable struct TAMBOSim
         geo = Geometry("/Users/jlazar/research/TAMBO-MC/resources/tambo_spline.npy")
         ν_pdg = 16
         γ = 2
-        emin = 1e6GeV
-        emax = 1e9GeV
+        emin = 1e6units[:GeV]
+        emax = 1e9units[:GeV]
         pl = nothing
         θmin = 0
         θmax = π
         ϕmin = 0
         ϕmax = 2π
-        r_injection = 900m
-        l_endcap = 1km
+        r_injection = 900units[:m]
+        l_endcap = 1units[:km]
         seed = 0
         new(n, geo, ν_pdg, γ, emin, emax, pl, θmin, θmax, ϕmin, ϕmax, r_injection, l_endcap, seed)
     end
@@ -96,8 +90,8 @@ julia> muon_range(1 PeV)
 ```
 """
 function muon_range(e)
-    da = 0.1777/GeV/mwe
-    db = 2.09*10^-4/mwe
+    da = 0.1777/units[:GeV]/units[:mwe]
+    db = 2.09*10^-4/units[:mwe]
     cd = log(1 + e * da / db) / db
 end
 
@@ -114,8 +108,8 @@ julia> tau_range(1 PeV)
 ```
 """
 function tau_range(e)
-    da = 4.7e-13/GeV/mwe
-    db = 2.63e-5/mwe
+    da = 4.7e-13/units[:GeV]/units[:mwe]
+    db = 2.63e-5/units[:mwe]
     cd = log(1 + e * da / db) / db + muon_range(e)
 end
 
@@ -234,9 +228,9 @@ struct Event
     incoming_track::Track
     outgoing_track::Track
     column_depth::Float64
-    interaction_vertex::TPoint
+    interaction_vertex::SVector{3}
     # These are here for debugging. Will go away eventually
-    p_near::TPoint
+    p_near::SVector{3}
     tr::Track
     λ_int::Float64
 end
@@ -256,23 +250,24 @@ function inject_events(ts::TAMBOSim)
     ψ = rand(ts.n) .* 2π
     # Rotate to plane perpendicular to event direction
     # This is the point of closest approach
-    p_near = TPoint.(perpendicular_plane.(θ, ϕ, b, ψ))
+    p_near = SVector{3}.(perpendicular_plane.(θ, ϕ, b, ψ))
     # Make track from point of closest approach to point of entry
     ti = Track.(p_near, Direction.(θ, ϕ), Ref(ts.geo.box))
     # Make track from point of closest approach to point of exit
     to = Track.(p_near, Direction.(π.-θ, mod.(ϕ.+π, 2π)), Ref(ts.geo.box))
-    ipoint = Tracks.intersect.(ti, Ref(ts.geo.box))
-    fpoint = Tracks.intersect.(to, Ref(ts.geo.box))
+    ipoint = intersect.(ti, Ref(ts.geo.box))
+    fpoint = intersect.(to, Ref(ts.geo.box))
     tr = Track.(ipoint, fpoint)
-    ixs = Tracks.intersect.(tr, ts.geo.valley)
-    tot_cd = total_column_depth.(tr, Ref(ts.geo.valley), ixs=ixs)
+    ixs = intersect.(tr, ts.geo.valley)
+    tot_cd = total_column_depth.(tr, Ref(ts.geo.valley), ixs)
     cd = rand(ts.n) .* tot_cd
     # Calculate the total column seen on the way in and way out
-    ## Find affine parameter where we have traversed proper column depth
+    # Find affine parameter where we have traversed proper column depth
     # This is a really busted way to do this. TODO fix
     #λ_int = inverse_column_depth.(tr, cd, Ref(ts.geo.valley))
-    λ_int = [inverse_column_depth(tr[i], cd[i], ts.geo.valley; ixs=ixs[i]) for i in 1:ts.n]
-    ## Convert affine parameter to a physical location
+    λ_int = inverse_column_depth.(tr, cd, ts.geo.valley, ixs)
+    # Convert affine parameter to a physical location
+    # TODO This feels wrong but I don't know what is right
     p_int = [tr[i](λ_int[i]) for i in eachindex(tr)]
     # Sample an outgoing lepton energy
 
