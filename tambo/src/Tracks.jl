@@ -23,7 +23,8 @@ function Track(fpoint::SVector{3})
     Track(ipoint, fpoint, d, l)
 end
 
-function Track(ipoint::SVector{3}, fpoint::SVector{3})
+function Track(ipoint::SVector{3, T}, fpoint::SVector{3, U}) where {T, U}
+    promote(ipoint, fpoint)
     d = Direction(fpoint, ipoint)
     l = norm(fpoint .- ipoint)
     Track(ipoint, fpoint, d, l)
@@ -80,9 +81,25 @@ function reduce_f(t::Track, f)
 end
 
 function inverse_column_depth(
-    tr::Track, cd, valley; ρ_air=units[:ρ_air0], ρ_rock=units[:ρ_rock0], ixs=Nothing
+    tr::Track,
+    cd,
+    valley;
+    ρ_air=units[:ρ_air0],
+    ρ_rock=units[:ρ_rock0]
 )
-    f(λ) = column_depth(tr, λ, valley; ρ_air=ρ_air, ρ_rock=ρ_rock, ixs=ixs) - cd
+    ixs = intersect(tr, valley)
+    inverse_column_depth(tr, cs, valley, ixs)
+end
+
+function inverse_column_depth(
+    tr::Track,
+    cd,
+    valley,
+    ixs;
+    ρ_air=units[:ρ_air0],
+    ρ_rock=units[:ρ_rock0]
+)
+    f(λ) = column_depth(tr, λ, valley, ixs; ρ_air=ρ_air, ρ_rock=ρ_rock) - cd
     λ_int = find_zero(f, (0,1))
     λ_int
 end
@@ -102,17 +119,15 @@ function Base.intersect(t::Track, v)
     zeros = find_zeros(root_func, 0, 1)
 end
 
+
 function column_depth(
     t,
     λ,
-    valley;
+    valley,
+    ixs;
     ρ_air=units[:ρ_air0],
     ρ_rock=units[:ρ_rock0],
-    ixs=Nothing
 )
-    if ixs==Nothing
-        ixs = intersect(t, valley)
-    end
     ranges = compute_ranges(t, valley, ixs, λ)
     cd = 0units[:mwe]
     for x in ranges
@@ -123,12 +138,33 @@ function column_depth(
     cd
 end
 
+function column_depth(
+    t,
+    λ,
+    valley;
+    ρ_air=units[:ρ_air0],
+    ρ_rock=units[:ρ_rock0],
+)
+    ixs = intersect(t, valley)
+    column_depth(t, λ, valley, ixs)
+end
+
+function total_column_depth(
+    t,
+    valley,
+    ixs;
+    ρ_air=units[:ρ_air0],
+    ρ_rock=units[:ρ_rock0],
+)
+    column_depth(t, 1.0, valley, ixs; ρ_air=ρ_air, ρ_rock=ρ_rock)
+end
+
 function total_column_depth(
     t,
     valley;
     ρ_air=units[:ρ_air0],
     ρ_rock=units[:ρ_rock0],
-    ixs=Nothing
 )
-    column_depth(t, 1, valley, ρ_air=ρ_air, ρ_rock=ρ_rock, ixs=ixs)
+    ixs = intersect(t, valley)
+    total_column_depth(t, valley, ixs; ρ_air=ρ_air, ρ_rock=ρ_rock)
 end

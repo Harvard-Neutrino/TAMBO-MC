@@ -136,18 +136,23 @@ begin
     	LinRange(geo1.box.c1[2], geo1.box.c2[2], 100),
     	geo1.valley,
     	c=cgrad(palette([
-			:skyblue3,
+			 :skyblue3,
 			:skyblue2,
-			:navajowhite3,
-			:navajowhite3,
-			:goldenrod4,
-			:goldenrod4,
-			:olivedrab,
-			:olivedrab,
-			:green,
+			:skyblue2,
+			:skyblue2,
 			:green, 
-			:green,
-			:green
+			:chartreuse4,
+			:chartreuse4,
+			:goldenrod4,
+			:goldenrod4,
+			:goldenrod4,
+			:goldenrod4,
+			:navajowhite3,
+			:white,
+			:white,
+			:white,
+			:white,
+			:white,
 		])),
 		colorbar=false,
 	)
@@ -291,7 +296,7 @@ end
 # ╟─be0950b1-9894-4db0-9b9f-12c77eae3c55
 # ╠═6ae70d11-e5cb-497a-80dc-134a539c3854
 # ╟─ece09865-1b47-4c85-9f8c-53d49906d874
-# ╟─17da74ea-3a82-41f5-8422-c88a52bf71b4
+# ╠═17da74ea-3a82-41f5-8422-c88a52bf71b4
 # ╟─bedf04fa-fffd-468d-8e1b-23d90c0016e5
 # ╟─2a457860-7221-4715-87ab-aacd8b84d68c
 # ╟─7ebf33b9-4aa9-4671-a920-d6886b8cb482
