@@ -34,7 +34,7 @@ mutable struct TAMBOSim
 
     function TAMBOSim()
         n = 0
-        geo = Geometry("/Users/jlazar/research/TAMBO-MC/resources/tambo_spline.npy")
+        geo = Geometry("/Users/jlazar/research/TAMBO-MC/resources/tambo_spline.jld2")
         ν_pdg = 16
         γ = 2
         emin = 1e6units[:GeV]
