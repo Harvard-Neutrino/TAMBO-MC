@@ -39,7 +39,6 @@ function Base.rand(pl::PowerLaw)
         val = (u .* pl.emax .^ mg + (1 .- u) .* pl.emin^mg) .^ (1/mg)
     end
     val
-    #Base.rand(1, pl::PowerLaw)
 end
 
 function Base.rand(n::Int, pl::PowerLaw)

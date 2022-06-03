@@ -106,7 +106,6 @@ assume that TAMBO lies on the mountainOn may optionally specify the amount of
 rock padding below TAMBO with `zdown` and the air padding above with `zup`
 """
 function Geometry(spl, xyoffset::SVector{2}; zdown=3e4units[:m], zup=5e3units[:m])
-    # getindex hack for python spline
     z = spl(xyoffset.x / units[:m], xyoffset.y / units[:m]) * units[:m]
     xyzoffset = SVector{3}([xyoffset.x, xyoffset.y, z])
     Geometry(spl, xyzoffset; zdown=zdown, zup=zup)
