@@ -2,9 +2,7 @@ module Tambo
 
 export TAMBOSim
 
-#include("Particles.jl")
 include("PowerLaws.jl")
-#include("Geometries.jl")
 include("Tracks.jl")
 include("Units.jl")
 
@@ -26,8 +24,6 @@ mutable struct TAMBOSim
     θmax::Float64
     ϕmin::Float64
     ϕmax::Float64
-    #r_injection::Quantity{Float64, Unitful.𝐋}
-    #l_endcap::Quantity{Float64, Unitful.𝐋}
     r_injection::Float64
     l_endcap::Float64
     seed::Int64
@@ -59,16 +55,6 @@ end
 
 function verify_ts!(ts::TAMBOSim)
     change_pl = false
-    #if !=(ts.pl, nothing)
-    #    if ts.emin != ts.pl.emin
-    #        @test_logs (:warn, "Power law lower limits don't match. Will redefine")
-    #        change_pl = true
-    #    end
-    #    if ts.emax != ts.pl.emax
-    #        change_pl = true
-    #        @test_logs (:warn, "Power law upper limits don't match. Will redefine")
-    #    end
-    #end
     if change_pl || ==(ts.pl, nothing)
         ts.pl = PowerLaw(ts.γ, ts.emin, ts.emax)
     end
@@ -156,17 +142,12 @@ julia> sum(pv .* [sin(π/3)cos(5π/4), sin(π/3)sin(5π/4), cos(π/3)])
 -7.105427357601002e-15
 ```
 """
-function perpendicular_plane(θ, ϕ, b, ψ; return_transform=false)
+function perpendicular_plane(θ, ϕ, b, ψ)
     # Construct vector in the plane of normal coordinate system
     bv = SVector{3}([b*cos(ψ), b*sin(ψ), b*0])
     # Make matrix to rotate to perpendicular plane
+    # TODO This seems inefficient
     r = (Rotations.RotX(θ) * RotZ(π/2-ϕ))'
-    # Rotate to perpendicular plane
-    #if return_transform
-    #    return r * bv, r
-    #else
-    #    return r * bv
-    #end
     r * bv
 end
 
@@ -196,7 +177,6 @@ end
 function sample_column_depth(t::Track, ts::TAMBOSim, range)
     tot_X = total_column_depth(t, ts.geo.valley)
     if ti.norm <= ts.l_endcap
-        #println("If you're seeing this a lot the injection region is too big")
         cdi_endcap = cdi
     else
         cdi_endcap = minimum(
@@ -204,7 +184,6 @@ function sample_column_depth(t::Track, ts::TAMBOSim, range)
         )
     end
     if to.norm <= ts.l_endcap
-        #println("If you're seeing this a lot the injection region is too big")
         cdo_endcap = cdo
     else
         cdo_endcap = column_depth(to, ts.l_endcap/to.norm, ts.geo.valley)
@@ -249,7 +228,6 @@ function inject_events(ts::TAMBOSim)
     # Sample angle on disc 
     ψ = rand(ts.n) .* 2π
     # Rotate to plane perpendicular to event direction
-    # This is the point of closest approach
     p_near = SVector{3}.(perpendicular_plane.(θ, ϕ, b, ψ))
     # Make track from point of closest approach to point of entry
     ti = Track.(p_near, Direction.(θ, ϕ), Ref(ts.geo.box))
@@ -261,10 +239,7 @@ function inject_events(ts::TAMBOSim)
     ixs = intersect.(tr, ts.geo.valley)
     tot_cd = total_column_depth.(tr, Ref(ts.geo.valley), ixs)
     cd = rand(ts.n) .* tot_cd
-    # Calculate the total column seen on the way in and way out
     # Find affine parameter where we have traversed proper column depth
-    # This is a really busted way to do this. TODO fix
-    #λ_int = inverse_column_depth.(tr, cd, Ref(ts.geo.valley))
     λ_int = inverse_column_depth.(tr, cd, ts.geo.valley, ixs)
     # Convert affine parameter to a physical location
     # TODO This feels wrong but I don't know what is right
