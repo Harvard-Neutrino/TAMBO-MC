@@ -2,7 +2,7 @@ This will introduce the major components of the TAMBO-MC. All REPL command are w
 
 # Geometry
 
-The geometry contains two major `struct`s, `TPoint` and `Box`. The former is just a cartesian point that has some convenient functionalities added on to it. Idon't know if it is extremely necessary at this point, but we have it and it works so what can you do. The latter defines the generation region for the simulation. They can be used in the following manner.
+The geometry contains two major `struct`s, `TPoint` and `Box`. The former is just a cartesian point that has some convenient functionalities added on to it. I don't know if it is extremely necessary at this point, but we have it and it works so what can you do. The latter defines the generation region for the simulation. They can be used in the following manner.
 
 ```julia
 using Pkg; Pkg.activate(".")
