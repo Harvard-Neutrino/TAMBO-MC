@@ -49,28 +49,17 @@ function Base.intersect(p::SVector{3}, d::Direction, box::Box)
         error("Track does not start inside the box")
     end
     edges = [box.c1, box.c2]
-    #=
-    λ is proportional to the distance the particle propagates
-    We will use distance interchangably with λ
-    =#
-    λf = Inf*units[:m]
+    λf = Inf
     # Iterate over points which define box
     for edge in edges
         # Points where track shares coordinate with box edges
-        # TODO Make ditection have a SVector and fix this
         prop_λs = Vector((edge .- p) ./ d.proj)
+        # Negative λ are backwards moving which is not what we want
         prop_λs[prop_λs .<= 0] .= Inf
-        #= 
-        λ > 0 means the track is moving forward
-        λ < 0 means the track is moving backwards
-        λ = 0 means the tracks starts on an edge of the box
-        We want a forward-going track
-        =#
         λf = minimum((λf, minimum(prop_λs)))
     end
     λf * d .+ p
 end
-∩(p::SVector{3}, d::Direction, b::Box) = intersect(p, d, b)
 
 function Base.reverse(t::Track)
     Track(t.fpoint, t.ipoint)
