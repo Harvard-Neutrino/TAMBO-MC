@@ -73,16 +73,6 @@ function Box(x, y, z)
     Box(c)
 end
 
-function sample(n::Int, b::Box)
-    minxyz = SVector{3}(minimum.(zip(b.c1, b.c2)))
-    [rand(3).*abs.(b.c1.-b.c2).+b.minxyz for _ in 1:n]
-end
-
-function sample(b::Box)
-    minxyz = SVector{3}(minimum.(zip(b.c1, b.c2)))
-    rand(3) .* abs.(b.c1 .- b.c2) .+ minxyz
-end
-
 function is_inside(sv::SVector{3}, b::Box)
     e1 = b.c1
     e2 = b.c2
@@ -124,10 +114,8 @@ end
 
 function Geometry(spl; zdown=3e4units[:m], zup=5e3units[:m])
     knots = spl.tx, spl.ty
-    #knots = spl.get_knots()
     xmin, xmax = minimum(knots[1]) * units[:m], maximum(knots[1]) * units[:m]
     ymin, ymax = minimum(knots[2]) * units[:m], maximum(knots[2]) * units[:m]
-    # If offset not provided, TAMBO lies on the mountain at the xy-midpoint of the spline
     xmid, ymid = (xmax - xmin)/2, (ymax - ymin)/2
     xyzoffset = SVector{3}([
         xmid,
