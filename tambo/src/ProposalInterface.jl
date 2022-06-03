@@ -4,15 +4,18 @@ using PyCall
 using ProgressBars
 using DelimitedFiles
 
-export Particle, make_sector, define_particle, make_medium, make_propagator, propagate_mcp
+export Particle, make_sector, define_particle, make_medium, make_propagator, propagate
 
 pp = pyimport("proposal")
 
 
 # Make this useful
-struct Particle
+mutable struct Particle
     pdg_mc::Int64
-    energy::Float64
+    energy
+    E
+    parent
+    children
 end
 
 function make_sector(medium, start, stop)
@@ -92,6 +95,7 @@ function make_medium(medium)
         # updates detector length
         detector_length += l
         stop = detector_length
+        print(medium)
         push!(sectors,make_sector(rock,start,stop))
     end
 
@@ -101,7 +105,7 @@ function make_medium(medium)
     return sectors, detector_length
 end
 
-function make_propagator(particle, medium, defined=0)
+function make_propagator(particle, medium)
 
     sectors, detector_length = make_medium(medium)
 
@@ -124,9 +128,9 @@ function make_propagator(particle, medium, defined=0)
     
 end
 
-function analyze_secondaries(secondaries)
+function analyze_secondaries(secondaries, parent)
     # decay_products = [p for i,p in zip(range(max(len(particles)-3,0),len(particles)), particles[-3:]) if int(p.type) <= 1000000001]
-    decay_products = Vector()
+    # decay_products = Vector()
 
     lepton_length = Vector{Float64}()
     n_secondaries = Vector{Int64}()
@@ -138,42 +142,30 @@ function analyze_secondaries(secondaries)
 
     for sec in secondaries.particles
 
-        push!(decay_products,sec)
-
         log_sec_energy = log.(10,sec.parent_particle_energy .- sec.energy)
         
-        # 
-        if sec.type == convert(Int64, pp.particle.Interaction_Type.ContinuousEnergyLoss)
-            println("continuous")
-            println(convert(Int64, pp.particle.Interaction_Type.ContinuousEnergyLoss))
+        if sec.type == 1000000001
             push!(continuous, [log_sec_energy, [sec.position.x, sec.position.y, sec.position.z]])
-        end
-        if sec.type == convert(Int64, pp.particle.Interaction_Type.Epair)
-            #println("epair")
-            #println(convert(Int64, pp.particle.Interaction_Type.Epair))
+        elseif sec.type == 1000000004
             push!(epair, [log_sec_energy, [sec.position.x, sec.position.y, sec.position.z]])
-        end
-        if sec.type == convert(Int64, pp.particle.Interaction_Type.Brems)
-            println("brems")
-            println(convert(Int64, pp.particle.Interaction_Type.Brems))
+        elseif sec.type == 1000000002
             push!(brems, [log_sec_energy, [sec.position.x, sec.position.y, sec.position.z]])
-        end
-        if sec.type == convert(Int64, pp.particle.Interaction_Type.DeltaE)
-            #println("DetaE")
-            #println(convert(Int64, pp.particle.Interaction_Type.DeltaE))
+        elseif sec.type == 1000000003
             push!(ioniz, [log_sec_energy, [sec.position.x, sec.position.y, sec.position.z]])
-        end
-        if sec.type == convert(Int64, pp.particle.Interaction_Type.NuclInt)
-            #println("NuclInt")
-            #println(convert(Int64, pp.particle.Interaction_Type.NuclInt))
+        elseif sec.type == 1000000005
             push!(photo,[log_sec_energy, [sec.position.x, sec.position.y, sec.position.z]])
+        elseif sec.type < 1000000001
+            # Should I worry about the angle? is there any way to get it?
+            # child_particle = Particle(sec.type, sec.energy, particle, nothing)
+            push!(particle.children, sec)
+            # push!(decay_products,child_particle)
         end
 
     end
-
+    
     E = Dict("continuous" => continuous, "epair" => epair, "brems" => brems, "ioniz" => ioniz, "photo" => photo)
 
-    return E, decay_products
+    return E
 end
 
 
@@ -204,6 +196,8 @@ function propagate(particle::Particle, energy::Float64, iterations::Int64, mediu
 
     lepton.energy = energy
 
+    # local E
+
     println("\n\nSTARTING PROPAGATION\n\n")
 
     for i in tqdm(1:1:iterations)
@@ -216,11 +210,15 @@ function propagate(particle::Particle, energy::Float64, iterations::Int64, mediu
         # check if the secondaries are long-lived
         secondaries = prop.propagate(lepton)
 
+        # logic to propagate secondaries, if necessary
+
         push!(lepton_length, secondaries.particles[end].position.magnitude())
         
-        global E
-        global decay_products
-        E, decay_products = analyze_secondaries(secondaries)
+        # global E
+        # global decay_products
+        E = analyze_secondaries(secondaries, particle)
+
+        particle.E = E
 
     end
 
@@ -267,17 +265,34 @@ end # module
 
 
 
+
 ##############################################################################################################
 # Muon Range Code
 
-# using .ProposalInterface
-# using Statistics
-# using DelimitedFiles
+using .ProposalInterface
+using Statistics
+using DelimitedFiles
 
-# particle = Particle(1.0,1.0)
-# medium = [(1,1e7)]
-# energy = collect(6:0.5:11)
-# prop = make_propagator(particle,medium)
+particle = Particle(14,1.0, nothing, nothing, [])
+
+# test
+dims = 3
+particulas = Vector{Particle}(undef, dims)
+
+for x in 1:dims
+    particulas[x] = Particle(14,1.0, nothing, nothing, [])
+end
+
+println(particulas)
+
+println(particulas[1] === particulas[2])
+    
+
+readline()
+medium = [(0,1e7),(1,1e7)]
+energy = collect(6:0.5:11)
+
+propagate(particle, 10.0^10, 1, medium)
 
 # energies = Vector{Float64}()
 # range = Vector{Float64}()
