@@ -2,9 +2,9 @@ module Tambo
 
 export TAMBOSim
 
-include("PowerLaws.jl")
-include("Tracks.jl")
-include("Units.jl")
+include("powerLaws.jl")
+include("tracks.jl")
+include("units.jl")
 
 using StaticArrays
 using Rotations
@@ -27,7 +27,7 @@ mutable struct TAMBOSim
     r_injection::Float64
     l_endcap::Float64
     seed::Int64
-
+  
     function TAMBOSim()
         n = 0
         geo = Geometry("/Users/jlazar/research/TAMBO-MC/resources/tambo_spline.jld2")

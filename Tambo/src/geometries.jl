@@ -3,7 +3,7 @@ using StaticArrays
 using JLD2
 using Dierckx
 
-include("Units.jl")
+include("units.jl")
 
 struct Coord{T<:Float64}
     lat::T

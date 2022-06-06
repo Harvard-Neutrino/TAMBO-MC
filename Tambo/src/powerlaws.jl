@@ -1,5 +1,3 @@
-include("Units.jl")
-
 struct PowerLaw
     γ::Float64
     emin::Float64
@@ -31,9 +29,9 @@ end
 function Base.rand(pl::PowerLaw)
     u = Base.rand()
     if pl.γ==1
-        b = (pl.emax * units[:GeV]).val .^ u
-        a = (pl.emin * units[:GeV]).val .^(u.-1)
-        val = b ./ a .* units[:GeV]
+        b = (pl.emax) .^ u
+        a = (pl.emin ) .^(u.-1)
+        val = b ./ a 
     else
         mg = 1-pl.γ
         val = (u .* pl.emax .^ mg + (1 .- u) .* pl.emin^mg) .^ (1/mg)
@@ -44,9 +42,9 @@ end
 function Base.rand(n::Int, pl::PowerLaw)
     u = Base.rand(n)
     if pl.γ==1
-        b = (pl.emax * units[:GeV]).val .^ u
-        a = (pl.emin * units[:GeV]).val .^(u.-1)
-        val = b ./ a .* units[:GeV]
+        b = (pl.emax) .^ u
+        a = (pl.emin) .^(u.-1)
+        val = b ./ a
     else
         mg = 1-pl.γ
         val = (u .* pl.emax .^ mg + (1 .- u) .* pl.emin^mg) .^ (1/mg)

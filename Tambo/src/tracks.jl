@@ -1,5 +1,5 @@
-include("Geometries.jl")
-include("Units.jl")
+include("geometries.jl")
+include("units.jl")
 
 using LinearAlgebra: norm
 using Roots: find_zeros, find_zero
