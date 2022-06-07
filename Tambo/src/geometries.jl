@@ -34,7 +34,7 @@ function Direction(θ, ϕ)
 end
 
 function Direction(x, y, z)
-    proj = SVector{3}([x,y,z] ./ norm((x,y,z)))
+    proj = SVector{3}([x,y,z]) ./ norm((x,y,z))
     θ = acos(proj.z)
     ϕ = atan(proj.y, proj.x)
     Direction(θ, ϕ, proj)
