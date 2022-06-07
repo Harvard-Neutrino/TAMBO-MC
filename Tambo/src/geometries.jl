@@ -138,7 +138,7 @@ amount of rock padding below TAMBO with `zdown` and the air padding above with
 `zup`
 """
 function Geometry(spl, xyzoffset::SVector{3}; zdown=3e4units[:m], zup=5e3units[:m])
-    knots = spl.get_knots()
+    knots = spl.tx, spl.ty
     xmin, xmax = minimum(knots[1]) * units[:m], maximum(knots[1]) * units[:m]
     ymin, ymax = minimum(knots[2]) * units[:m], maximum(knots[2]) * units[:m]
     xyzmin = SVector{3}([xmin-xyzoffset.x, ymin-xyzoffset.y, xyzoffset.z-zdown])
