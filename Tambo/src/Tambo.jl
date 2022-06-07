@@ -76,9 +76,9 @@ julia> muon_range(1 PeV)
 ```
 """
 function muon_range(e)
-    da = 0.1777/units[:GeV]/units[:mwe]
-    db = 2.09*10^-4/units[:mwe]
-    cd = log(1 + e * da / db) / db
+    da = 1.76666667e-1 * units[:GeV] / units[:mwe]
+    db = 2.0916666667e-4 / units[:mwe]
+    cd = log(1 + e * db / da) / db
 end
 
 """
@@ -94,9 +94,9 @@ julia> tau_range(1 PeV)
 ```
 """
 function tau_range(e)
-    da = 4.7e-13/units[:GeV]/units[:mwe]
-    db = 2.63e-5/units[:mwe]
-    cd = log(1 + e * da / db) / db + muon_range(e)
+    da = 1.473684210526e3 * units[:GeV] / units[:mwe]
+    db = 2.63e-5 / units[:mwe]
+    cd = log(1 + e * db / da) / db + muon_range(e)
 end
 
 """
@@ -115,9 +115,9 @@ julia> lepton_range(1 PeV, 14)
 ```
 """
 function lepton_range(e, ν_pdg)
-    if abs(ν_pdg==16)
+    if abs(ν_pdg)==16
         range = tau_range(e)
-    elseif abs(ν_pdg==14)
+    elseif abs(ν_pdg)==14
         range = muon_range(e)
     end
     range
@@ -174,24 +174,16 @@ end
 #    cd, tr
 #end
 
-function sample_column_depth(t::Track, ts::TAMBOSim, range)
-    tot_X = total_column_depth(t, ts.geo.valley)
-    if ti.norm <= ts.l_endcap
-        cdi_endcap = cdi
+function column_depth_endcap(t::Track, ts::TAMBOSim, range::Float64, ixs::Vector)
+    cd = total_column_depth(t, ts.geo.valley)
+    if t.norm <= ts.l_endcap
+        cd_endcap = cd
     else
-        cdi_endcap = minimum(
-            [column_depth(ti, ts.l_endcap/ti.norm, ts.geo.valley) + range, cdi]
+        cd_endcap = minimum(
+            (column_depth(ti, ts.l_endcap/ti.norm, ts.geo.valleyi, isx) + range, cd)
         )
     end
-    if to.norm <= ts.l_endcap
-        cdo_endcap = cdo
-    else
-        cdo_endcap = column_depth(to, ts.l_endcap/to.norm, ts.geo.valley)
-    end
-    cd = rand() * (cdo_endcap + cdi_endcap)
-    cd < cdi_endcap ? tr = ti : tr = to
-    cd = abs(cdi_endcap - cd)
-    cd, tr
+    cd_endcap
 end
 
 function sample_tau_energy(eν, νtype, xs)
@@ -233,9 +225,7 @@ function inject_events(ts::TAMBOSim)
     ti = Track.(p_near, Direction.(θ, ϕ), Ref(ts.geo.box))
     # Make track from point of closest approach to point of exit
     to = Track.(p_near, Direction.(π.-θ, mod.(ϕ.+π, 2π)), Ref(ts.geo.box))
-    ipoint = intersect.(ti, Ref(ts.geo.box))
-    fpoint = intersect.(to, Ref(ts.geo.box))
-    tr = Track.(ipoint, fpoint)
+    cdo = 
     ixs = intersect.(tr, ts.geo.valley)
     tot_cd = total_column_depth.(tr, Ref(ts.geo.valley), ixs)
     cd = rand(ts.n) .* tot_cd
