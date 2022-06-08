@@ -19,6 +19,8 @@ mutable struct Particle
     children::Array{Particle}
 end
 
+const propagators = Dict()
+
 function make_sector(medium, start, stop)
 
     # Defining a Sector
@@ -133,10 +135,15 @@ function analyze_secondaries!(secondaries, parent_particle)
             push!(ioniz, [log_sec_energy, [sec.position.x, sec.position.y, sec.position.z]])
         elseif sec.type == 1000000005
             push!(photo,[log_sec_energy, [sec.position.x, sec.position.y, sec.position.z]])
-        elseif sec.type < 1000000001 && sec.type in [13, 15, -13, -15]
+        elseif sec.type < 1000000001 
             # Should I worry about the angle? is there any way to get it?
-            child = Particle(sec.type, sec.energy, 0.0, 0.0, parent_particle, [])
-            push!(parent_particle.children, child)
+            if sec.type in [13, 15, 11] 
+                child = Particle(sec.type + 1, sec.energy, 0.0, 0.0, parent_particle, [])
+                push!(parent_particle.children, child)
+            elseif sec.type in [-13, -15, -11] 
+                child = Particle(sec.type - 1, sec.energy, 0.0, 0.0, parent_particle, [])
+                push!(parent_particle.children, child)
+            end
         end
 
     end
@@ -146,8 +153,6 @@ function analyze_secondaries!(secondaries, parent_particle)
     E = Dict("continuous" => continuous, "epair" => epair, "brems" => brems, "ioniz" => ioniz, "photo" => photo)
 
     parent_particle.E = E
-    # println(parent_particle.E)
-    # readline()
 
 end
 
@@ -156,22 +161,27 @@ function propagate(particle::Particle, medium = nothing, propagator = nothing)
 
     particle_def = define_particle(particle)
 
-    if propagator == nothing
-        prop = make_propagator(particle,medium)
+    # Stores previous propagators to make code faster
+    if particle.pdg_mc in keys(propagators)
+        prop = propagators[particle.pdg_mc]
     else
-        prop = propagator
+        prop = make_propagator(particle,medium)
+        propagators[particle.pdg_mc] = prop
     end
 
-    # Probably gonna have to fix this.
+    # if propagator == nothing
+    #     prop = make_propagator(particle,medium)
+    #     propagators[particle.pdg_mc] = prop
+    # else
+    #     prop = propagator
+    # end
+
     lepton = pp.particle.DynamicData(particle_def.particle_type)
     lepton.position = pp.Vector3D(0, 0, 0)
     lepton.direction = pp.Vector3D(0, 0, -1)
     lepton.energy = particle.energy
-    # lepton.energy = 1e7
     lepton.propagated_distance = 0.0
     lepton.time = 0.0
-
-    println("\n\nSTARTING PROPAGATION\n\n")
 
     secondaries = prop.propagate(lepton)
 
@@ -180,10 +190,8 @@ function propagate(particle::Particle, medium = nothing, propagator = nothing)
     if length(particle.children) > 0
         for child in particle.children
             propagate(child, medium)
-
         end
     end
-
 end
 
 
@@ -228,26 +236,53 @@ end # module
 
 
 ##############################################################################################################
-# Muon Range Code
+# Test Code
 
 using .ProposalInterface
 using Statistics
-using DelimitedFiles
-using JSON
+using ProgressBars
 
-particle = Particle(12, 10.0^8, nothing, 0.0, nothing, [Particle(14, 10.0^8, nothing, 0.0, nothing, [Particle(14, 10.0^8, nothing, 0.0, nothing, [])])])
-
-particle.children[1].parent = particle
-particle.children[1].children[1].parent = particle.children[1]
-
-
-# test
 medium = [(0,1e7),(1,1e7)]
-# energy = collect(6:0.5:11)
+energies = collect(6:0.5:11)
 
-propagate(particle, medium)
+# const results = Dict()
+# const event = Dict()
+# const event = PropagationEvent(Dict())
 
-display(particle)
+    
+for energy in energies
+    println("@ $energy MeV:")
+
+    # event = PropagationEvent(Dict())
+    for i in tqdm(1:1:200)
+
+        println("   iteration: $i")
+        particle = Particle(14, 10.0^energy, nothing, 0.0, nothing, [])
+        propagate(particle, medium)
+
+        println(particle)
+        # empty!(event)
+        # event[i] = particle
+    end
+    # results[energy] = event
+end
+
+# print(results)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -312,13 +347,3 @@ display(particle)
 
 
 
-
-
-
-
-
-
-
-# for x in 1:dims
-#     particulas[x] = Particle(14,1.0, nothing, nothing, [])
-# end
