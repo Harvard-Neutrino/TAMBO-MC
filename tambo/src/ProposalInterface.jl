@@ -12,10 +12,11 @@ pp = pyimport("proposal")
 # Make this useful
 mutable struct Particle
     pdg_mc::Int64
-    energy
+    energy::Float64
     E
+    range::Float64
     parent
-    children
+    children::Array{Particle}
 end
 
 function make_sector(medium, start, stop)
@@ -78,7 +79,7 @@ function make_medium(medium)
     # Definig sectors from medium (Array) and calculating detector length
     sectors = Vector()
 
-    println("Defining Sectors:")
+    # println("Defining Sectors:")
 
     detector_length = 0.0
     sector_count = 0
@@ -86,21 +87,18 @@ function make_medium(medium)
 
         sector_count += 1
         # detector_length
-        println("Sector $sector_count")
-        println("Rock? $rock")
-        println("Length: $l")
+        # println("Sector $sector_count")
+        # println("Rock? $rock")
+        # println("Length: $l")
 
         # Calculating start and stop points for each sector
         start = detector_length
         # updates detector length
         detector_length += l
         stop = detector_length
-        print(medium)
+        # print(medium)
         push!(sectors,make_sector(rock,start,stop))
     end
-
-    #println(sectors)
-    println("Detector Length: $detector_length")
 
     return sectors, detector_length
 end
@@ -128,12 +126,12 @@ function make_propagator(particle, medium)
     
 end
 
-function analyze_secondaries(secondaries, parent)
+function analyze_secondaries!(secondaries, parent_particle)
     # decay_products = [p for i,p in zip(range(max(len(particles)-3,0),len(particles)), particles[-3:]) if int(p.type) <= 1000000001]
     # decay_products = Vector()
 
-    lepton_length = Vector{Float64}()
-    n_secondaries = Vector{Int64}()
+    # lepton_length = Vector{Float64}()
+    # n_secondaries = Vector{Int64}()
     continuous = Vector{Vector}()
     epair = Vector{Vector}()
     brems = Vector{Vector}()
@@ -154,28 +152,30 @@ function analyze_secondaries(secondaries, parent)
             push!(ioniz, [log_sec_energy, [sec.position.x, sec.position.y, sec.position.z]])
         elseif sec.type == 1000000005
             push!(photo,[log_sec_energy, [sec.position.x, sec.position.y, sec.position.z]])
-        elseif sec.type < 1000000001
+        elseif sec.type < 1000000001 && sec.type in [13, 15, -13, -15]
             # Should I worry about the angle? is there any way to get it?
-            # child_particle = Particle(sec.type, sec.energy, particle, nothing)
-            push!(particle.children, sec)
+            child = Particle(sec.type, sec.energy, 0.0, 0.0, parent_particle, [])
+            push!(parent_particle.children, child)
             # push!(decay_products,child_particle)
         end
 
     end
-    
+
+    parent_particle.range = secondaries.particles[end].position.magnitude()
+
     E = Dict("continuous" => continuous, "epair" => epair, "brems" => brems, "ioniz" => ioniz, "photo" => photo)
 
-    return E
+    parent_particle.E = E
+    # println(parent_particle.E)
+    # readline()
+
 end
 
 
-function propagate(particle::Particle, energy::Float64, iterations::Int64, medium = nothing, propagator = nothing)
-
-    # medium = [(1,0.5e19),(0,0.5e19),(1,0.928e19),(0,0.01289e19),(0,0.1e19)]
-
-    # particle = Particle(1.0,1.0)
+function propagate(particle::Particle, medium = nothing, propagator = nothing)
 
     particle_def = define_particle(particle)
+
     if propagator == nothing
         prop = make_propagator(particle,medium)
     else
@@ -186,46 +186,88 @@ function propagate(particle::Particle, energy::Float64, iterations::Int64, mediu
     lepton = pp.particle.DynamicData(particle_def.particle_type)
     lepton.position = pp.Vector3D(0, 0, 0)
     lepton.direction = pp.Vector3D(0, 0, -1)
+    lepton.energy = particle.energy
     # lepton.energy = 1e7
     lepton.propagated_distance = 0.0
     lepton.time = 0.0
 
     # make this into a dict
 
-    lepton_length = Vector{Float64}()
+    #lepton_length = Vector{Float64}()
 
-    lepton.energy = energy
+    #lepton.energy = energy
 
     # local E
 
     println("\n\nSTARTING PROPAGATION\n\n")
 
-    for i in tqdm(1:1:iterations)
-
         # secondaries = prop.propagate(lepton).particles
         # push!(lepton_length, secondaries[end].position.magnitude()/100.0)
         # push!(n_secondaries, size(secondaries, 1))
 
-        #lepton.energy = e
+        # lepton.energy = e
         # check if the secondaries are long-lived
-        secondaries = prop.propagate(lepton)
+
+    secondaries = prop.propagate(lepton)
 
         # logic to propagate secondaries, if necessary
 
-        push!(lepton_length, secondaries.particles[end].position.magnitude())
-        
-        # global E
-        # global decay_products
-        E = analyze_secondaries(secondaries, particle)
+        # push!(lepton_length, secondaries.particles[end].position.magnitude())
 
-        particle.E = E
+    analyze_secondaries!(secondaries, particle)
 
+    if length(particle.children) > 0
+        for child in particle.children
+            # println(child.pdg_mc)
+            propagate(child, medium)
+
+        end
     end
 
-    event = Dict("range" => lepton_length, "E" => E, "Decay Products" => decay_products)
+    # event = Dict("range" => particle.range, "E" => particle.E)
+    # event = Dict("range" => particle.range, "E" => particle.E, "Decay Products" => particle.children)
 
-    return lepton_length, E, decay_products
 end
+
+
+function Base.show(io::IO, particle::Particle)
+    # base case
+    
+    print(io, 
+    """{
+        "Particle Type" : $(particle.pdg_mc),
+        "Initial Energy" : $(particle.energy),
+        "Range" : $(particle.range),
+        "Energy breakdown" : $(particle.E),
+        "Decay Products" : $(particle.children))
+        }""")
+
+end
+
+# function Base.show(io::IO, particle::Particle)
+
+#     # base case
+#     if particle.children == nothing
+#         print(io, 
+#         """{
+#             "Particle Type" : $(particle.pdg_mc),
+#             "Initial Energy" : $(particle.energy),
+#             "Range" : $(particle.range),
+#             "Energy breakdown" : $(particle.E),
+#             "Decay Products" : []
+#             }""")
+#     else
+#         print(io, 
+#         """{
+#             "Particle Type" : $(particle.pdg_mc),
+#             "Initial Energy" : $(particle.energy),
+#             "Range" : $(particle.range),
+#             "Energy breakdown" : $(particle.E),
+#             "Decay Products" : $(println(particle))
+#             }""")
+#     end
+
+# end
 
 end # module
 
@@ -272,27 +314,46 @@ end # module
 using .ProposalInterface
 using Statistics
 using DelimitedFiles
+using JSON
 
-particle = Particle(14,1.0, nothing, nothing, [])
+particle = Particle(12, 10.0^8, nothing, 0.0, nothing, [Particle(14, 10.0^8, nothing, 0.0, nothing, [Particle(14, 10.0^8, nothing, 0.0, nothing, [])])])
+
+particle.children[1].parent = particle
+particle.children[1].children[1].parent = particle.children[1]
+
 
 # test
-dims = 3
-particulas = Vector{Particle}(undef, dims)
+medium = [(0,1e7),(1,1e7)]
+# energy = collect(6:0.5:11)
 
-for x in 1:dims
-    particulas[x] = Particle(14,1.0, nothing, nothing, [])
+propagate(particle, medium)
+
+display(particle)
+
+
+
+
+function recursive_print(particle::Particle)
+
+    if particle.children == []
+        event = Dict("type" => particle.pdg_mc, "range" => particle.range, "E" => particle.E)
+        println(event)
+
+        if particle.parent != nothing
+            particle.parent.children = setdiff(particle.parent.children, [particle])
+            recursive_print(particle.parent)
+        end
+
+    else
+        # broadcast(recursive_print, particle.children)
+        # recursive_print.(particle.children)
+        for child in particle.children
+            recursive_print(child)
+        end
+    end
 end
 
-println(particulas)
-
-println(particulas[1] === particulas[2])
-    
-
-readline()
-medium = [(0,1e7),(1,1e7)]
-energy = collect(6:0.5:11)
-
-propagate(particle, 10.0^10, 1, medium)
+# recursive_print(particle)
 
 # energies = Vector{Float64}()
 # range = Vector{Float64}()
@@ -329,3 +390,16 @@ propagate(particle, 10.0^10, 1, medium)
 # print(lepton_length)
 # print(n_secondaries)
 # print(E)
+
+
+
+
+
+
+
+
+
+
+# for x in 1:dims
+#     particulas[x] = Particle(14,1.0, nothing, nothing, [])
+# end
