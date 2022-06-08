@@ -72,8 +72,6 @@ function make_medium(medium)
     # Definig sectors from medium (Array) and calculating detector length
     sectors = Vector()
 
-    # println("Defining Sectors:")
-
     detector_length = 0.0
     sector_count = 0
     for (rock,l) in medium
@@ -169,13 +167,6 @@ function propagate(particle::Particle, medium = nothing, propagator = nothing)
         propagators[particle.pdg_mc] = prop
     end
 
-    # if propagator == nothing
-    #     prop = make_propagator(particle,medium)
-    #     propagators[particle.pdg_mc] = prop
-    # else
-    #     prop = propagator
-    # end
-
     lepton = pp.particle.DynamicData(particle_def.particle_type)
     lepton.position = pp.Vector3D(0, 0, 0)
     lepton.direction = pp.Vector3D(0, 0, -1)
@@ -196,7 +187,6 @@ end
 
 
 function Base.show(io::IO, particle::Particle)
-    # base case
     
     print(io, 
     """{
@@ -245,15 +235,10 @@ using ProgressBars
 medium = [(0,1e7),(1,1e7)]
 energies = collect(6:0.5:11)
 
-# const results = Dict()
-# const event = Dict()
-# const event = PropagationEvent(Dict())
-
     
 for energy in energies
     println("@ $energy MeV:")
 
-    # event = PropagationEvent(Dict())
     for i in tqdm(1:1:200)
 
         println("   iteration: $i")
@@ -261,13 +246,9 @@ for energy in energies
         propagate(particle, medium)
 
         println(particle)
-        # empty!(event)
-        # event[i] = particle
     end
-    # results[energy] = event
 end
 
-# print(results)
 
 
 
