@@ -28,27 +28,18 @@ function make_sector(medium, start, stop)
 
     if medium == 1
         sec_def.medium = pp.medium.StandardRock()
-        # leptonon Test only
-        # sec_def.medium = pp.medium.Ice()
-        # println("Ice")
+
     else 
         sec_def.medium = pp.medium.Air()
     end
 
-    # What does this mean? Is this right?
     sec_def.scattering_model = pp.scattering.ScatteringModel.Moliere
 
-    # The way it was
     sec_def.crosssection_defs.brems_def.lpm_effect = true
     sec_def.crosssection_defs.epair_def.lpm_effect = true
     sec_def.cut_settings.ecut = -1.0
     sec_def.cut_settings.vcut = 1e-3
-    # sec_def.crosssection_defs.brems_def.lpm_effect = false
-    # sec_def.crosssection_defs.epair_def.lpm_effect = false
-    # sec_def.cut_settings.ecut = 500
-    # sec_def.cut_settings.vcut = 0.05
 
-    # Again, not sure what this means
     sec_def.do_continuous_randomization = true
     sec_def.crosssection_defs.photo_def.parametrization = pp.parametrization.photonuclear.PhotoParametrization.AbramowiczLevinLevyMaor97
 
@@ -86,17 +77,13 @@ function make_medium(medium)
     for (rock,l) in medium
 
         sector_count += 1
-        # detector_length
-        # println("Sector $sector_count")
-        # println("Rock? $rock")
-        # println("Length: $l")
 
         # Calculating start and stop points for each sector
         start = detector_length
         # updates detector length
         detector_length += l
         stop = detector_length
-        # print(medium)
+
         push!(sectors,make_sector(rock,start,stop))
     end
 
@@ -106,8 +93,6 @@ end
 function make_propagator(particle, medium)
 
     sectors, detector_length = make_medium(medium)
-
-    # particle = Particle(1.0,1.0)
 
     particle_def = define_particle(particle)
 
@@ -127,11 +112,7 @@ function make_propagator(particle, medium)
 end
 
 function analyze_secondaries!(secondaries, parent_particle)
-    # decay_products = [p for i,p in zip(range(max(len(particles)-3,0),len(particles)), particles[-3:]) if int(p.type) <= 1000000001]
-    # decay_products = Vector()
 
-    # lepton_length = Vector{Float64}()
-    # n_secondaries = Vector{Int64}()
     continuous = Vector{Vector}()
     epair = Vector{Vector}()
     brems = Vector{Vector}()
@@ -156,7 +137,6 @@ function analyze_secondaries!(secondaries, parent_particle)
             # Should I worry about the angle? is there any way to get it?
             child = Particle(sec.type, sec.energy, 0.0, 0.0, parent_particle, [])
             push!(parent_particle.children, child)
-            # push!(decay_products,child_particle)
         end
 
     end
@@ -191,41 +171,18 @@ function propagate(particle::Particle, medium = nothing, propagator = nothing)
     lepton.propagated_distance = 0.0
     lepton.time = 0.0
 
-    # make this into a dict
-
-    #lepton_length = Vector{Float64}()
-
-    #lepton.energy = energy
-
-    # local E
-
     println("\n\nSTARTING PROPAGATION\n\n")
 
-        # secondaries = prop.propagate(lepton).particles
-        # push!(lepton_length, secondaries[end].position.magnitude()/100.0)
-        # push!(n_secondaries, size(secondaries, 1))
-
-        # lepton.energy = e
-        # check if the secondaries are long-lived
-
     secondaries = prop.propagate(lepton)
-
-        # logic to propagate secondaries, if necessary
-
-        # push!(lepton_length, secondaries.particles[end].position.magnitude())
 
     analyze_secondaries!(secondaries, particle)
 
     if length(particle.children) > 0
         for child in particle.children
-            # println(child.pdg_mc)
             propagate(child, medium)
 
         end
     end
-
-    # event = Dict("range" => particle.range, "E" => particle.E)
-    # event = Dict("range" => particle.range, "E" => particle.E, "Decay Products" => particle.children)
 
 end
 
@@ -241,49 +198,11 @@ function Base.show(io::IO, particle::Particle)
         "Energy breakdown" : $(particle.E),
         "Decay Products" : $(particle.children))
         }""")
-
 end
-
-# function Base.show(io::IO, particle::Particle)
-
-#     # base case
-#     if particle.children == nothing
-#         print(io, 
-#         """{
-#             "Particle Type" : $(particle.pdg_mc),
-#             "Initial Energy" : $(particle.energy),
-#             "Range" : $(particle.range),
-#             "Energy breakdown" : $(particle.E),
-#             "Decay Products" : []
-#             }""")
-#     else
-#         print(io, 
-#         """{
-#             "Particle Type" : $(particle.pdg_mc),
-#             "Initial Energy" : $(particle.energy),
-#             "Range" : $(particle.range),
-#             "Energy breakdown" : $(particle.E),
-#             "Decay Products" : $(println(particle))
-#             }""")
-#     end
-
-# end
 
 end # module
 
 
-# using .ProposalInterface
-# using Statistics
-# using DelimitedFiles
-
-# particle = Particle(14,1.0)
-# medium = [(1,1e7)]
-# energy = collect(6:0.5:11)
-# prop = make_propagator(particle,medium)
-
-# lepton_length, E, decay_products = ProposalInterface.propagate(particle, 1e7, 1, medium, prop)
-
-# print(decay_products[end].type)
 
 
 
@@ -333,25 +252,25 @@ display(particle)
 
 
 
-function recursive_print(particle::Particle)
+# function recursive_print(particle::Particle)
 
-    if particle.children == []
-        event = Dict("type" => particle.pdg_mc, "range" => particle.range, "E" => particle.E)
-        println(event)
+#     if particle.children == []
+#         event = Dict("type" => particle.pdg_mc, "range" => particle.range, "E" => particle.E)
+#         println(event)
 
-        if particle.parent != nothing
-            particle.parent.children = setdiff(particle.parent.children, [particle])
-            recursive_print(particle.parent)
-        end
+#         if particle.parent != nothing
+#             particle.parent.children = setdiff(particle.parent.children, [particle])
+#             recursive_print(particle.parent)
+#         end
 
-    else
-        # broadcast(recursive_print, particle.children)
-        # recursive_print.(particle.children)
-        for child in particle.children
-            recursive_print(child)
-        end
-    end
-end
+#     else
+#         # broadcast(recursive_print, particle.children)
+#         # recursive_print.(particle.children)
+#         for child in particle.children
+#             recursive_print(child)
+#         end
+#     end
+# end
 
 # recursive_print(particle)
 
