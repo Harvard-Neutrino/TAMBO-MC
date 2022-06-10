@@ -2,8 +2,6 @@ struct PowerLaw
     γ::Float64
     emin::Float64
     emax::Float64
-    #emin::Quantity{Float64, Unitful.𝐋^2*Unitful.𝐌 /Unitful.𝐓^2}
-    #emax::Quantity{Float64, Unitful.𝐋^2*Unitful.𝐌 /Unitful.𝐓^2}
     norm
     function PowerLaw(γ, emin, emax)
         """
