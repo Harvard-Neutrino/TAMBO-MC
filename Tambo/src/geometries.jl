@@ -5,6 +5,13 @@ using Dierckx
 
 include("units.jl")
 
+defaults = (
+    zup=5units.km,
+    zdown=50units.km,
+    depth1=12units.km,
+    depth2=21.4units.km
+)
+
 struct Coord{T<:Float64}
     lat::T
     long::T
@@ -27,13 +34,14 @@ struct Direction
     proj::SVector{3, Float64}
 end
 
-function Direction(θ, ϕ)
+function Direction(θ::T, ϕ::U) where {T,U<:Number}
     θ, ϕ = Float64(θ), Float64(ϕ)
     proj = SVector{3}([cos(ϕ)*sin(θ), sin(ϕ)*sin(θ), cos(θ)])
     Direction(θ, ϕ, proj)
 end
 
-function Direction(x, y, z)
+function Direction(x::T, y::U, z::V) where {T,U,V<:Number}
+    x, y, z = promote(x, y, z)
     proj = SVector{3}([x,y,z]) ./ norm((x,y,z))
     θ = acos(proj.z)
     ϕ = atan(proj.y, proj.x)
@@ -73,7 +81,7 @@ function Box(x, y, z)
     Box(c)
 end
 
-function is_inside(sv::SVector{3}, b::Box)
+function inside(sv::SVector{3}, b::Box)
     e1 = b.c1
     e2 = b.c2
     s = sign.(e2 .- e1)
@@ -81,8 +89,8 @@ function is_inside(sv::SVector{3}, b::Box)
     is_in
 end
 
-is_inside(x, y, z, f::Function) = z < f(x, y)
-is_inside(sv::SVector{3}, f::Function) = is_inside(sv[1], sv[2], sv[3], f)
+inside(x, y, z, f::Function) = z < f(x, y)
+inside(sv::SVector{3}, f::Function) = inside(sv.x, sv.y, sv[3], f)
 
 function load_spline(p, key="spline")
     f = jldopen(p, "r")
@@ -94,24 +102,38 @@ struct Geometry
     valley::Function
     box::Box
     tambo_offset::SVector{3}
+    ρair::Float64
+    ρrock::Float64
+    zboundaries::Vector{Float64}    
+    ρs::Vector{Float64}
 end
 
-"""
-    Geometry(spl, xyoffset; zdown=3e4m, zup=5e3m)
-
-Function for creating a `Geometry`` structure using from `spl``, a spline object,
-and `xyoffset``, the offset between the TAMBO coordinate system in which TAMBO
-is at (0,0,0) and the spline coordinate system. With this function, we will
-assume that TAMBO lies on the mountainOn may optionally specify the amount of
-rock padding below TAMBO with `zdown` and the air padding above with `zup`
-"""
-function Geometry(spl, xyoffset::SVector{2}; zdown=3e4units[:m], zup=5e3units[:m])
-    z = spl(xyoffset.x / units[:m], xyoffset.y / units[:m]) * units[:m]
-    xyzoffset = SVector{3}([xyoffset.x, xyoffset.y, z])
-    Geometry(spl, xyzoffset; zdown=zdown, zup=zup)
+function Geometry(
+    spl,
+    xyzoffset::SVector{3},
+    depths::Vector,
+    ρs::Vector,
+    zdown=defaults.zdown,
+    zup=defaults.zup
+)
+    knots = spl.tx, spl.ty
+    xmin, xmax = minimum(knots[1]) * units[:m], maximum(knots[1]) * units[:m]
+    ymin, ymax = minimum(knots[2]) * units[:m], maximum(knots[2]) * units[:m]
+    xyzmin = SVector{3}([xmin-xyzoffset.x, ymin-xyzoffset.y, -zdown])
+    xyzmax = SVector{3}([xmax-xyzoffset.x, ymax-xyzoffset.y, zup])
+    valley(x, y) = valley_helper(x, y, xyzoffset, spl)
+    b = Box(xyzmin, xyzmax)
+    zboundaries = -xyzoffset.z .- depths
+    Geometry(valley, b, xyzoffset, units.ρair0, units.ρrock0, zboundaries, ρs)
 end
 
-function Geometry(spl; zdown=3e4units[:m], zup=5e3units[:m])
+function Geometry(
+    spl,
+    depths::Vector,
+    ρs::Vector,
+    zdown=defaults.zdown,
+    zup=defaults.zup,
+)
     knots = spl.tx, spl.ty
     xmin, xmax = minimum(knots[1]) * units[:m], maximum(knots[1]) * units[:m]
     ymin, ymax = minimum(knots[2]) * units[:m], maximum(knots[2]) * units[:m]
@@ -121,31 +143,41 @@ function Geometry(spl; zdown=3e4units[:m], zup=5e3units[:m])
         ymid,
         evaluate(spl, xmid / units[:m], ymid / units[:m]) * units[:m]
     ])
-    xyzmin = [xmin-xyzoffset.x, ymin-xyzoffset.y, -zdown]
-    xyzmax = [xmax-xyzoffset.x, ymax-xyzoffset.y, zup]
-    valley(x, y) = valley_helper(x, y, xyzoffset, spl)
-    b = Box(xyzmin, xyzmax)
-    Geometry(valley, b, xyzoffset)
+    Geometry(spl, xyzoffset, depths, ρs)
 end
 
-"""
-    Geometry(spl, xyoffset; zdown=3e4m, zup=5e3m)
+function Geometry(
+    spl,
+    xyoffset::SVector{2},
+    zdown=defaults.zdown,
+    zup=defaults.zup, 
+)
+    depths = []
+    ρs = []
+    Geometry(spl, xyoffset, depths, ρs, zdown=zdown, zup=zup)
+end
 
-Function for creating a `Geometry`` structure using from `spl``, a spline object,
-and `xyzoffset``, the offset between the TAMBO coordinate system in which TAMBO
-is at (0,0,0) and the spline coordinate system. On may optionally specify the
-amount of rock padding below TAMBO with `zdown` and the air padding above with
-`zup`
-"""
-function Geometry(spl, xyzoffset::SVector{3}; zdown=3e4units[:m], zup=5e3units[:m])
-    knots = spl.tx, spl.ty
-    xmin, xmax = minimum(knots[1]) * units[:m], maximum(knots[1]) * units[:m]
-    ymin, ymax = minimum(knots[2]) * units[:m], maximum(knots[2]) * units[:m]
-    xyzmin = SVector{3}([xmin-xyzoffset.x, ymin-xyzoffset.y, xyzoffset.z-zdown])
-    xyzmax = SVector{3}([xmax-xyzoffset.x, ymax-xyzoffset.y, xyzoffset.z+zup])
-    valley(x, y) = valley_helper(x, y, xyzoffset, spl)
-    b = Box(xyzmin, xyzmax)
-    Geometry(valley, b, xyzoffset)
+function Geometry(
+    spl,
+    zdown=defaults.zdown,
+    zup=defaults.zup,
+)
+    depths = []
+    ρs = []
+    Geometry(spl, depths, ρs)
+end
+
+function Geometry(
+    spl,
+    xyoffset::SVector{2},
+    depths::Vector,
+    ρs::Vector,
+    zdown=3e4units[:m],
+    zup=5e3units[:m], 
+)
+    z = spl(xyoffset.x / units[:m], xyoffset.y / units[:m]) * units[:m]
+    xyzoffset = SVector{3}([xyoffset.x, xyoffset.y, z])
+    Geometry(spl, xyzoffset, depths, ρs, zdown=zdown, zup=zup)
 end
 
 function Geometry(spl_path::String)
