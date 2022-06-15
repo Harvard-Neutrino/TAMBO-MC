@@ -109,7 +109,7 @@ struct Geometry
 end
 
 function Geometry(
-    spl,
+    spl::Dierckx.Spline2D,
     xyzoffset::SVector{3},
     depths::Vector,
     ρs::Vector,
@@ -128,7 +128,7 @@ function Geometry(
 end
 
 function Geometry(
-    spl,
+    spl::Dierckx.Spline2D,
     depths::Vector,
     ρs::Vector,
     zdown=defaults.zdown,
@@ -147,7 +147,7 @@ function Geometry(
 end
 
 function Geometry(
-    spl,
+    spl::Dierckx.Spline2D,
     xyoffset::SVector{2},
     zdown=defaults.zdown,
     zup=defaults.zup, 
@@ -158,7 +158,7 @@ function Geometry(
 end
 
 function Geometry(
-    spl,
+    spl::Dierckx.Spline2D,
     zdown=defaults.zdown,
     zup=defaults.zup,
 )
@@ -168,12 +168,12 @@ function Geometry(
 end
 
 function Geometry(
-    spl,
+    spl::Dierckx.Spline2D,
     xyoffset::SVector{2},
     depths::Vector,
     ρs::Vector,
-    zdown=3e4units[:m],
-    zup=5e3units[:m], 
+    zdown=defaults.zup,
+    zup=defaults.zdown, 
 )
     z = spl(xyoffset.x / units[:m], xyoffset.y / units[:m]) * units[:m]
     xyzoffset = SVector{3}([xyoffset.x, xyoffset.y, z])
