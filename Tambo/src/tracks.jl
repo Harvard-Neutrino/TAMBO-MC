@@ -61,7 +61,7 @@ function Base.intersect(t::Track, b::Box)
     intersect(t.ipoint, t.direction, b)
 end
 
-function Base.intersect(t::Tambo.Track, z::Float64)
+function Base.intersect(t::Track, z::Float64)
     Δz = t.fpoint.z - t.ipoint.z
     root = (z-t.ipoint.z) / Δz
     if root < 0

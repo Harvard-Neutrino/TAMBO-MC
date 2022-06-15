@@ -5,10 +5,12 @@ export TAMBOSim
 include("powerLaws.jl")
 include("tracks.jl")
 include("units.jl")
+include("crosssections.jl")
 
 using StaticArrays
 using Rotations
 using Random
+using StatsBase: sample
 
 mutable struct TAMBOSim
     n::Int
@@ -25,10 +27,11 @@ mutable struct TAMBOSim
     r_injection::Float64
     l_endcap::Float64
     seed::Int64
+    diff_xs::DifferentialXS
   
     function TAMBOSim()
         n = 0
-        geo = Geometry("/Users/jlazar/research/TAMBO-MC/resources/tambo_spline.jld2")
+        geo = Geometry("$(@__DIR__)/../../resources/tambo_spline.jld2")
         ν_pdg = 16
         γ = 2
         emin = 1e6units[:GeV]
@@ -41,7 +44,11 @@ mutable struct TAMBOSim
         r_injection = 900units[:m]
         l_endcap = 1units[:km]
         seed = 0
-        new(n, geo, ν_pdg, γ, emin, emax, pl, θmin, θmax, ϕmin, ϕmax, r_injection, l_endcap, seed)
+        diff_xs = DifferentialXS(
+            "$(@__DIR__)/../../resources/cross_sections/tables/csms_differential.h5",
+            ν_pdg
+        )
+        new(n, geo, ν_pdg, γ, emin, emax, pl, θmin, θmax, ϕmin, ϕmax, r_injection, l_endcap, seed, diff_xs)
     end
 end
 
@@ -53,7 +60,7 @@ end
 
 function verify_ts!(ts::TAMBOSim)
     ts.pl = PowerLaw(ts.γ, ts.emin, ts.emax)
-    abs(ts.ν_pdg) ∈ [14, 16] || throw(ErrorException, "invalid ν_pdg. must be in [±14, ±16]")
+    abs(ts.ν_pdg) ∈ [14, 16] || error("invalid ν_pdg. must be in [±14, ±16]")
 end
 
 """
@@ -124,10 +131,6 @@ function endcapcolumndepth(t::Track, l_endcap::Float64, range::Float64, ranges::
     cd_endcap
 end
 
-function sample_tau_energy(eν, νtype, xs)
-
-end
-
 struct Event
     e::Float64
     θ::Float64
@@ -182,7 +185,7 @@ function inject_event(ts::TAMBOSim)
     # Convert affine parameter to a physical location
     p_int = tr(λ_int)
     # Sample an outgoing lepton energy
-
+    e_τ = sample(ts.diff_xs, e)
     ## Make a list of media that the lepton sample_properties
     ## Pass to Jorge's function
     ## Pass PROPOSAL output to CORSIKA
