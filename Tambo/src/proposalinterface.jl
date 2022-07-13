@@ -1,22 +1,11 @@
-module ProposalInterface
-
 using PyCall
-using ProgressBars
+#using ProgressBars
 using DelimitedFiles
 
-export Particle, make_sector, define_particle, make_medium, make_propagator, propagate
+#export Particle, make_sector, define_particle, make_medium, make_propagator, propagate
 
 pp = pyimport("proposal")
 
-
-mutable struct Particle
-    pdg_mc::Int64
-    energy::Float64
-    E
-    range::Float64
-    parent
-    children::Array{Particle}
-end
 
 const propagators = Dict()
 
@@ -35,17 +24,15 @@ function make_sector(medium, start, stop)
     end
 
     sec_def.scattering_model = pp.scattering.ScatteringModel.Moliere
-
     sec_def.crosssection_defs.brems_def.lpm_effect = true
     sec_def.crosssection_defs.epair_def.lpm_effect = true
     sec_def.cut_settings.ecut = -1.0
     sec_def.cut_settings.vcut = 1e-3
-
     sec_def.do_continuous_randomization = true
-    sec_def.crosssection_defs.photo_def.parametrization = pp.parametrization.photonuclear.PhotoParametrization.AbramowiczLevinLevyMaor97
-
-    return sec_def
-
+    sec_def.crosssection_defs.photo_def.parametrization = (
+        pp.parametrization.photonuclear.PhotoParametrization.AbramowiczLevinLevyMaor97
+    )
+    sec_def
 end
 
 
@@ -58,17 +45,13 @@ function define_particle(particle::Particle)
         12 => :(pp.particle.EMinusDef()),
         -12 => :(pp.particle.EPlusDef())
     )
-    # {16: 'TauMinusDef', -16: 'TauPlusDef',
-    #          14: 'MuMinusDef',  -14: 'MuPlusDef',
-    #          12: 'EMinusDef',   -12: 'EPlusDef',}
-
-    return eval(particles[particle.pdg_mc])
+    eval(particles[particle.pdg_mc])
 end
 
 
 function make_medium(medium)
 
-    # Definig sectors from medium (Array) and calculating detector length
+    # Defining sectors from medium (Array) and calculating detector length
     sectors = Vector()
 
     detector_length = 0.0
@@ -112,11 +95,7 @@ end
 
 function analyze_secondaries!(secondaries, parent_particle)
 
-    continuous = Vector{Vector}()
-    epair = Vector{Vector}()
-    brems = Vector{Vector}()
-    ioniz = Vector{Vector}()
-    photo = Vector{Vector}()
+    losses = [[], [], [], [], []]
 
     for sec in secondaries.particles
 
@@ -141,11 +120,14 @@ function analyze_secondaries!(secondaries, parent_particle)
                 child = Particle(sec.type - 1, sec.energy, 0.0, 0.0, parent_particle, [])
                 push!(parent_particle.children, child)
             end
+        else
+            println("$(sec.type)")
         end
+        
 
     end
 
-    parent_particle.range = secondaries.particles[end].position.magnitude()
+    parent_particle.final_vertex = SVector{3}(secondaries.particles[end].position)
 
     E = Dict("continuous" => continuous, "epair" => epair, "brems" => brems, "ioniz" => ioniz, "photo" => photo)
 
@@ -196,5 +178,3 @@ function Base.show(io::IO, particle::Particle)
         "Decay Products" : $(particle.children))
         }""")
 end
-
-end # module
