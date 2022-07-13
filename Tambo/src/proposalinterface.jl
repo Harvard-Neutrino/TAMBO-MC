@@ -2,10 +2,9 @@ using PyCall
 #using ProgressBars
 using DelimitedFiles
 
-#export Particle, make_sector, define_particle, make_medium, make_propagator, propagate
+export Particle, make_sector, define_particle, make_medium, make_propagator, propagate, vector3D
 
 pp = pyimport("proposal")
-
 
 const propagators = Dict()
 
@@ -16,11 +15,10 @@ function make_sector(medium, start, stop)
 
     sec_def.geometry = pp.geometry.Sphere(pp.Vector3D(), stop, start)
 
-    if medium == 1
-        sec_def.medium = pp.medium.StandardRock()
-
+    if medium[1] == 1
+        sec_def.medium = pp.medium.StandardRock(medium[2])
     else 
-        sec_def.medium = pp.medium.Air()
+        sec_def.medium = pp.medium.Air([medium[2]])
     end
 
     sec_def.scattering_model = pp.scattering.ScatteringModel.Moliere
@@ -48,6 +46,9 @@ function define_particle(particle::Particle)
     eval(particles[particle.pdg_mc])
 end
 
+function vector3D(vector)
+    return pp.Vector3D(vector[1], vector[2], vector[3])
+end
 
 function make_medium(medium)
 
@@ -56,17 +57,17 @@ function make_medium(medium)
 
     detector_length = 0.0
     sector_count = 0
-    for (rock,l) in medium
+    for (composition,l) in medium
 
         sector_count += 1
 
-        # Calculating start and stop points for each sector
+        # Calculate start and stop points for each sector
         start = detector_length
-        # updates detector length
+        # update detector length
         detector_length += l
         stop = detector_length
 
-        push!(sectors,make_sector(rock,start,stop))
+        push!(sectors,make_sector(composition,start,stop))
     end
 
     return sectors, detector_length
@@ -87,7 +88,7 @@ function make_propagator(particle, medium)
 
     propagator = pp.Propagator(particle_def=particle_def, 
                         sector_defs=sectors,
-                        detector=pp.geometry.Sphere(pp.Vector3D(),detector_length, 0),# How do I choose the radius? Sum of Lengths?
+                        detector=pp.geometry.Sphere(pp.Vector3D(),detector_length, 0),
                         interpolation_def=interpolation_def)
     return propagator
     
@@ -114,10 +115,10 @@ function analyze_secondaries!(secondaries, parent_particle)
         elseif sec.type < 1000000001 
             # Should I worry about the angle? is there any way to get it?
             if sec.type in [13, 15, 11] 
-                child = Particle(sec.type + 1, sec.energy, 0.0, 0.0, parent_particle, [])
+                child = Particle(sec.type + 1, sec.energy, sec.position, sec.direction, 0.0, 0.0, parent_particle, [])
                 push!(parent_particle.children, child)
             elseif sec.type in [-13, -15, -11] 
-                child = Particle(sec.type - 1, sec.energy, 0.0, 0.0, parent_particle, [])
+                child = Particle(sec.type - 1, sec.energy, sec.position, sec.direction, 0.0, 0.0, parent_particle, [])
                 push!(parent_particle.children, child)
             end
         else
@@ -129,9 +130,9 @@ function analyze_secondaries!(secondaries, parent_particle)
 
     parent_particle.final_vertex = SVector{3}(secondaries.particles[end].position)
 
-    E = Dict("continuous" => continuous, "epair" => epair, "brems" => brems, "ioniz" => ioniz, "photo" => photo)
+    E_final = Dict("continuous" => continuous, "epair" => epair, "brems" => brems, "ioniz" => ioniz, "photo" => photo)
 
-    parent_particle.E = E
+    parent_particle.E_final = E_final
 
 end
 
@@ -140,8 +141,11 @@ function propagate(particle::Particle, medium = nothing, propagator = nothing)
 
     particle_def = define_particle(particle)
 
+    if propagator != nothing
+        prop = propagator
+
     # Stores previous propagators to make code faster
-    if particle.pdg_mc in keys(propagators)
+    elseif particle.pdg_mc in keys(propagators)
         prop = propagators[particle.pdg_mc]
     else
         prop = make_propagator(particle,medium)
@@ -149,9 +153,11 @@ function propagate(particle::Particle, medium = nothing, propagator = nothing)
     end
 
     lepton = pp.particle.DynamicData(particle_def.particle_type)
-    lepton.position = pp.Vector3D(0, 0, 0)
-    lepton.direction = pp.Vector3D(0, 0, -1)
-    lepton.energy = particle.energy
+    # lepton.position = pp.Vector3D(0, 0, 0)
+    # lepton.direction = pp.Vector3D(0, 0, -1)
+    lepton.position = particle.position
+    lepton.direction = particle.direction
+    lepton.energy = particle.Eᵢ
     lepton.propagated_distance = 0.0
     lepton.time = 0.0
 
@@ -172,9 +178,92 @@ function Base.show(io::IO, particle::Particle)
     print(io, 
     """{
         "Particle Type" : $(particle.pdg_mc),
-        "Initial Energy" : $(particle.energy),
+        "Initial Energy" : $(particle.Eᵢ),
         "Range" : $(particle.range),
-        "Energy breakdown" : $(particle.E),
+        "Energy breakdown" : $(particle.E_final),
         "Decay Products" : $(particle.children))
         }""")
+<<<<<<< HEAD
 end
+=======
+end
+
+end # module
+
+##############################################################################################################
+# EXAMPLE CODE
+
+# using .ProposalInterface
+# using Statistics
+# using ProgressBars
+
+# medium = [(0,1e7),(1,1e7)]
+# energies = collect(6:0.5:11)
+
+    
+# for energy in energies
+#     println("@ $energy MeV:")
+
+#     for i in tqdm(1:1:200)
+
+#         particle = Particle(14, 10.0^energy, vector3D([0 0 0]), vector3D([0 0 -1])  ,nothing, 0.0, nothing, [])
+#         propagate(particle, medium)
+#         # println(particle)
+#     end
+# end
+
+##############################################################################################################
+# MUON RANGES CODE
+
+using .ProposalInterface
+using Statistics
+using ProgressBars
+using DelimitedFiles
+
+# medium = [((0,1.0),1e7),((1,1.0),1e7)]
+medium = [((1,1.0),1e10)]
+energies = collect(6:0.25:11)
+
+results_dir = "/n/home08/jgarciaponce/Results/proposalinterface"
+# results_file = "muon_range_stdrock.csv"
+
+
+
+Results = Dict()
+for energy in energies
+    println("@ $energy MeV:")
+
+    ranges = []
+
+    for i in tqdm(1:1:1000)
+
+        particle = Particle(14, 10.0^energy, vector3D([0 0 0]), vector3D([0 0 -1])  ,nothing, 0.0, nothing, [])
+        propagate(particle, medium)
+        push!(ranges, particle.range)
+
+        # println(particle)
+    end
+
+    Results[energy] = ranges
+
+    results_file = "muon_range_stdrock_@$(energy).csv"
+
+    results_path = results_dir * "/" * results_file
+
+    mean_range = mean(ranges)
+    standard_deviation = std(ranges)
+
+    writedlm(results_path,  ranges, ',')
+
+    println("""
+
+    Mean Range: $(mean_range)
+    Sigma : $(standard_deviation)
+
+    Saved to file: $(results_path)
+
+    """)
+
+end
+
+>>>>>>> 0f9de35378c7ce033f0478ca7199cd4ab716ad4f
