@@ -6,6 +6,7 @@ include("powerLaws.jl")
 include("tracks.jl")
 include("units.jl")
 include("crosssections.jl")
+include("particles.jl")
 
 using StaticArrays
 using Rotations
@@ -91,33 +92,6 @@ function perpendicular_plane(θ, ϕ, b, ψ)
     r * bv
 end
 
-"""
-    lepton_range(e, is_tau)
-
-Compute the 99.9% column depth for a lepton with energy `e` using parametrization
-from https://doi.org/10.1016/j.cpc.2021.108018. If `is_tau` is true false this
-is the range for a μ. If `is_tau` is true, the range for a τ is added to that of
-a μ
-
-# Example
-```julia-repl
-julia> lepton_range(1units.PeV, false) / units.mwe
-
-julia> lepton_range(1units.PeV, true) / units.mwe
-
-```
-"""
-function lepton_range(e::Float64, is_tau::Bool)   
-    αμ = 1.76666667e-1 * units[:GeV] / units[:mwe]
-    βμ = 2.0916666667e-4 / units[:mwe]
-    range = log(1 + e * βμ / αμ) / βμ
-    if is_tau
-        ατ = 1.473684210526e3 * units[:GeV] / units[:mwe]
-        βτ = 2.63e-5 / units[:mwe]
-        range += log(1 + e * βτ / ατ) / βτ
-    end
-    range
-end
 
 function endcapcolumndepth(t::Track, l_endcap::Float64, range::Float64, ranges::Vector)
     cd = totalcolumndepth(t, ranges)
@@ -186,10 +160,12 @@ function inject_event(ts::TAMBOSim)
     p_int = tr(λ_int)
     # Sample an outgoing lepton energy
     e_τ = sample(ts.diff_xs, e)
-    ## Make a list of media that the lepton sample_properties
-    ## Pass to Jorge's function
-    ## Pass PROPOSAL output to CORSIKA
+    # Outgoing track
+    texit = Track(p_int, Direction(π-θ, mod(ϕ+π, 2π)), ts.geo.box)
+    # Pass to Jorge's function
+    # Pass PROPOSAL output to CORSIKA
     Event(e, θ, ϕ, b, ψ, ti, to, cd, p_int, p_near, tr, λ_int)
+    #Event(e, θ, ϕ, b, ψ, ti, to, cd, p_int, p_near, tr, λ_int, e_τ), texit
 end
 
 
