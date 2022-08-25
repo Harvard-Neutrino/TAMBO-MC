@@ -19,8 +19,7 @@ begin
 	using StaticArrays
 	Pkg.activate("/Users/jlazar/research/TAMBO-MC/tambo/")
 	tambo_path = abspath("../../tambo/src/")
-	include(joinpath(tambo_path, "Tracks.jl"))
-	include(joinpath(tambo_path, "Units.jl"))
+	using Tambo
 end
 
 # ╔═╡ 17cfa11b-041c-44ab-8361-ed99fe068a03
@@ -47,7 +46,7 @@ First, if we pass in a single point, this will be taken as the end point of the 
 # ╔═╡ dccb675d-0fd6-409b-a528-4e6ce51991b5
 begin
 	end_point = SVector{3}([1, 2, 3])
-	t1 = Track(end_point)
+	t1 = Tambo.Track(end_point)
 end
 
 # ╔═╡ 99f23374-b1bc-4597-9b4c-4964f981236d
@@ -58,7 +57,7 @@ Next, if we pass in two points, the first point will be taken to be the starting
 # ╔═╡ 9b68b3ea-f68a-4aaf-b0b4-5b40ee268460
 begin
 	init_point = SVector{3}([-1.0, -2.0, -3.0])
-	t2 = Track(init_point, end_point)
+	t2 = Tambo.Track(init_point, end_point)
 end
 
 # ╔═╡ a9c492ba-7611-48db-b9a5-af2be86b07ca
@@ -68,10 +67,10 @@ Lastly, we can define a track by specificying an initial point, initial directio
 
 # ╔═╡ 519d9549-a817-491a-b37c-851b8699f266
 begin
-	d = Direction(π/2, 13π/12)
-	spl = load_spline(tambo_path * "../../resources/tambo_spline.npy")
-	geo = Geometry(spl)
-	t3 = Track(init_point, d, geo.box)
+	d = Tambo.Direction(π/2, 13π/12)
+	spl = load_spline(tambo_path * "../../resources/tambo_spline.jld2")
+	geo = Tambo.Geometry(spl)
+	t3 = Tambo.Track(init_point, d, geo.box)
 end
 
 # ╔═╡ a74ae89e-250d-4620-b17c-45c86d329b12
@@ -127,7 +126,7 @@ Now, let's take a look at what happens when we plop a `Track` into the TAMBO `Ge
 
 # ╔═╡ 16e7e5e7-a054-4aaf-95f5-86fb707318db
 begin
-	total_column_depth(t3, geo.valley) / units[:mwe]
+	Tambo.totalcolumndepth(t3, geo) / units[:mwe]
 end
 
 # ╔═╡ 5b81ea74-62af-4b63-8dc9-f94195492e13
@@ -152,20 +151,20 @@ md"""
 """
 
 # ╔═╡ 7943180c-b01a-4ad4-a78d-c0d0c09a5847
-@bind zenith2 Slider(0:180)
+@bind zenith2 Slider(0:180, show_value=true, default=85)
 
 # ╔═╡ 339acc0b-5288-46e3-9ae3-cf5bf2aaba9f
-@bind azimuth2 Slider(0:360)
+@bind azimuth2 Slider(0:360, show_value=true, default=175)
 
 # ╔═╡ 9cefadb8-8fd3-4d90-9596-a1b06838ec3b
 begin
-	d1 = Direction(zenith2*pi/180, azimuth2*pi/180)
-	t4 = Track(init_point, d1, geo.box)
+	d1 = Tambo.Direction(zenith2*pi/180, azimuth2*pi/180)
+	t4 = Tambo.Track(init_point, d1, geo.box)
 	md"Affine parameter"
 end
 
 # ╔═╡ ab0e8923-84be-4f8b-ac20-e84d710f6de8
-@bind λcut Slider(LinRange(0, 1, 101), default=0.0, show_value=true)
+@bind λcut Slider(LinRange(0, 1, 101), default=1.0, show_value=true)
 
 # ╔═╡ 08448d04-3ebf-4fdc-ba17-76acaabea827
 begin
@@ -175,19 +174,24 @@ begin
     	LinRange(geo.box.c1[2], geo.box.c2[2], 100),
     	geo.valley,
     	c=cgrad(palette([
-			:skyblue3,
-			:skyblue2,
-			:navajowhite3,
-			:navajowhite3,
-			:goldenrod4,
-			:goldenrod4,
-			:olivedrab,
-			:olivedrab,
-			:green,
-			:green, 
-			:green,
-			:green
-		])),
+        :skyblue3,
+        :skyblue2,
+        :skyblue2,
+        :skyblue2,
+        :green, 
+        :chartreuse4,
+        :chartreuse4,
+        :goldenrod4,
+        :goldenrod4,
+        :goldenrod4,
+        :goldenrod4,
+        :navajowhite3,
+        :white,
+        :white,
+        :white,
+        :white,
+        :white,
+	    ])),
 		colorbar=false,
 	)
 	plot!(ax, camera=(azimuth1, declination1), zlim=(-1e10, 2.53387e10))
@@ -200,7 +204,7 @@ begin
 		getindex.(t, 2 ),
 		getindex.(t, 3 ),
 		line_z=λλ,
-		c=cgrad(:acton),
+		c=cgrad(:rainbow),
 		clim=(0,1),
 		lw=2,
 		legend=false
@@ -214,7 +218,7 @@ Is the `Track` inside the mountain ?
 """
 
 # ╔═╡ 0ac14b31-28db-4829-9441-657f7fb42212
-is_inside(t4(λcut), geo.valley)
+Tambo.inside(t4(λcut), geo.valley)
 
 # ╔═╡ a7a120e9-d2a3-4d78-95a0-5841a14bf884
 md"""
@@ -223,8 +227,11 @@ Column depth so far (mwe)
 
 # ╔═╡ a9aaf6ce-2759-4611-8018-9e7eaf2a882c
 begin
-	column_depth(t4, λcut, geo.valley) / units[:mwe]
+	Tambo.columndepth(t4, λcut, geo) / units[:mwe]
 end
+
+# ╔═╡ 39419e4e-9812-4cbb-bbf3-d4e0664993b4
+
 
 # ╔═╡ 734c4fc7-98cf-4344-8b33-3f27d705c617
 
@@ -275,7 +282,8 @@ end
 # ╟─0ac14b31-28db-4829-9441-657f7fb42212
 # ╟─a7a120e9-d2a3-4d78-95a0-5841a14bf884
 # ╟─a9aaf6ce-2759-4611-8018-9e7eaf2a882c
-# ╟─08448d04-3ebf-4fdc-ba17-76acaabea827
+# ╠═08448d04-3ebf-4fdc-ba17-76acaabea827
+# ╠═39419e4e-9812-4cbb-bbf3-d4e0664993b4
 # ╠═734c4fc7-98cf-4344-8b33-3f27d705c617
 # ╟─950def7e-1a76-470c-8609-64ae95ccaea7
 # ╠═04580e99-0cd4-42f3-9806-1e049cf0c15e

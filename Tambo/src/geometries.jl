@@ -113,9 +113,11 @@ function Geometry(
     xyzoffset::SVector{3},
     depths::Vector,
     ρs::Vector,
-    zdown=defaults.zdown,
-    zup=defaults.zup
+    # zdown=defaults.zdown,
+    # zup=defaults.zup
 )
+    zup = defaults.zup
+    zdown = defaults.zdown
     knots = spl.tx, spl.ty
     xmin, xmax = minimum(knots[1]) * units[:m], maximum(knots[1]) * units[:m]
     ymin, ymax = minimum(knots[2]) * units[:m], maximum(knots[2]) * units[:m]
@@ -131,8 +133,8 @@ function Geometry(
     spl::Dierckx.Spline2D,
     depths::Vector,
     ρs::Vector,
-    zdown=defaults.zdown,
-    zup=defaults.zup,
+    # zdown=defaults.zdown,
+    # zup=defaults.zup,
 )
     knots = spl.tx, spl.ty
     xmin, xmax = minimum(knots[1]) * units[:m], maximum(knots[1]) * units[:m]
@@ -149,18 +151,18 @@ end
 function Geometry(
     spl::Dierckx.Spline2D,
     xyoffset::SVector{2},
-    zdown=defaults.zdown,
-    zup=defaults.zup, 
+    # zdown=defaults.zdown,
+    # zup=defaults.zup, 
 )
     depths = []
     ρs = []
-    Geometry(spl, xyoffset, depths, ρs, zdown=zdown, zup=zup)
+    Geometry(spl, xyoffset, depths, ρs)
 end
 
 function Geometry(
     spl::Dierckx.Spline2D,
-    zdown=defaults.zdown,
-    zup=defaults.zup,
+    # zdown=defaults.zdown,
+    # zup=defaults.zup,
 )
     depths = []
     ρs = []
@@ -172,12 +174,12 @@ function Geometry(
     xyoffset::SVector{2},
     depths::Vector,
     ρs::Vector,
-    zdown=defaults.zup,
-    zup=defaults.zdown, 
+    # zdown=defaults.zup,
+    # zup=defaults.zdown, 
 )
     z = spl(xyoffset.x / units[:m], xyoffset.y / units[:m]) * units[:m]
     xyzoffset = SVector{3}([xyoffset.x, xyoffset.y, z])
-    Geometry(spl, xyzoffset, depths, ρs, zdown=zdown, zup=zup)
+    Geometry(spl, xyzoffset, depths, ρs)
 end
 
 function Geometry(spl_path::String)

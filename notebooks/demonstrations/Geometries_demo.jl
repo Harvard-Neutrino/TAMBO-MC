@@ -15,10 +15,11 @@ end
 
 # ╔═╡ d260f8b0-d780-11ec-1e84-695ebd7b2393
 begin
-	tambo_path = "/Users/jlazar/research/TAMBO-MC/tambo/src/"
+	tambo_path = abspath("../../Tambo/")
 	using Pkg
 	Pkg.activate(tambo_path)
-	include(joinpath(tambo_path, "Geometries.jl"))
+	using Tambo
+	units = Tambo.units
 end
 
 # ╔═╡ 78fb3deb-4202-4e91-96b3-b89fbd99eaf4
@@ -39,14 +40,14 @@ Most of the TAMBO geometries rest on top of the `StaticArrays.SVector`. This is 
 begin
 	v1 = rand(3)
 	v2 = rand(3)
-	@benchmark v1 .+ v2
+	@benchmark $v1 .+ $v2
 end
 
 # ╔═╡ 109b282a-c156-48fe-a29d-ab543ec1a298
 begin
 	sv1 = SVector{3}(rand(3))
 	sv2 = SVector{3}(rand(3))
-	@benchmark sv1 .+ sv2
+	@benchmark $sv1 .+ $sv2
 end
 
 # ╔═╡ f489b8e0-1f5d-45f7-b5c3-03f09a5ef968
@@ -58,7 +59,7 @@ We also define our own class called a direction, which contains the zenith angle
 begin
 	θ = π/3
 	ϕ = π/4
-	d = Direction(θ, ϕ)
+	d = Tambo.Direction(θ, ϕ)
 end
 
 # ╔═╡ c48ccde2-e02e-44dd-9b4a-400bae03b1ab
@@ -70,7 +71,7 @@ We are also able to define a `Box` which defines the region where we will consid
 begin
 	c0 = [2,5,9]
 	c1 = [-2, -5, -9]
-	b = Box(c0, c1)
+	b = Tambo.Box(c0, c1)
 end
 
 # ╔═╡ 617a55f9-4d41-45a3-b386-04aeafef1f18
@@ -81,13 +82,13 @@ We may often want to know if points are inside or outside a `Box`
 # ╔═╡ f28c2ca0-e241-4e02-bfc2-445688c81bc6
 begin
 	pt0 = SVector{3}([0, 0, 0])
-	is_inside(pt0, b)
+	Tambo.inside(pt0, b)
 end
 
 # ╔═╡ 5e8a10d6-e5b6-4d48-9d46-45608b096d61
 begin
 	pt1 = SVector{3}([0, 10, 0])
-	is_inside(pt1, b)
+	Tambo.inside(pt1, b)
 end
 
 # ╔═╡ 14c3bea4-5ce7-4b14-a40b-830b247ac708
@@ -97,8 +98,8 @@ We make the actual Geometry, which has a spline of the Colca valley in the `vall
 
 # ╔═╡ 38ac33c5-a9e6-40cd-9244-afd6547f6488
 begin
-	spl = load_spline(tambo_path * "../../resources/tambo_spline.npy")
-	geo1 = Geometry(spl)
+	spl = Tambo.load_spline(joinpath(tambo_path, "../resources/tambo_spline.jld2"))
+	geo1 = Tambo.Geometry(spl)
 end
 
 # ╔═╡ 59344208-d1b1-498f-ab00-56c67b2dd1c3
@@ -112,7 +113,7 @@ TAMBO is always at the center of the coordinate system, and since we placed it o
 """
 
 # ╔═╡ c04d426a-0e52-4d5b-a0a2-0b16c4688e93
-geo1(0units[:m], 0units[:m]) / units[:m]
+geo1(0units.m, 0units.m) / units.m
 
 # ╔═╡ 80705622-261a-4c5f-b8a6-adaa403c157c
 geo1(100units[:m], 100units[:m]) / units[:m]
@@ -148,11 +149,11 @@ begin
 			:goldenrod4,
 			:goldenrod4,
 			:navajowhite3,
-			:white,
-			:white,
-			:white,
-			:white,
-			:white,
+			:snow,
+			:snow,
+			:snow,
+			:snow,
+			:snow,
 		])),
 		colorbar=false,
 	)
@@ -167,8 +168,8 @@ Another way to construct a geometry is to specify only the xy-offset of TAMBO. I
 
 # ╔═╡ c15f9b51-2710-4a47-9eb9-5d064d2f87ac
 begin
-	xyoffset = SVector{2}([12500units[:m], 12000units[:m]])
-	geo2 = Geometry(spl, xyoffset)
+	xyoffset = SVector{2}([21000units.m, 7800units.m])
+	geo2 = Tambo.Geometry(spl, xyoffset)
 end
 
 # ╔═╡ be0950b1-9894-4db0-9b9f-12c77eae3c55
@@ -197,18 +198,23 @@ begin
     	LinRange(geo2.box.c1[2], geo2.box.c2[2], 100),
     	geo2.valley,
     	c=cgrad(palette([
-			:skyblue3,
+			 :skyblue3,
 			:skyblue2,
-			:navajowhite3,
-			:navajowhite3,
-			:goldenrod4,
-			:goldenrod4,
-			:olivedrab,
-			:olivedrab,
-			:green,
+			:skyblue2,
+			:skyblue2,
 			:green, 
-			:green,
-			:green
+			:chartreuse4,
+			:chartreuse4,
+			:goldenrod4,
+			:goldenrod4,
+			:goldenrod4,
+			:goldenrod4,
+			:navajowhite3,
+			:snow,
+			:snow,
+			:snow,
+			:snow,
+			:snow,
 		])),
 		colorbar=false,
 	)
@@ -224,7 +230,7 @@ Lastly, we can tell the code directly where to put the TAMBO offset. This is use
 # ╔═╡ d5207b17-556f-43ed-b4f4-34c69b47cd3e
 begin
 	xyzoffset = SVector{3}([8000units[:m], 12000units[:m], 3000units[:m]])
-	geo3 = Geometry(spl, xyzoffset)
+	geo3 = Tambo.Geometry(spl, xyzoffset, [], [])
 end
 
 # ╔═╡ 2808c118-d4d2-48fc-a162-a2fbae5bec4f
@@ -248,23 +254,112 @@ begin
     	LinRange(geo3.box.c1[2], geo3.box.c2[2], 100),
     	geo3.valley,
     	c=cgrad(palette([
-			:skyblue3,
+			 :skyblue3,
 			:skyblue2,
-			:navajowhite3,
-			:navajowhite3,
-			:goldenrod4,
-			:goldenrod4,
-			:olivedrab,
-			:olivedrab,
-			:green,
+			:skyblue2,
+			:skyblue2,
 			:green, 
-			:green,
-			:green
+			:chartreuse4,
+			:chartreuse4,
+			:goldenrod4,
+			:goldenrod4,
+			:goldenrod4,
+			:goldenrod4,
+			:navajowhite3,
+			:snow,
+			:snow,
+			:snow,
+			:snow,
+			:snow,
 		])),
 		colorbar=false,
 	)
 	plot!(ax3, camera=(azimuth3, declination3))
 	scatter3d!(ax3, [0], [0], [0], markershape=:star, label="TAMBO", markersize=7)
+end
+
+# ╔═╡ 3114bc13-e1d7-49dc-be93-7fc39d57bdc3
+md"""
+Now let's start trying to put this dumb plane in place...
+"""
+
+# ╔═╡ 0b384862-3c76-41ea-aaf3-c2e5bb84faba
+@bind azimuth4 Slider(0:90; show_value=true, default=15)
+
+# ╔═╡ b14094c0-7660-4906-b7b3-ce0548d67efa
+@bind declination4 Slider(0:90 ; show_value=true, default=65)
+
+# ╔═╡ 6dc21de4-6c3b-40a9-a370-6ea5cb3eb60b
+begin
+	ax4 = surface(
+    	LinRange(geo2.box.c1[1], geo2.box.c2[1], 100),
+    	LinRange(geo2.box.c1[2], geo2.box.c2[2], 100),
+    	geo2.valley,
+    	c=cgrad(palette([
+			:skyblue3,
+			:skyblue2,
+			:skyblue2,
+			:skyblue2,
+			:green, 
+			:chartreuse4,
+			:chartreuse4,
+			:goldenrod4,
+			:goldenrod4,
+			:goldenrod4,
+			:goldenrod4,
+			:navajowhite3,
+			:snow,
+			:snow,
+			:snow,
+			:snow,
+			:snow,
+		])),
+		colorbar=false,
+	)
+	plot!(ax4, [0, -2000units.m], [0, 2800units.m], [0,0], arrow=true, lw=3)
+	plot!(
+		ax4,
+		LinRange(-2000units.m, 2000units.m, 50) .* cos(atan(-28/20)+π/4),
+		LinRange(-2000units.m, 2000units.m, 50) .* sin(atan(-28/20)+π/4),
+		zeros(50),
+		lw=3
+	)
+	plot!(
+		ax4,
+		LinRange(-2000units.m, 2000units.m, 50) .* cos(atan(-28/20)-π/4),
+		LinRange(-2000units.m, 2000units.m, 50) .* sin(atan(-28/20)-π/4),
+		zeros(50),
+		lw=3
+	)
+	plot!(ax4, camera=(azimuth4, declination4))
+	plot!(draw_arrow=true)
+	# scatter3d!(ax4, [0], [0], [0], markershape=:star, label="TAMBO", markersize=7)
+end
+
+# ╔═╡ 6254ea7a-4030-4300-a504-2fd14f815df9
+LinRange(-2000units.m, -2000units.m, 50) .* cos(atan(-28/25))
+
+# ╔═╡ f538411a-a1f0-4d04-be4a-3669738ff309
+# Green
+one_way = geo2.(
+	LinRange(-3000units.m, 3000units.m, 50) .* cos(atan(-28/20)+π/4),
+	LinRange(-3000units.m, 3000units.m, 50) .* sin(atan(-28/20)+π/4)
+)
+
+# ╔═╡ 0dc59f85-d0dc-44c7-8a52-a8f3ab8e7b2c
+# Pink
+other_way = geo2.(
+	LinRange(-3000units.m, 3000units.m, 50) .* cos(atan(-28/20)-π/4),
+	LinRange(-3000units.m, 3000units.m, 50) .* sin(atan(-28/20)-π/4)
+)
+
+# ╔═╡ de066bc6-b102-4da7-a267-d60d861a57af
+begin
+	using Plots: plot
+	plot(
+		LinRange(-2000units.m, 2000units.m, 50),
+		other_way
+	)
 end
 
 # ╔═╡ Cell order:
@@ -296,9 +391,9 @@ end
 # ╟─be0950b1-9894-4db0-9b9f-12c77eae3c55
 # ╠═6ae70d11-e5cb-497a-80dc-134a539c3854
 # ╟─ece09865-1b47-4c85-9f8c-53d49906d874
-# ╠═17da74ea-3a82-41f5-8422-c88a52bf71b4
+# ╟─17da74ea-3a82-41f5-8422-c88a52bf71b4
 # ╟─bedf04fa-fffd-468d-8e1b-23d90c0016e5
-# ╟─2a457860-7221-4715-87ab-aacd8b84d68c
+# ╠═2a457860-7221-4715-87ab-aacd8b84d68c
 # ╟─7ebf33b9-4aa9-4671-a920-d6886b8cb482
 # ╠═d5207b17-556f-43ed-b4f4-34c69b47cd3e
 # ╟─2808c118-d4d2-48fc-a162-a2fbae5bec4f
@@ -306,3 +401,11 @@ end
 # ╟─6377ae93-1557-425f-9bad-46121d32779f
 # ╟─a356899f-fbe3-44f7-a981-e118bd3b6dc5
 # ╟─112bcacd-4bb4-4147-9531-0136e3cb5f43
+# ╟─3114bc13-e1d7-49dc-be93-7fc39d57bdc3
+# ╟─0b384862-3c76-41ea-aaf3-c2e5bb84faba
+# ╟─b14094c0-7660-4906-b7b3-ce0548d67efa
+# ╠═6dc21de4-6c3b-40a9-a370-6ea5cb3eb60b
+# ╠═6254ea7a-4030-4300-a504-2fd14f815df9
+# ╠═f538411a-a1f0-4d04-be4a-3669738ff309
+# ╠═0dc59f85-d0dc-44c7-8a52-a8f3ab8e7b2c
+# ╠═de066bc6-b102-4da7-a267-d60d861a57af
