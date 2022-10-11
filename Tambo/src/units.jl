@@ -1,4 +1,5 @@
 const units = (
+    MeV = 1e6,
     GeV = 1e9,
     TeV = 1e12,
     PeV = 1e15,
