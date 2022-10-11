@@ -1,12 +1,20 @@
-mutable struct Particle
+struct Particle
     pdg_mc::Int64
     energy::Float64
-    init_position::SVector{3}
-    final_position::SVector{3}
-    direction::SVector{2}
-    losses::Vector{Vector}
+    position::SVector{3}
+    direction::Direction
     parent::Union{Particle, Nothing}
-    children::Array{Particle}
+end
+
+function Base.show(io::IO, particle::Particle)
+    
+    s = """{
+        "Particle Type" : $(particle.pdg_mc),
+        "Initial Energy (GeV)" : $(particle.energy / units.GeV),
+        "Initial Position (m)" : $(particle.position / units.m),
+        "Direction" : $(particle.direction),
+    }"""
+    print(io, s)
 end
 
 """
