@@ -1,10 +1,3 @@
-include("geometries.jl")
-include("units.jl")
-
-using LinearAlgebra: norm
-using Roots: find_zeros, find_zero
-using StaticArrays
-
 struct Track{T<:Number}
     ipoint::SVector{3, T}
     fpoint::SVector{3, T}
@@ -93,6 +86,51 @@ function reduce_f(t::Track, f)
     g(λ) = f(t(λ).x, t(λ).y)
 end
 
+struct Range
+    λstart::Float64
+    λwidth::Float64
+    pstart::SVector{3}
+    length::Float64
+    density::Float64
+    medium_name::String
+end
+
+function Range(
+    λstart::Float64,
+    λwidth::Float64,
+    t::Track, 
+    density::Float64
+)
+
+    pstart = t(λstart)
+    width = t.norm * λwidth
+    # I'm sorry whoever finds this....
+    medium_name = density > 1 ? "StandardRock" : "Air"
+    range = Range(
+        λstart,
+        λwidth,
+        pstart,
+        width,
+        density,
+        medium_name
+    )
+    return range
+end
+
+function Base.show(io::IO, r::Range)
+    print(
+        io,
+        """
+        λstart: $(r.λstart)
+        λwidth: $(r.λwidth)
+        pstart (m): $(r.pstart / units.m)
+        width (m): $(r.length / units.m)
+        density (g/cm^3): $(r.density / (units.gr / units.cm^3))
+        medium_name: $(r.medium_name)
+        """
+    )
+end
+
 function inversecolumndepth(tr::Track, cd::T, g::Geometry) where {T<:Number}
     ranges = computeranges(tr, g)
     inversecolumndepth(tr, cs, valley, ranges)
@@ -107,9 +145,10 @@ end
 function computeranges(t::Track, g::Geometry, ixs)
     rgen = vcat(0, ixs, 1)
     ranges = [
-        (x[1], x[2]-x[1], getdensity(t((x[1]+x[2])/2), g))
+        Range(x[1], x[2]-x[1], t, getdensity(t((x[1]+x[2])/2), g))
         for x in zip(rgen[1:end-1], rgen[2:end])
     ]
+    return ranges
 end
 
 function computeranges(t::Track, g::Geometry)
@@ -126,19 +165,25 @@ function getdensity(p::SVector{3}, g::Geometry)
     else
         ρ = g.ρrock
     end
-    ρ
+    return ρ
 end
 
 function columndepth(t::Track, λ::T, ranges::Vector) where {T<:Number}
-    ranges = [r for r in ranges if r[1]<λ]
+    ranges = [r for r in ranges if r.λstart<λ]
     if length(ranges)>0
-        ranges[end] = (ranges[end][1], λ - ranges[end][1], ranges[end][3])
+        endrange = ranges[end]
+        ranges[end] = Range(
+            endrange.λstart, 
+            λ - endrange.λstart,
+            t,
+            endrange.density
+        )
     end
     cd = 0units[:mwe]
-    for (_, width, ρ) in ranges
-        cd += width * t.norm * ρ
+    for r in ranges
+        cd += r.length * r.density
     end
-    cd
+    return cd
 end
 
 function columndepth(t::Track, λ::T, g::Geometry) where {T<:Number}
