@@ -1,10 +1,3 @@
-using LinearAlgebra:norm
-using StaticArrays
-using JLD2
-using Dierckx
-
-include("units.jl")
-
 defaults = (
     zup=5units.km,
     zdown=50units.km,
@@ -55,6 +48,16 @@ end
 function Direction(ip::SVector{3}, fp::SVector{3})
     Direction(ip .- fp)
 end
+
+function Direction(pp_vector::PyObject)
+    Direction(
+        pp_vector.x,
+        pp_vector.y,
+        pp_vector.z,
+    )
+end
+
+Base.reverse(d::Direction) = Direction(-d.proj...)
 
 Base.:/(sv::SVector{3}, d::Direction) = sv ./ d.proj
 Base.:*(m, d::Direction) = m.*d.proj
@@ -113,8 +116,6 @@ function Geometry(
     xyzoffset::SVector{3},
     depths::Vector,
     ρs::Vector,
-    # zdown=defaults.zdown,
-    # zup=defaults.zup
 )
     zup = defaults.zup
     zdown = defaults.zdown
@@ -133,8 +134,6 @@ function Geometry(
     spl::Dierckx.Spline2D,
     depths::Vector,
     ρs::Vector,
-    # zdown=defaults.zdown,
-    # zup=defaults.zup,
 )
     knots = spl.tx, spl.ty
     xmin, xmax = minimum(knots[1]) * units[:m], maximum(knots[1]) * units[:m]
@@ -151,8 +150,6 @@ end
 function Geometry(
     spl::Dierckx.Spline2D,
     xyoffset::SVector{2},
-    # zdown=defaults.zdown,
-    # zup=defaults.zup, 
 )
     depths = []
     ρs = []
@@ -161,8 +158,6 @@ end
 
 function Geometry(
     spl::Dierckx.Spline2D,
-    # zdown=defaults.zdown,
-    # zup=defaults.zup,
 )
     depths = []
     ρs = []
@@ -174,8 +169,6 @@ function Geometry(
     xyoffset::SVector{2},
     depths::Vector,
     ρs::Vector,
-    # zdown=defaults.zup,
-    # zup=defaults.zdown, 
 )
     z = spl(xyoffset.x / units[:m], xyoffset.y / units[:m]) * units[:m]
     xyzoffset = SVector{3}([xyoffset.x, xyoffset.y, z])
