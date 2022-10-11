@@ -1,269 +1,222 @@
-using PyCall
-#using ProgressBars
-using DelimitedFiles
+"""
+This fake function wrapping is necessary to prevent PROPOSAL being
+a PyNull object. I don't know what that means or why this stops it
+https://discourse.jullialang.org/t/can-we-import-dill-in-pycall-rather-than-pickle
+As per this discussion, pyimports are cached so this shouldn't cause
+a performance hit
+"""
+pp() = pyimport("proposal")
 
-export Particle, make_sector, define_particle, make_medium, make_propagator, propagate, vector3D
+propagators = Dict()
 
-pp = pyimport("proposal")
-
-const propagators = Dict()
-
-function make_sector(medium, start, stop)
-
-    # Defining a Sector
-    sec_def = pp.SectorDefinition()
-
-    sec_def.geometry = pp.geometry.Sphere(pp.Vector3D(), stop, start)
-
-    if medium[1] == 1
-        sec_def.medium = pp.medium.StandardRock(medium[2])
-    else 
-        sec_def.medium = pp.medium.Air([medium[2]])
+struct Loss
+    int_type::Int64
+    energy::Float64
+    position::SVector{3,Float64}
+    function Loss(i, e, p)
+        return new(i, e, p)
     end
+end
 
-    sec_def.scattering_model = pp.scattering.ScatteringModel.Moliere
-    sec_def.crosssection_defs.brems_def.lpm_effect = true
-    sec_def.crosssection_defs.epair_def.lpm_effect = true
-    sec_def.cut_settings.ecut = -1.0
-    sec_def.cut_settings.vcut = 1e-3
-    sec_def.do_continuous_randomization = true
-    sec_def.crosssection_defs.photo_def.parametrization = (
-        pp.parametrization.photonuclear.PhotoParametrization.AbramowiczLevinLevyMaor97
+function Loss(int_type::Int, e::Float64, position::PyObject)
+    position = SVector{3}([position.x, position.y, position.z])
+    return Loss(int_type, e, position)
+end
+
+function Base.show(io::IO, l::Loss)
+    return print(
+        io,
+        """
+        "Interaction Type" : $(l.int_type),
+        "Energy (GeV)" : $(l.energy / units.GeV)
+        "Position (m)" : $(l.position ./ units.m)
+        """,
     )
-    sec_def
 end
 
+struct ProposalResult
+    losses::Vector{Loss}
+    did_decay::Bool
+    decay_products::Vector{Particle}
+    final_pos::SVector{3}
+    final_lepton_energy::Float64
+end
 
-function define_particle(particle::Particle)
-    particles = Dict(
-        16 => :(pp.particle.TauMinusDef()),
-        -16 => :(pp.particle.TauPlusDef()),
-        14 => :(pp.particle.MuMinusDef()),
-        -14 => :(pp.particle.MuPlusDef()),
-        12 => :(pp.particle.EMinusDef()),
-        -12 => :(pp.particle.EPlusDef())
+function ProposalResult(pos)
+    losses = Loss[]
+    did_decay = false
+    decay_products = Particle[]
+    return ProposalResult(losses, did_decay, decay_products, pos)
+end
+
+function ProposalResult(secondaries, parent_particle)
+    losses = Loss[]
+    for sec in secondaries.stochastic_losses()
+        int_type = sec.type
+        sec_e = sec.energy
+        sec_e = sec.energy * units.MeV
+        pos = position_from_pp_vector(sec.position)
+        l = Loss(int_type, sec_e, pos)
+        push!(losses, l)
+    end
+
+    children = Particle[]
+    for product in secondaries.decay_products()
+        pdg_code = product.type
+        energy = product.energy * units.MeV
+        position = position_from_pp_vector(product.position)
+        direction = Direction(product.direction)
+        parent = parent_particle
+        child = Particle(pdg_code, energy, position, direction, parent)
+        push!(children, child)
+    end
+    did_decay = length(children) > 0
+    final_pos = position_from_pp_vector(secondaries.final_state().position)
+    final_e = secondaries.final_state().energy * units.MeV
+    return ProposalResult(losses, did_decay, children, final_pos, final_e)
+end
+
+function show(io::IO, result::ProposalResult)
+    print(
+        io,
+        """
+        losses: $(result.losses)
+        did_decay: $(result.did_decay)
+        decay_products: $(result.decay_products)
+        final_pos (m): $(result.final_pos / units.m)
+        final_lepton_energy (GeV): $(result.final_lepton_energy / units.GeV)
+        """
     )
-    eval(particles[particle.pdg_mc])
 end
 
-function vector3D(vector)
-    return pp.Vector3D(vector[1], vector[2], vector[3])
+function pp_particle_def(particle::Particle)
+    charged_lepton_dict = Dict(
+        15 => pp().particle.TauMinusDef(),
+        -15 => pp().particle.TauPlusDef(),
+        13 => pp().particle.MuMinusDef(),
+        -13 => pp().particle.MuPlusDef(),
+        11 => pp().particle.EMinusDef(),
+        -11 => pp().particle.EPlusDef(),
+    )
+    return charged_lepton_dict[particle.pdg_mc]
 end
 
-function make_medium(medium)
+function position_from_pp_vector(pp_vector)
+    return SVector{3}([pp_vector.x, pp_vector.y, pp_vector.z]) .* units.cm
+end
 
-    # Defining sectors from medium (Array) and calculating detector length
-    sectors = Vector()
+"""
+    make_pp_vector(v::SVector{3})
 
-    detector_length = 0.0
-    sector_count = 0
-    for (composition,l) in medium
+TBW
+"""
+function make_pp_vector(v::SVector{3})
+    v = v ./ units.cm
+    return pp().Cartesian3D(v)
+end
 
-        sector_count += 1
+function make_pp_direction(d::Direction)
+    return pp().Cartesian3D(d.proj)
+end
 
-        # Calculate start and stop points for each sector
-        start = detector_length
-        # update detector length
-        detector_length += l
-        stop = detector_length
+function make_pp_crosssection(particle_def, medium_name)
+    target = getproperty(pp().medium, medium_name)()
+    interpolate = true
+    ecut = 50
+    vcut = 1e-2
+    cuts = pp().EnergyCutSettings(ecut, vcut, false)
+    cross = pp().crosssection.make_std_crosssection(;
+        particle_def=particle_def, target=target, interpolate=interpolate, cuts=cuts
+    )
+    return cross
+end
 
-        push!(sectors,make_sector(composition,start,stop))
+function make_pp_utility(particle_def, cross)
+    collection = pp().PropagationUtilityCollection()
+
+    collection.displacement = pp().make_displacement(cross, true)
+    collection.interaction = pp().make_interaction(cross, true)
+    collection.time = pp().make_time(cross, particle_def, true)
+    collection.decay = pp().make_decay(cross, particle_def, true)
+
+    utility = pp().PropagationUtility(; collection=collection)
+    return utility
+end
+
+function make_pp_geometry(start, end_)
+    return pp().geometry.Sphere(pp().Cartesian3D(), end_ / units.cm, start / units.cm)
+end
+
+function make_pp_density_distribution(density)
+    return pp().density_distribution.density_homogeneous(density / (units.gr / units.cm^3))
+end
+
+function make_propagator(
+    particle_def,
+    media::Vector{String},
+    densities::Vector{Float64},
+    lengths::Vector{Float64}
+)
+    geometries = []
+    start = 0
+    push!(lengths, 1e10*units.km)
+    for l in lengths
+        end_ = start + l
+        geo = make_pp_geometry(start, end_)
+        push!(geometries, geo)
+        start = end_
     end
-
-    return sectors, detector_length
+    density_distributions = [
+        make_pp_density_distribution(d) for d in densities
+    ]
+    push!(density_distributions, make_pp_density_distribution( units.ρair0 / (units.gr/units.cm^3)))
+    crosses = [make_pp_crosssection(particle_def, m) for m in media]
+    push!(crosses, make_pp_crosssection( particle_def, "Air"))
+    utilities = [make_pp_utility(particle_def, cross) for cross in crosses]
+    dumb_list = [x for x in zip(geometries, utilities, density_distributions)]
+    prop = pp().Propagator(particle_def, dumb_list)
+    return prop
 end
 
-function make_propagator(particle, medium)
+function propagate_charged_lepton(
+    clepton::Particle,
+    media::Vector{String},
+    densities::Vector{Float64},
+    lengths::Vector{Float64}
+)
+    particle_def = pp_particle_def(clepton)
 
-    sectors, detector_length = make_medium(medium)
+    prop = make_propagator(particle_def, media, densities, lengths)
 
-    particle_def = define_particle(particle)
-
-
-    # Interpolation tables
-    interpolation_def = pp.InterpolationDef()
-    interpolation_def.path_to_tables = "/tmp/tables"
-    interpolation_def.path_to_tables_readonly = "/tmp/tables"
-
-
-    propagator = pp.Propagator(particle_def=particle_def, 
-                        sector_defs=sectors,
-                        detector=pp.geometry.Sphere(pp.Vector3D(),detector_length, 0),
-                        interpolation_def=interpolation_def)
-    return propagator
-    
-end
-
-function analyze_secondaries!(secondaries, parent_particle)
-
-    losses = [[], [], [], [], []]
-
-    for sec in secondaries.particles
-
-        log_sec_energy = log.(10,sec.parent_particle_energy .- sec.energy)
-        
-        if sec.type == 1000000001
-            push!(continuous, [log_sec_energy, [sec.position.x, sec.position.y, sec.position.z]])
-        elseif sec.type == 1000000004
-            push!(epair, [log_sec_energy, [sec.position.x, sec.position.y, sec.position.z]])
-        elseif sec.type == 1000000002
-            push!(brems, [log_sec_energy, [sec.position.x, sec.position.y, sec.position.z]])
-        elseif sec.type == 1000000003
-            push!(ioniz, [log_sec_energy, [sec.position.x, sec.position.y, sec.position.z]])
-        elseif sec.type == 1000000005
-            push!(photo,[log_sec_energy, [sec.position.x, sec.position.y, sec.position.z]])
-        elseif sec.type < 1000000001 
-            # Should I worry about the angle? is there any way to get it?
-            if sec.type in [13, 15, 11] 
-                child = Particle(sec.type + 1, sec.energy, sec.position, sec.direction, 0.0, 0.0, parent_particle, [])
-                push!(parent_particle.children, child)
-            elseif sec.type in [-13, -15, -11] 
-                child = Particle(sec.type - 1, sec.energy, sec.position, sec.direction, 0.0, 0.0, parent_particle, [])
-                push!(parent_particle.children, child)
-            end
-        else
-            println("$(sec.type)")
-        end
-        
-
-    end
-
-    parent_particle.final_vertex = SVector{3}(secondaries.particles[end].position)
-
-    E_final = Dict("continuous" => continuous, "epair" => epair, "brems" => brems, "ioniz" => ioniz, "photo" => photo)
-
-    parent_particle.E_final = E_final
-
-end
-
-
-function propagate(particle::Particle, medium = nothing, propagator = nothing)
-
-    particle_def = define_particle(particle)
-
-    if propagator != nothing
-        prop = propagator
-
-    # Stores previous propagators to make code faster
-    elseif particle.pdg_mc in keys(propagators)
-        prop = propagators[particle.pdg_mc]
-    else
-        prop = make_propagator(particle,medium)
-        propagators[particle.pdg_mc] = prop
-    end
-
-    lepton = pp.particle.DynamicData(particle_def.particle_type)
-    # lepton.position = pp.Vector3D(0, 0, 0)
-    # lepton.direction = pp.Vector3D(0, 0, -1)
-    lepton.position = particle.position
-    lepton.direction = particle.direction
-    lepton.energy = particle.Eᵢ
+    lepton = pp().particle.ParticleState()
+    lepton.position = make_pp_vector(clepton.position)
+    lepton.direction = make_pp_direction(clepton.direction)
+    lepton.energy = clepton.energy / units.MeV
     lepton.propagated_distance = 0.0
     lepton.time = 0.0
 
     secondaries = prop.propagate(lepton)
+    return secondaries
+end
 
-    analyze_secondaries!(secondaries, particle)
+function propagate(particle::Particle, ranges::Vector{Range})
+    media = [r.medium_name for r in ranges]
+    densities = [r.density for r in ranges]
+    lengths = [r.length for r in ranges]
+    propagate(particle, media, densities, lengths)
+end
 
-    if length(particle.children) > 0
-        for child in particle.children
-            propagate(child, medium)
-        end
+function propagate(particle::Particle, media, densities, lengths)
+    if abs(particle.pdg_mc) in [11, 13, 15]
+        secondaries = propagate_charged_lepton(particle, media, densities, lengths)
+        result = ProposalResult(secondaries, particle)
+        # We have decided to let CORSIKA do the handling of decay products
+        # This will need a little rethinking if we change on that
+        #for child in result.decay_products
+        #    propagate(child, medium)
+        #end
+    else
+        result = ProposalResult(particle.position)
     end
+    return result
 end
-
-
-function Base.show(io::IO, particle::Particle)
-    
-    print(io, 
-    """{
-        "Particle Type" : $(particle.pdg_mc),
-        "Initial Energy" : $(particle.Eᵢ),
-        "Range" : $(particle.range),
-        "Energy breakdown" : $(particle.E_final),
-        "Decay Products" : $(particle.children))
-        }""")
-<<<<<<< HEAD
-end
-=======
-end
-
-end # module
-
-##############################################################################################################
-# EXAMPLE CODE
-
-# using .ProposalInterface
-# using Statistics
-# using ProgressBars
-
-# medium = [(0,1e7),(1,1e7)]
-# energies = collect(6:0.5:11)
-
-    
-# for energy in energies
-#     println("@ $energy MeV:")
-
-#     for i in tqdm(1:1:200)
-
-#         particle = Particle(14, 10.0^energy, vector3D([0 0 0]), vector3D([0 0 -1])  ,nothing, 0.0, nothing, [])
-#         propagate(particle, medium)
-#         # println(particle)
-#     end
-# end
-
-##############################################################################################################
-# MUON RANGES CODE
-
-using .ProposalInterface
-using Statistics
-using ProgressBars
-using DelimitedFiles
-
-# medium = [((0,1.0),1e7),((1,1.0),1e7)]
-medium = [((1,1.0),1e10)]
-energies = collect(6:0.25:11)
-
-results_dir = "/n/home08/jgarciaponce/Results/proposalinterface"
-# results_file = "muon_range_stdrock.csv"
-
-
-
-Results = Dict()
-for energy in energies
-    println("@ $energy MeV:")
-
-    ranges = []
-
-    for i in tqdm(1:1:1000)
-
-        particle = Particle(14, 10.0^energy, vector3D([0 0 0]), vector3D([0 0 -1])  ,nothing, 0.0, nothing, [])
-        propagate(particle, medium)
-        push!(ranges, particle.range)
-
-        # println(particle)
-    end
-
-    Results[energy] = ranges
-
-    results_file = "muon_range_stdrock_@$(energy).csv"
-
-    results_path = results_dir * "/" * results_file
-
-    mean_range = mean(ranges)
-    standard_deviation = std(ranges)
-
-    writedlm(results_path,  ranges, ',')
-
-    println("""
-
-    Mean Range: $(mean_range)
-    Sigma : $(standard_deviation)
-
-    Saved to file: $(results_path)
-
-    """)
-
-end
-
->>>>>>> 0f9de35378c7ce033f0478ca7199cd4ab716ad4f
