@@ -9,7 +9,7 @@ const pdg_to_str = Dict{Int,String}(
     16 => "nutau",
     -12 => "nuebar",
     -14 => "numubar",
-    -16 => "nutaubar"
+    -16 => "nutaubar",
 )
 
 struct OutgoingCCEnergy
@@ -27,36 +27,25 @@ function OutgoingCCEnergy(fname::String, ν_pdg::Int)
     # If we start generating XS with anything besides
     # z = (eout - 10 GeV) / (ein - 10 GeV) we need to change this
     _emin_z = 10.0 * units.GeV
-    spl = Spline2D(
-        log10_es,
-        h5f["cdf_vals"][:],
-        h5f["$(nutype)_cc_cdf"][:,:],
-        kx=1,
-        ky=1
-    )
+    spl = Spline2D(log10_es, h5f["cdf_vals"][:], h5f["$(nutype)_cc_cdf"][:, :]; kx=1, ky=1)
     close(h5f)
-    return OutgoingCCEnergy(
-        realpath(fname),
-        spl,
-        _emin_z,
-        10.0 .^ (log10_es)
-    )
+    return OutgoingCCEnergy(realpath(fname), spl, _emin_z, 10.0 .^ (log10_es))
 end
 
 function Base.show(io::IO, sampler::OutgoingCCEnergy)
-    print(
+    return print(
         io,
         """
         fname: $(sampler.fname)
         emin (GeV): $(sampler._es[1] / units.GeV)
         emax (GeV): $(sampler._es[end] / units.GeV)
-        """
+        """,
     )
 end
 
 function Base.rand(sampler::OutgoingCCEnergy, ein::Float64)
     z = 1 - sampler.spline(log(10.0, ein), rand())
-    eout = z*(ein - sampler._emin_z) + sampler._emin_z
+    eout = z * (ein - sampler._emin_z) + sampler._emin_z
     return eout
 end
 

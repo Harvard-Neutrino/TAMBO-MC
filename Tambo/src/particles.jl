@@ -3,19 +3,17 @@ struct Particle
     energy::Float64
     position::SVector{3}
     direction::Direction
-    parent::Union{Particle, Nothing}
+    parent::Union{Particle,Nothing}
 end
 
 function Base.show(io::IO, particle::Particle)
-    
-    s = 
-    """
-    pdg_mc: $(particle.pdg_mc),
-    energy (GeV): $(particle.energy / units.GeV),
-    position (m): $(particle.position / units.m),
-    direction: $(particle.direction),
-    """
-    print(io, s)
+    s = """
+        pdg_mc: $(particle.pdg_mc),
+        energy (GeV): $(particle.energy / units.GeV),
+        position (m): $(particle.position / units.m),
+        direction: $(particle.direction),
+        """
+    return print(io, s)
 end
 
 """
@@ -34,7 +32,7 @@ julia> lepton_range(1units.PeV, true) / units.mwe
 
 ```
 """
-function lepton_range(e::Float64, is_tau::Bool)   
+function lepton_range(e::Float64, is_tau::Bool)
     αμ = 1.76666667e-1 * units[:GeV] / units[:mwe]
     βμ = 2.0916666667e-4 / units[:mwe]
     range = log(1 + e * βμ / αμ) / βμ
@@ -43,9 +41,9 @@ function lepton_range(e::Float64, is_tau::Bool)
         βτ = 2.63e-5 / units[:mwe]
         range += log(1 + e * βτ / ατ) / βτ
     end
-    range
+    return range
 end
 
 function Base.getindex(v::Vector{Particle}, s::String)
-    getfield.(v, Symbol(s))
+    return getfield.(v, Symbol(s))
 end

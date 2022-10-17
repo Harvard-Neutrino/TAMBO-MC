@@ -21,7 +21,9 @@ end
 function Injector()
     n = 10
     geo_spline_path = realpath("$(@__DIR__)/../../resources/tambo_spline.jld2")
-    xs_path = realpath("$(@__DIR__)/../../resources/cross_sections/tables/csms_differential_cdfs.h5")
+    xs_path = realpath(
+        "$(@__DIR__)/../../resources/cross_sections/tables/csms_differential_cdfs.h5"
+    )
     ν_pdg = 16
     γ = 1
     emin = 1e6units[:GeV]
@@ -33,7 +35,7 @@ function Injector()
     r_injection = 900units[:m]
     l_endcap = 1units[:km]
     seed = 0
-    Injector(
+    return Injector(
         n,
         geo_spline_path,
         xs_path,
@@ -47,29 +49,29 @@ function Injector()
         ϕmax,
         r_injection,
         l_endcap,
-        seed
+        seed,
     )
 end
 
 function Base.show(io::IO, injector::Injector)
-    print(
-    io,
-    """
-    n: $(injector.n)
-    seed: $(injector.seed)
-    ν_pdg: $(injector.ν_pdg)
-    geo_spline_path: $(injector.geo_spline_path)
-    diff_xs_path: $(injector.diff_xs_path)
-    γ: $(injector.γ)
-    emin (GeV): $(injector.emin / units.GeV)
-    emax (GeV): $(injector.emax / units.GeV)
-    θmin: $(injector.θmin)
-    θmax: $(injector.θmax)
-    ϕmin: $(injector.ϕmin)
-    ϕmax: $(injector.ϕmax)
-    r_injection (m): $(injector.r_injection / units.m)
-    l_endcap (m): $(injector.l_endcap / units.m)
-    """
+    return print(
+        io,
+        """
+        n: $(injector.n)
+        seed: $(injector.seed)
+        ν_pdg: $(injector.ν_pdg)
+        geo_spline_path: $(injector.geo_spline_path)
+        diff_xs_path: $(injector.diff_xs_path)
+        γ: $(injector.γ)
+        emin (GeV): $(injector.emin / units.GeV)
+        emax (GeV): $(injector.emax / units.GeV)
+        θmin: $(injector.θmin)
+        θmax: $(injector.θmax)
+        ϕmin: $(injector.ϕmin)
+        ϕmax: $(injector.ϕmax)
+        r_injection (m): $(injector.r_injection / units.m)
+        l_endcap (m): $(injector.l_endcap / units.m)
+        """,
     )
 end
 
@@ -78,29 +80,19 @@ function (injector::Injector)(track_progress=true)
     pl = PowerLaw(injector.γ, injector.emin, injector.emax)
     diff_xs = OutgoingCCEnergy(injector.diff_xs_path, injector.ν_pdg)
     anglesampler = UniformAngularSampler(
-        injector.θmin,
-        injector.θmax,
-        injector.ϕmin,
-        injector.ϕmax
+        injector.θmin, injector.θmax, injector.ϕmin, injector.ϕmax
     )
-    injectionvolume = InjectionVolume(
-        injector.r_injection,
-        injector.l_endcap
-    )
+    injectionvolume = InjectionVolume(injector.r_injection, injector.l_endcap)
     geo = Geometry(injector.geo_spline_path)
     if track_progress
-        iter = ProgressBar(1:injector.n)
+        iter = ProgressBar(1:(injector.n))
     else
-        iter = 1:injector.n
+        iter = 1:(injector.n)
     end
-    [inject_event(
-        injector.ν_pdg,
-        pl,
-        diff_xs,
-        anglesampler,
-        injectionvolume,
-        geo
-    ) for _ in iter]
+    return [
+        inject_event(injector.ν_pdg, pl, diff_xs, anglesampler, injectionvolume, geo) for
+        _ in iter
+    ]
 end
 
 """
@@ -115,11 +107,7 @@ end
 TBW
 """
 function sample_interaction_vertex(
-    volume::InjectionVolume,
-    p_near::SVector{3},
-    d::Direction,
-    range,
-    geo::Geometry
+    volume::InjectionVolume, p_near::SVector{3}, d::Direction, range, geo::Geometry
 )
     # Make track from point of closest approach to point of entry and exitA
     ti = Track(p_near, d, geo.box)
@@ -142,7 +130,6 @@ function sample_interaction_vertex(
     return p_int
 end
 
-
 """
     endcapcolumndepth(t::Track, l_endcap::Float64, range::Float64, ranges::Vector)
 
@@ -153,11 +140,9 @@ function endcapcolumndepth(t::Track, l_endcap::Float64, range::Float64, ranges::
     if t.norm <= l_endcap
         cd_endcap = cd
     else
-        cd_endcap = minimum(
-            [columndepth(t, l_endcap/t.norm, ranges) + range, cd]
-        )
+        cd_endcap = minimum([columndepth(t, l_endcap / t.norm, ranges) + range, cd])
     end
-    cd_endcap
+    return cd_endcap
 end
 
 struct InjectionEvent
@@ -166,7 +151,7 @@ struct InjectionEvent
 end
 
 function Base.show(io::IO, event::InjectionEvent)
-    print(
+    return print(
         io,
         """
         initial_state:
@@ -174,7 +159,7 @@ function Base.show(io::IO, event::InjectionEvent)
 
         final_state:
         $(event.final_state)
-        """
+        """,
     )
 end
 
@@ -198,32 +183,14 @@ function inject_event(
     # Hopefully the splines fix this
     e_final = rand(diff_xs, e_init)
     #e_final = minimum([rand(diff_xs, e_init), e_init])
-    range = lepton_range(e_init, abs(ν_pdg)==16)
+    range = lepton_range(e_init, abs(ν_pdg) == 16)
     d = Direction(rand(anglesampler)...)
     # Construct roatation to plane perpindicular to direction
-    r = (Rotations.RotX(d.θ) * RotZ(π/2 - d.ϕ))'
+    r = (Rotations.RotX(d.θ) * RotZ(π / 2 - d.ϕ))'
     p_near = r * rand(injectionvolume)
-    p_int = sample_interaction_vertex(
-        injectionvolume,
-        p_near,
-        d,
-        range,
-        geo
-    )
-    initial_state = Particle(
-        ν_pdg,
-        e_init,
-        p_int,
-        d,
-        nothing
-    )
-    final_state = Particle(
-        ν_pdg  - sign(ν_pdg),
-        e_final,
-        p_int,
-        d,
-        initial_state
-    )
+    p_int = sample_interaction_vertex(injectionvolume, p_near, d, range, geo)
+    initial_state = Particle(ν_pdg, e_init, p_int, d, nothing)
+    final_state = Particle(ν_pdg - sign(ν_pdg), e_final, p_int, d, initial_state)
     event = InjectionEvent(initial_state, final_state)
     return event
 end

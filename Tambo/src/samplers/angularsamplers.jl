@@ -6,17 +6,16 @@ struct UniformAngularSampler
 end
 
 function Base.show(io::IO, uniformsampler::UniformAngularSampler)
-    print(
+    return print(
         io,
         """
         θmin (degrees): $(uniformsampler.θmin / π * 180)
         θmax (degrees): $(uniformsampler.θmax / π * 180)
         ϕmin (degrees): $(uniformsampler.ϕmin / π * 180)
         ϕmax (degrees): $(uniformsampler.ϕmax / π * 180)
-        """
+        """,
     )
 end
-
 
 """
     Base.rand(uniformsampler::UniformAngularSampler)
@@ -27,10 +26,7 @@ TBW
 """
 function Base.rand(uniformsampler::UniformAngularSampler)
     # Randomly sample zenith uniform in phase space
-    θ = acos(rand(Uniform(
-            cos(uniformsampler.θmax),
-            cos(uniformsampler.θmin)
-        )))
+    θ = acos(rand(Uniform(cos(uniformsampler.θmax), cos(uniformsampler.θmin))))
     # Randomly sample azimuth
     ϕ = rand(Uniform(uniformsampler.ϕmin, uniformsampler.ϕmax))
     return θ, ϕ

@@ -54,7 +54,7 @@ function Base.show(io::IO, l::Loss)
         "Interaction Type" : $(l.int_type),
         "Energy (GeV)" : $(l.energy / units.GeV)
         "Position (m)" : $(l.position ./ units.m)
-        """
+        """,
     )
 end
 
@@ -101,7 +101,7 @@ function ProposalResult(secondaries, parent_particle)
 end
 
 function show(io::IO, result::ProposalResult)
-    print(
+    return print(
         io,
         """
         losses:
@@ -113,7 +113,7 @@ function show(io::IO, result::ProposalResult)
         did_decay: $(result.did_decay)
         final_pos (m): $(result.final_pos / units.m)
         final_lepton_energy (GeV): $(result.final_lepton_energy / units.GeV)
-        """
+        """,
     )
 end
 
@@ -168,21 +168,22 @@ function make_propagator(
     particle_def,
     media::Vector{String},
     densities::Vector{Float64},
-    lengths::Vector{Float64}
+    lengths::Vector{Float64},
 )
     geometries = []
     start = 0
-    push!(lengths, 1e10*units.km)
+    push!(lengths, 1e10 * units.km)
     for l in lengths
         end_ = start + l
         geo = make_pp_geometry(start, end_)
         push!(geometries, geo)
         start = end_
     end
-    density_distributions = [
-        make_pp_density_distribution(d) for d in densities
-    ]
-    push!(density_distributions, make_pp_density_distribution( units.ρair0 / (units.gr/units.cm^3)))
+    density_distributions = [make_pp_density_distribution(d) for d in densities]
+    push!(
+        density_distributions,
+        make_pp_density_distribution(units.ρair0 / (units.gr / units.cm^3)),
+    )
     crosses = [make_pp_crosssection(particle, m) for m in media]
     push!(crosses, make_pp_crosssection(particle, "Air"))
     utilities = [make_pp_utility(particle_def, cross) for cross in crosses]
@@ -195,7 +196,7 @@ function propagate_charged_lepton(
     clepton::Particle,
     media::Vector{String},
     densities::Vector{Float64},
-    lengths::Vector{Float64}
+    lengths::Vector{Float64},
 )
     particle_def = pp_particle_def(clepton)
 
@@ -224,11 +225,7 @@ end
 function propagate(final_state::Particle, geo::Geometry)
     # Reverse Direction since Track tells us where we're going
     # But Particle.direction tells us where it is from
-    t = Track(
-        final_state.position,
-        reverse(final_state.direction),
-        geo.box
-    )
+    t = Track(final_state.position, reverse(final_state.direction), geo.box)
     ranges = computeranges(t, geo)
     # I feel like ranges is an artificial object... not gonna fix now though
     # TODO refactor ranges
@@ -245,7 +242,7 @@ function propagate(
     particle::Particle,
     media::Vector{String},
     densities::Vector{Float64},
-    lengths::Vector{Float64}
+    lengths::Vector{Float64},
 )
     if abs(particle.pdg_mc) in [11, 13, 15]
         secondaries = propagate_charged_lepton(particle, media, densities, lengths)
@@ -266,7 +263,7 @@ function propagate(
     media::Vector{String},
     densities::Vector{Float64},
     lengths::Vector{Float64};
-    track_progress=true
+    track_progress=true,
 )
     if track_progress
         iter = ProgressBar(vp)

@@ -1,17 +1,17 @@
 using StaticArrays: SVector
 
-struct InjectionVolume 
+struct InjectionVolume
     r_injection::Float64
     l_endcap::Float64
 end
 
 function Base.show(io::IO, volume::InjectionVolume)
-    print(
+    return print(
         io,
         """
         r_injection (m): $(volume.r_injection / units.m)
         l_endcap (m): $(volume.l_endcap / units.m)
-        """
+        """,
     )
 end
 
@@ -34,7 +34,7 @@ function Base.rand(volume::InjectionVolume)
     b = volume.r_injection .* sqrt(rand())
     # Sample angle on disc 
     ψ = rand(Uniform(0, 2π))
-    p = SVector{3}([b*cos(ψ), b*sin(ψ), 0])
+    p = SVector{3}([b * cos(ψ), b * sin(ψ), 0])
     return p
 end
 
@@ -44,5 +44,5 @@ end
 TBW
 """
 function (volume::InjectionVolume)(p::SVector{3})
-    1 / (π * volume.r_injection^2)
+    return 1 / (π * volume.r_injection^2)
 end

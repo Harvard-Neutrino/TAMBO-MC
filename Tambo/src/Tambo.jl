@@ -7,7 +7,7 @@ using StaticArrays
 using Rotations
 using Random
 using PyCall
-using LinearAlgebra:norm
+using LinearAlgebra: norm
 using Roots: find_zeros, find_zero
 using Dierckx
 using JLD2: jldopen
@@ -26,7 +26,7 @@ const EMinusDef = PyNULL()
 const EPlusDef = PyNULL()
 const EPlusAirCross = [PyNULL(), PyNULL(), PyNULL(), PyNULL(), PyNULL()]
 const EMinusAirCross = [PyNULL(), PyNULL(), PyNULL(), PyNULL()]
-const MuPlusAirCross =[PyNULL(), PyNULL(), PyNULL(), PyNULL()] 
+const MuPlusAirCross = [PyNULL(), PyNULL(), PyNULL(), PyNULL()]
 const MuMinusAirCross = [PyNULL(), PyNULL(), PyNULL(), PyNULL()]
 const TauPlusAirCross = [PyNULL(), PyNULL(), PyNULL(), PyNULL()]
 const TauMinusAirCross = [PyNULL(), PyNULL(), PyNULL(), PyNULL()]
@@ -39,7 +39,9 @@ const TauMinusRockCross = [PyNULL(), PyNULL(), PyNULL(), PyNULL()]
 
 function __init__()
     copy!(pp, pyimport("proposal"))
-    pp.InterpolationSettings.tables_path = realpath("$(@__DIR__)/../..//resources/proposal_tables/")
+    pp.InterpolationSettings.tables_path = realpath(
+        "$(@__DIR__)/../..//resources/proposal_tables/"
+    )
     copy!(TauMinusDef, pp.particle.TauMinusDef())
     copy!(TauPlusDef, pp.particle.TauPlusDef())
     copy!(MuMinusDef, pp.particle.MuMinusDef())
@@ -52,74 +54,71 @@ function __init__()
         cuts = pp.EnergyCutSettings(ecut, vcut, false)
         interpolate = true
         target = getproperty(pp.medium, name)()
-        cross = pp.crosssection.make_std_crosssection(
-            particle_def=particle_def,
-            target=target,
-            interpolate=interpolate,
-            cuts=cuts
+        cross = pp.crosssection.make_std_crosssection(;
+            particle_def=particle_def, target=target, interpolate=interpolate, cuts=cuts
         )
 
         return cross
     end
     xs = make_pp_crosssection(EMinusDef, "Air")
     ys = EMinusAirCross
-    for (x,y) in zip(xs, ys)
+    for (x, y) in zip(xs, ys)
         copy!(y, x)
     end
     xs = make_pp_crosssection(EPlusDef, "Air")
     ys = EPlusAirCross
-    for (x,y) in zip(xs, ys)
-        copy!(y,x)
+    for (x, y) in zip(xs, ys)
+        copy!(y, x)
     end
     xs = make_pp_crosssection(MuMinusDef, "Air")
     ys = MuMinusAirCross
-    for (x,y) in zip(xs, ys)
-        copy!(y,x)
+    for (x, y) in zip(xs, ys)
+        copy!(y, x)
     end
     xs = make_pp_crosssection(MuPlusDef, "Air")
     ys = MuPlusAirCross
-    for (x,y) in zip(xs, ys)
-        copy!(y,x)
+    for (x, y) in zip(xs, ys)
+        copy!(y, x)
     end
     xs = make_pp_crosssection(TauMinusDef, "Air")
     ys = TauMinusAirCross
-    for (x,y) in zip(xs, ys)
-        copy!(y,x)
+    for (x, y) in zip(xs, ys)
+        copy!(y, x)
     end
     xs = make_pp_crosssection(TauPlusDef, "Air")
     ys = TauPlusAirCross
-    for (x,y) in zip(xs, ys)
-        copy!(y,x)
+    for (x, y) in zip(xs, ys)
+        copy!(y, x)
     end
     xs = make_pp_crosssection(EMinusDef, "StandardRock")
     ys = EMinusRockCross
-    for (x,y) in zip(xs, ys)
-        copy!(y,x)
+    for (x, y) in zip(xs, ys)
+        copy!(y, x)
     end
     xs = make_pp_crosssection(EPlusDef, "StandardRock")
     ys = EPlusRockCross
-    for (x,y) in zip(xs, ys)
-        copy!(y,x)
+    for (x, y) in zip(xs, ys)
+        copy!(y, x)
     end
     xs = make_pp_crosssection(MuMinusDef, "StandardRock")
     ys = MuMinusRockCross
-    for (x,y) in zip(xs, ys)
-        copy!(y,x)
+    for (x, y) in zip(xs, ys)
+        copy!(y, x)
     end
     xs = make_pp_crosssection(MuPlusDef, "StandardRock")
     ys = MuPlusRockCross
-    for (x,y) in zip(xs, ys)
-        copy!(y,x)
+    for (x, y) in zip(xs, ys)
+        copy!(y, x)
     end
     xs = make_pp_crosssection(TauMinusDef, "StandardRock")
     ys = TauMinusRockCross
-    for (x,y) in zip(xs, ys)
-        copy!(y,x)
+    for (x, y) in zip(xs, ys)
+        copy!(y, x)
     end
     xs = make_pp_crosssection(TauPlusDef, "StandardRock")
     ys = TauPlusRockCross
-    for (x,y) in zip(xs, ys)
-        copy!(y,x)
+    for (x, y) in zip(xs, ys)
+        copy!(y, x)
     end
 end
 
