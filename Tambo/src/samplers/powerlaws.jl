@@ -29,8 +29,8 @@ function Base.show(io::IO, pl::PowerLaw)
     return print(
         io,
         """{
-            "Minimum energy (GeV)" : $(pl.emin / units.GeV),
-            "Maximum energy (GeV)" : $(pl.emax / units.GeV)
+            "emin (GeV)" : $(pl.emin / units.GeV),
+            "emax (GeV)" : $(pl.emax / units.GeV)
             "γ" : $(pl.γ)
             }""",
     )
