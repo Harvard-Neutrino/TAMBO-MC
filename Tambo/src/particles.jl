@@ -8,12 +8,13 @@ end
 
 function Base.show(io::IO, particle::Particle)
     
-    s = """{
-        "Particle Type" : $(particle.pdg_mc),
-        "Initial Energy (GeV)" : $(particle.energy / units.GeV),
-        "Initial Position (m)" : $(particle.position / units.m),
-        "Direction" : $(particle.direction),
-    }"""
+    s = 
+    """
+    pdg_mc: $(particle.pdg_mc),
+    energy (GeV): $(particle.energy / units.GeV),
+    position (m): $(particle.position / units.m),
+    direction: $(particle.direction),
+    """
     print(io, s)
 end
 
@@ -43,4 +44,8 @@ function lepton_range(e::Float64, is_tau::Bool)
         range += log(1 + e * βτ / ατ) / βτ
     end
     range
+end
+
+function Base.getindex(v::Vector{Particle}, s::String)
+    getfield.(v, Symbol(s))
 end
