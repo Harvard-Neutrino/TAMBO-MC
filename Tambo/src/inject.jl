@@ -1,3 +1,6 @@
+include("./samplers/Samplers.jl")
+using .Samplers
+
 mutable struct Injector
     n::Int
     geo_spline_path::String
@@ -18,7 +21,7 @@ end
 function Injector()
     n = 10
     geo_spline_path = realpath("$(@__DIR__)/../../resources/tambo_spline.jld2")
-    xs_path = realpath("$(@__DIR__)/../../resources/cross_sections/tables/csms_differential.h5")
+    xs_path = realpath("$(@__DIR__)/../../resources/cross_sections/tables/csms_differential_cdfs.h5")
     ν_pdg = 16
     γ = 1
     emin = 1e6units[:GeV]
@@ -73,48 +76,50 @@ end
 function (injector::Injector)(track_progress=true)
     Random.seed!(injector.seed)
     pl = PowerLaw(injector.γ, injector.emin, injector.emax)
+    diff_xs = OutgoingCCEnergy(injector.diff_xs_path, injector.ν_pdg)
+    anglesampler = UniformAngularSampler(
+        injector.θmin,
+        injector.θmax,
+        injector.ϕmin,
+        injector.ϕmax
+    )
+    injectionvolume = InjectionVolume(
+        injector.r_injection,
+        injector.l_endcap
+    )
     geo = Geometry(injector.geo_spline_path)
-    diff_xs = DifferentialXS(injector.diff_xs_path, injector.ν_pdg)
     if track_progress
         iter = ProgressBar(1:injector.n)
     else
         iter = 1:injector.n
     end
-    [inject_event(injector, pl, geo, diff_xs) for _ in iter]
+    [inject_event(
+        injector.ν_pdg,
+        pl,
+        diff_xs,
+        anglesampler,
+        injectionvolume,
+        geo
+    ) for _ in iter]
 end
 
 """
-    perpendicular_plane(θ, ϕ, b, ψ)
+    sample_interaction_vertex(
+        volume::InjectionVolume,
+        p_near::SVector{3},
+        d::Direction,
+        range,
+        geo::Geometry
+    )
 
-rotates the vector in the xy-plane defined by (`b`, `ψ`) to a plane
-perpendicular to the 3D unit vector defined by (`θ`, ϕ). `return_transform`
-returns the rotation matrix as well as the transformed vector
-
-# Example
-```julia-repl
-julia> pv = perpendicular_plane(π/3, 5π/4, 200, 7π/6)
-3-element SVector{3, Float64} with indices SOneTo(3):
- 157.82982619848627
- -87.11914807983158
-  86.6025403784438
-
-julia> sum(pv .* [sin(π/3)cos(5π/4), sin(π/3)sin(5π/4), cos(π/3)])
--7.105427357601002e-15
-```
+TBW
 """
-function perpendicular_plane(θ, ϕ, b, ψ)
-    # Construct vector in the plane of normal coordinate system
-    bv = SVector{3}([b*cos(ψ), b*sin(ψ), b*0])
-    r = (Rotations.RotX(θ) * RotZ(π/2-ϕ))'
-    r * bv
-end
-
 function sample_interaction_vertex(
-    injector::Injector,
+    volume::InjectionVolume,
     p_near::SVector{3},
     d::Direction,
     range,
-    geo::Geometry,
+    geo::Geometry
 )
     # Make track from point of closest approach to point of entry and exitA
     ti = Track(p_near, d, geo.box)
@@ -123,10 +128,8 @@ function sample_interaction_vertex(
     rangesi = computeranges(ti, geo)
     rangeso = computeranges(to, geo)
     # Compute the colum depth for both incoming and outgoing portions
-    # TODO figure out why the same tracks give different cds...
-    # Specifically this happens when you choose θmin = θmax = π
-    cdi = endcapcolumndepth(ti, injector.l_endcap, range, rangesi)
-    cdo = endcapcolumndepth(to, injector.l_endcap, 0.0, rangeso)
+    cdi = endcapcolumndepth(ti, volume.l_endcap, range, rangesi)
+    cdo = endcapcolumndepth(to, volume.l_endcap, 0.0, rangeso)
     # sample column depth uniformly and subtract incoming column depth
     cd = rand(Uniform(-cdo, cdi))
     # If the remainder is positive, you need to be in incoming track, else outgoing
@@ -160,17 +163,17 @@ end
 struct InjectionEvent
     initial_state::Particle
     final_state::Particle
-    proposal_result::ProposalResult
 end
 
 function Base.show(io::IO, event::InjectionEvent)
     print(
         io,
         """
-        initial_state: $(event.initial_state)
-        final_state: $(event.final_state)
-        proposal_result $(event.proposal_result)
-end
+        initial_state:
+        $(event.initial_state)
+
+        final_state:
+        $(event.final_state)
         """
     )
 end
@@ -181,55 +184,52 @@ end
 TBW
 """
 function inject_event(
-    injector::Injector,
+    ν_pdg::Int,
     e_sampler,
+    diff_xs::OutgoingCCEnergy,
+    anglesampler,
+    injectionvolume::InjectionVolume,
     geo::Geometry,
-    diff_xs::DifferentialXS
 )
-    # Sample initial and final state energies
     e_init = rand(e_sampler)
     # Sometimes this sampler runs into floating poiting precision issues that give
     # an energy higher than the initial energy
-    e_final = maximum([sample(diff_xs, e_init), e_init])
-    range = lepton_range(e_init, abs(injector.ν_pdg)==16)
-    # Randomly sample zenith uniform in phase space
-    θ = acos(rand(Uniform(cos(injector.θmax), cos(injector.θmin))))
-    # Randomly sample azimuth
-    ϕ = rand(Uniform(injector.ϕmin, injector.ϕmax))
-    d = Direction(θ, ϕ)
-    # Sample impact parameter uniformly on a disc
-    b = injector.r_injection .* sqrt(rand())
-    # Sample angle on disc 
-    ψ = rand(Uniform(0, 2π))
-    # Rotate to plane perpendicular to event direction
-    p_near = SVector{3}(perpendicular_plane(θ, ϕ, b, ψ))
+    # I should probably figure that out but for now I leave it.
+    # Hopefully the splines fix this
+    e_final = rand(diff_xs, e_init)
+    #e_final = minimum([rand(diff_xs, e_init), e_init])
+    range = lepton_range(e_init, abs(ν_pdg)==16)
+    d = Direction(rand(anglesampler)...)
+    # Construct roatation to plane perpindicular to direction
+    r = (Rotations.RotX(d.θ) * RotZ(π/2 - d.ϕ))'
+    p_near = r * rand(injectionvolume)
     p_int = sample_interaction_vertex(
-        injector,
+        injectionvolume,
         p_near,
         d,
         range,
         geo
     )
     initial_state = Particle(
-        injector.ν_pdg,
+        ν_pdg,
         e_init,
         p_int,
         d,
         nothing
     )
     final_state = Particle(
-        injector.ν_pdg  - sign(injector.ν_pdg),
+        ν_pdg  - sign(ν_pdg),
         e_final,
         p_int,
         d,
         initial_state
     )
-    # Reverse Direction since Track tells us where we're going
-    # But Particle direction tells us where it is from
-    texit = Track(p_int, reverse(d), geo.box)
-    ranges = computeranges(texit, geo)
-    proposal_result = propagate(final_state, ranges)
-    # Pass PROPOSAL output to CORSIKA
-    event = InjectionEvent(initial_state, final_state, proposal_result)
+    event = InjectionEvent(initial_state, final_state)
     return event
+end
+
+### Convenience functions ###
+
+function Base.getindex(v::Vector{InjectionEvent}, s::String)
+    return getfield.(v, Symbol(s))
 end
