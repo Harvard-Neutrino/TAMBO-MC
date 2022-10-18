@@ -14,9 +14,6 @@ using JLD2: jldopen
 using ProgressBars
 using Distributions: Uniform
 
-#const pp = PyNULL()
-#pp = pyimport("proposal")
-
 const pp = PyNULL()
 const TauMinusDef = PyNULL()
 const TauPlusDef = PyNULL()
