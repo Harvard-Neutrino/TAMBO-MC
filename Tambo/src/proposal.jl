@@ -48,7 +48,7 @@ function Loss(int_type::Int, e::Float64, position::PyObject)
 end
 
 function Base.show(io::IO, l::Loss)
-    return print(
+    print(
         io,
         """
         "Interaction Type" : $(l.int_type),
@@ -101,7 +101,7 @@ function ProposalResult(secondaries, parent_particle)
 end
 
 function show(io::IO, result::ProposalResult)
-    return print(
+    print(
         io,
         """
         losses:

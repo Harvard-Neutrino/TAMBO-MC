@@ -13,7 +13,7 @@ function Base.show(io::IO, particle::Particle)
         position (m): $(particle.position / units.m),
         direction: $(particle.direction),
         """
-    return print(io, s)
+    print(io, s)
 end
 
 """

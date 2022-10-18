@@ -33,7 +33,7 @@ function OutgoingCCEnergy(fname::String, ν_pdg::Int)
 end
 
 function Base.show(io::IO, sampler::OutgoingCCEnergy)
-    return print(
+    print(
         io,
         """
         fname: $(sampler.fname)

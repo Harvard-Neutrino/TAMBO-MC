@@ -6,7 +6,7 @@ struct InjectionVolume
 end
 
 function Base.show(io::IO, volume::InjectionVolume)
-    return print(
+    print(
         io,
         """
         r_injection (m): $(volume.r_injection / units.m)

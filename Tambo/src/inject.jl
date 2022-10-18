@@ -54,7 +54,7 @@ function Injector()
 end
 
 function Base.show(io::IO, injector::Injector)
-    return print(
+    print(
         io,
         """
         n: $(injector.n)
@@ -151,7 +151,7 @@ struct InjectionEvent
 end
 
 function Base.show(io::IO, event::InjectionEvent)
-    return print(
+    print(
         io,
         """
         initial_state:

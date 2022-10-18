@@ -26,7 +26,7 @@ function PowerLaw(γ, emin, emax)
 end
 
 function Base.show(io::IO, pl::PowerLaw)
-    return print(
+    print(
         io,
         """{
             "emin (GeV)" : $(pl.emin / units.GeV),

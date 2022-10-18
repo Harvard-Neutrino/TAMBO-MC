@@ -6,7 +6,7 @@ struct UniformAngularSampler
 end
 
 function Base.show(io::IO, uniformsampler::UniformAngularSampler)
-    return print(
+    print(
         io,
         """
         θmin (degrees): $(uniformsampler.θmin / π * 180)

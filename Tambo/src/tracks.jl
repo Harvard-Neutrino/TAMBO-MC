@@ -107,7 +107,7 @@ function Range(λstart::Float64, λwidth::Float64, t::Track, density::Float64)
 end
 
 function Base.show(io::IO, r::Range)
-    return print(
+    print(
         io,
         """
         λstart: $(r.λstart)
