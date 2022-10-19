@@ -5,19 +5,28 @@ struct Coord{T<:Float64}
     long::T
 end
 
-function get_distance_coordinate(latitude, longitude, latmin, longmin)
-    latmid = (latitude + latmin) / 2.0
-    m_per_deg_lon = (
-        111132.954 - (559.822 * cos(2.0 * latmid)) +
-        (1.175 * cos(4.0 * latmid)) +
-        (0.0023 * cos(6.0 * latmid))
-    )
-    m_per_deg_lat =
-        (111412.82 * cos(latmid)) - (93.5 * cos(latmid * 3)) + (0.118 * cos(5 * latmid))
-    delta_lat = latitude - latmin
-    delta_long = longitude - longmin
-    x = delta_long * (m_per_deg_lon * 180 / pi)
-    y = delta_lat * (m_per_deg_lat * 180 / pi)
+"""
+    latlong_to_xy(lat, long, latmin, longmin)
+
+Function to calculate the xy coordinate for a latitude and longitude
+coordinate. This implicitly assumes that Δθ and Δϕ are small so that
+the sphere is locally floating. All angles are in radians !!!!!
+latmin and longmin are -15.73975004° and -72.336236836° for the current spline
+
+# Example
+```julia-repl
+julia> latmin, longmin = deg2rad(-15.73975004), deg2rad(-72.336236836);
+
+julia> tapay_lat, tapay_long = deg2rad-15.63), deg2rad(-72.16;
+
+julia> x_tapay, y_tapay = latlong_to_xy(tapay_lat, tapay_long, latmin, longmin) ./ units.km
+(18.861842060081564, 12.203647647037522)
+```
+"""
+function latlong_to_xy(lat, long, latmin, longmin)
+    r = 6_371.0 * units.km
+    x = r * cos(longmin) * (lat - latmin)
+    y = r * (long - longmin)
     return x, y
 end
 
