@@ -32,10 +32,10 @@ function Base.show(io::IO, injector::Injector)
         γ: $(injector.γ)
         emin (GeV): $(injector.emin / units.GeV)
         emax (GeV): $(injector.emax / units.GeV)
-        θmin (degrees): $(injector.θmin * 180 / π)
-        θmax (degrees): $(injector.θmax * 180 / π)
-        ϕmin (degrees): $(injector.ϕmin * 180 / π)
-        ϕmax (degrees): $(injector.ϕmax * 180 / π)
+        θmin (degrees): $(injector.θmin * 180 / π)°
+        θmax (degrees): $(injector.θmax * 180 / π)°
+        ϕmin (degrees): $(injector.ϕmin * 180 / π)°
+        ϕmax (degrees): $(injector.ϕmax * 180 / π)°
         r_injection (m): $(injector.r_injection / units.m)
         l_endcap (m): $(injector.l_endcap / units.m)
         """,
