@@ -9,8 +9,8 @@ function Base.show(io::IO, coord::Coord)
     println(
         io,
         """
-        latitude (degrees): $(deg2rad(coord.latitude))
-        longitude (degrees): $(deg2rad(coord.longitude))
+        latitude (degrees): $(coord.latitude * 180 / π)°
+        longitude (degrees): $(coord.longitude * 180 / π)°
         """
     )
 end
@@ -70,6 +70,17 @@ end
 
 function Direction(pp_vector::PyObject)
     return Direction(pp_vector.x, pp_vector.y, pp_vector.z)
+end
+
+function Base.show(io::IO, d::Direction)
+    print(
+        io,
+        """
+        θ (degrees): $(d.θ * 180 / π)°
+        ϕ (degrees): $(d.θ * 180 / π)°
+        proj: [$(proj.x), $(proj.y), $(proj.z)]
+        """
+    )
 end
 
 Base.reverse(d::Direction) = Direction(-d.proj...)
