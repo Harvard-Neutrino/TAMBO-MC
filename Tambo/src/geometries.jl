@@ -1,8 +1,18 @@
 defaults = (zup=5units.km, zdown=50units.km, depth1=12units.km, depth2=21.4units.km)
 
 struct Coord{T<:Float64}
-    lat::T
-    long::T
+    latitude::T
+    longitude::T
+end
+
+function Base.show(io::IO, coord::Coord)
+    println(
+        io,
+        """
+        latitude (degrees): $(deg2rad(coord.latitude))
+        longitude (degrees): $(deg2rad(coord.longitude))
+        """
+    )
 end
 
 """
