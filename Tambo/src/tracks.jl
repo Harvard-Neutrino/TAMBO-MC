@@ -101,7 +101,7 @@ function Range(λstart::Float64, λwidth::Float64, t::Track, density::Float64)
     pstart = t(λstart)
     width = t.norm * λwidth
     # I'm sorry whoever finds this....
-    medium_name = density > 1 ? "StandardRock" : "Air"
+    medium_name = density / (units.gr / units.cm^3) > 1 ? "StandardRock" : "Air"
     range = Range(λstart, λwidth, pstart, width, density, medium_name)
     return range
 end
@@ -134,7 +134,9 @@ end
 function computeranges(t::Track, g::Geometry, ixs)
     rgen = vcat(0, ixs, 1)
     ranges = [
-        Range(x[1], x[2] - x[1], t, getdensity(t((x[1] + x[2]) / 2), g)) for
+        Range(
+            x[1], x[2] - x[1],
+            t, getdensity(t((x[1] + x[2]) / 2), g)) for
         x in zip(rgen[1:(end - 1)], rgen[2:end])
     ]
     return ranges
