@@ -1,56 +1,23 @@
 include("./samplers/Samplers.jl")
 using .Samplers
 
-mutable struct Injector
-    n::Int
-    geo_spline_path::String
-    diff_xs_path::String
-    ν_pdg::Int
-    γ::Float64
-    emin::Float64
-    emax::Float64
-    θmin::Float64
-    θmax::Float64
-    ϕmin::Float64
-    ϕmax::Float64
-    r_injection::Float64
-    l_endcap::Float64
-    seed::Int64
-end
-
-function Injector()
-    n = 10
-    geo_spline_path = realpath("$(@__DIR__)/../../resources/tambo_spline.jld2")
-    xs_path = realpath(
+Base.@kwdef mutable struct Injector
+    n::Int = 10
+    geo_spline_path::String = realpath("$(@__DIR__)/../../resources/tambo_spline.jld2")
+    diff_xs_path::String = realpath(
         "$(@__DIR__)/../../resources/cross_sections/tables/csms_differential_cdfs.h5"
     )
-    ν_pdg = 16
-    γ = 1
-    emin = 1e6units[:GeV]
-    emax = 1e9units[:GeV]
-    θmin = 0
-    θmax = π
-    ϕmin = 0
-    ϕmax = 2π
-    r_injection = 900units[:m]
-    l_endcap = 1units[:km]
-    seed = 0
-    return Injector(
-        n,
-        geo_spline_path,
-        xs_path,
-        ν_pdg,
-        γ,
-        emin,
-        emax,
-        θmin,
-        θmax,
-        ϕmin,
-        ϕmax,
-        r_injection,
-        l_endcap,
-        seed,
-    )
+    ν_pdg::Int = 16
+    γ::Float64 = 1
+    emin::Float64 = 1e6units.GeV
+    emax::Float64 = 1e9units.GeV
+    θmin::Float64 = 0.0
+    θmax::Float64 = π
+    ϕmin::Float64 = 0.0
+    ϕmax::Float64 = 2π
+    r_injection::Float64 = 900units.m
+    l_endcap::Float64 = 1units.km
+    seed::Int64 = 0
 end
 
 function Base.show(io::IO, injector::Injector)
@@ -65,17 +32,17 @@ function Base.show(io::IO, injector::Injector)
         γ: $(injector.γ)
         emin (GeV): $(injector.emin / units.GeV)
         emax (GeV): $(injector.emax / units.GeV)
-        θmin: $(injector.θmin)
-        θmax: $(injector.θmax)
-        ϕmin: $(injector.ϕmin)
-        ϕmax: $(injector.ϕmax)
+        θmin (degrees): $(injector.θmin * 180 / π)
+        θmax (degrees): $(injector.θmax * 180 / π)
+        ϕmin (degrees): $(injector.ϕmin * 180 / π)
+        ϕmax (degrees): $(injector.ϕmax * 180 / π)
         r_injection (m): $(injector.r_injection / units.m)
         l_endcap (m): $(injector.l_endcap / units.m)
         """,
     )
 end
 
-function (injector::Injector)(track_progress=true)
+function (injector::Injector)(; track_progress=true)
     Random.seed!(injector.seed)
     pl = PowerLaw(injector.γ, injector.emin, injector.emax)
     diff_xs = OutgoingCCEnergy(injector.diff_xs_path, injector.ν_pdg)
