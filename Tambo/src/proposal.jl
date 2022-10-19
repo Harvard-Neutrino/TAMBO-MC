@@ -42,8 +42,8 @@ struct Loss
     end
 end
 
-function Loss(int_type::Int, e::Float64, position::PyObject)
-    position = SVector{3}([position.x, position.y, position.z])
+function Loss(int_type::Int, e::Float64, pp_position::PyObject)
+    position = position_from_pp_vector(pp_position)
     return Loss(int_type, e, position)
 end
 
@@ -182,7 +182,7 @@ function make_propagator(
     density_distributions = [make_pp_density_distribution(d) for d in densities]
     push!(
         density_distributions,
-        make_pp_density_distribution(units.ρair0 / (units.gr / units.cm^3)),
+        make_pp_density_distribution(units.ρair0),
     )
     crosses = [make_pp_crosssection(particle, m) for m in media]
     push!(crosses, make_pp_crosssection(particle, "Air"))
@@ -204,7 +204,7 @@ function propagate_charged_lepton(
 
     lepton = pp.particle.ParticleState()
     lepton.position = make_pp_vector(clepton.position)
-    lepton.direction = make_pp_direction(clepton.direction)
+    lepton.direction = make_pp_direction(reverse(clepton.direction))
     lepton.energy = clepton.energy / units.MeV
     lepton.propagated_distance = 0.0
     lepton.time = 0.0
