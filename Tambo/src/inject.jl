@@ -18,6 +18,7 @@ Base.@kwdef mutable struct Injector
     r_injection::Float64 = 900units.m
     l_endcap::Float64 = 1units.km
     seed::Int64 = 0
+
 end
 
 function Base.show(io::IO, injector::Injector)
@@ -32,10 +33,10 @@ function Base.show(io::IO, injector::Injector)
         γ: $(injector.γ)
         emin (GeV): $(injector.emin / units.GeV)
         emax (GeV): $(injector.emax / units.GeV)
-        θmin (degrees): $(injector.θmin * 180 / π)°
-        θmax (degrees): $(injector.θmax * 180 / π)°
-        ϕmin (degrees): $(injector.ϕmin * 180 / π)°
-        ϕmax (degrees): $(injector.ϕmax * 180 / π)°
+        θmin (degrees): $(round(injector.θmin * 180 / π, sigdigits=3))°
+        θmax (degrees): $(round(injector.θmax * 180 / π, sigdigits=3))°
+        ϕmin (degrees): $(round(injector.ϕmin * 180 / π, sigdigits=3))°
+        ϕmax (degrees): $(round(injector.ϕmax * 180 / π, sigdigits=3))°
         r_injection (m): $(injector.r_injection / units.m)
         l_endcap (m): $(injector.l_endcap / units.m)
         """,
@@ -49,7 +50,7 @@ function (injector::Injector)(; track_progress=true)
     anglesampler = UniformAngularSampler(
         injector.θmin, injector.θmax, injector.ϕmin, injector.ϕmax
     )
-    injectionvolume = InjectionVolume(injector.r_injection, injector.l_endcap)
+    injectionvolume = SymmetricInjectionCylinder(injector.r_injection, injector.l_endcap)
     geo = Geometry(injector.geo_spline_path)
     if track_progress
         iter = ProgressBar(1:(injector.n))
@@ -60,56 +61,6 @@ function (injector::Injector)(; track_progress=true)
         inject_event(injector.ν_pdg, pl, diff_xs, anglesampler, injectionvolume, geo) for
         _ in iter
     ]
-end
-
-"""
-    sample_interaction_vertex(
-        volume::InjectionVolume,
-        p_near::SVector{3},
-        d::Direction,
-        range,
-        geo::Geometry
-    )
-
-TBW
-"""
-function sample_interaction_vertex(
-    volume::InjectionVolume, p_near::SVector{3}, d::Direction, range, geo::Geometry
-)
-    # Make track from point of closest approach to point of entry and exitA
-    ti = Track(p_near, d, geo.box)
-    to = Track(p_near, reverse(d), geo.box)
-    # Compute the intersection of each track with the mountain
-    rangesi = computeranges(ti, geo)
-    rangeso = computeranges(to, geo)
-    # Compute the colum depth for both incoming and outgoing portions
-    cdi = endcapcolumndepth(ti, volume.l_endcap, range, rangesi)
-    cdo = endcapcolumndepth(to, volume.l_endcap, 0.0, rangeso)
-    # sample column depth uniformly and subtract incoming column depth
-    cd = rand(Uniform(-cdo, cdi))
-    # If the remainder is positive, you need to be in incoming track, else outgoing
-    cd > 0 ? tr = ti : tr = to
-    cd > 0 ? ranges = rangesi : ranges = rangeso
-    # Find affine parameter where we have traversed proper column depth
-    λ_int = inversecolumndepth(tr, abs(cd), geo, ranges)
-    # Convert affine parameter to a physical location
-    p_int = tr(λ_int)
-    return p_int
-end
-
-"""
-    endcapcolumndepth(t::Track, l_endcap::Float64, range::Float64, ranges::Vector)
-
-TBW
-"""
-function endcapcolumndepth(t::Track, l_endcap::Float64, range::Float64, ranges::Vector)
-    cd = totalcolumndepth(t, ranges)
-    if t.norm <= l_endcap
-        cd_endcap = cd
-    else
-        cd_endcap = minimum([columndepth(t, l_endcap / t.norm, ranges) + range, cd])
-    end
-    return cd_endcap
 end
 
 struct InjectionEvent
@@ -131,7 +82,68 @@ function Base.show(io::IO, event::InjectionEvent)
 end
 
 """
-    inject_event(injector::Injector)
+    sample_interaction_vertex(
+        volume::InjectionVolume,
+        p_near::SVector{3},
+        d::Direction,
+        range,
+        geo::Geometry
+    )
+
+TBW
+"""
+function sample_interaction_vertex(
+    volume::SymmetricInjectionCylinder,
+    p_near::SVector{3},
+    d::Direction,
+    range::Float64,
+    geo::Geometry
+)
+    # Make track from point of closest approach to point of entry and exitA
+    tincoming = Track(p_near, d, geo.box)
+    toutgoing = Track(p_near, reverse(d), geo.box)
+    # Compute the intersection of each track with the mountain
+    segmentsi = computesegments(tincoming, geo)
+    segmentso = computesegments(toutgoing, geo)
+    # Compute the colum depth for both incoming and outgoing portions
+    cdincoming = endcapcolumndepth(tincoming, volume.l_endcap, range, segmentsi)
+    cdoutgoing = endcapcolumndepth(toutgoing, volume.l_endcap, 0.0, segmentso)
+    # sample column depth uniformly and subtract incoming column depth
+    cd = rand(Uniform(-cdoutgoing, cdincoming))
+    # If the remainder is positive, you need to be in incoming track, else outgoing
+    cd > 0 ? tr = tincoming : tr = toutgoing
+    cd > 0 ? segments = segmentsi : segments = segmentso
+    # Find affine parameter where we have traversed proper column depth
+    λ_int = inversecolumndepth(tr, abs(cd), geo, segments)
+    # Convert affine parameter to a physical location
+    p_int = tr(λ_int)
+    return p_int
+end
+
+"""
+    endcapcolumndepth(t::Track, l_endcap::Float64, range::Float64, segments::Vector{Segment})
+
+TBW
+"""
+function endcapcolumndepth(t::Track, l_endcap::Float64, range::Float64, segments::Vector{Segment})
+    cd = totalcolumndepth(t, segments)
+    if t.norm <= l_endcap
+        cd_endcap = cd
+    else
+        cd_endcap = minimum([columndepth(t, l_endcap / t.norm, segments) + range, cd])
+    end
+    return cd_endcap
+end
+
+"""
+    inject_event(
+    ν_pdg::Int,
+    e_sampler,
+    diff_xs::OutgoingCCEnergy,
+    anglesampler,
+    injectionvolume::SymmetricInjectionCylinder,
+    geo::Geometry,
+)
 
 TBW
 """
@@ -140,16 +152,11 @@ function inject_event(
     e_sampler,
     diff_xs::OutgoingCCEnergy,
     anglesampler,
-    injectionvolume::InjectionVolume,
+    injectionvolume::SymmetricInjectionCylinder,
     geo::Geometry,
 )
     e_init = rand(e_sampler)
-    # Sometimes this sampler runs into floating poiting precision issues that give
-    # an energy higher than the initial energy
-    # I should probably figure that out but for now I leave it.
-    # Hopefully the splines fix this
     e_final = rand(diff_xs, e_init)
-    #e_final = minimum([rand(diff_xs, e_init), e_init])
     range = lepton_range(e_init, abs(ν_pdg) == 16)
     d = Direction(rand(anglesampler)...)
     # Construct roatation to plane perpindicular to direction
