@@ -11,7 +11,7 @@ function Base.show(io::IO, particle::Particle)
         pdg_mc: $(particle.pdg_mc),
         energy (GeV): $(particle.energy / units.GeV),
         position (m): $(particle.position / units.m),
-        direction: $(particle.direction),
+        direction: $(particle.direction)
         """
     print(io, s)
 end
