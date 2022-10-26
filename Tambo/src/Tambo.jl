@@ -120,12 +120,33 @@ function __init__()
 end
 
 include("units.jl")
+include("locations.jl")
+include("directions.jl")
 include("geometries.jl")
 include("tracks.jl")
+#include("segments.jl")
 include("particles.jl")
 include("inject.jl")
 include("proposal.jl")
 
-mutable struct Simulator end
+@Base.kwdef mutable struct Simulator
+    n::Int = 10
+    geo_spline_path::String = realpath("$(@__DIR__)/../../resources/tambo_spline.jld2")
+    diff_xs_path::String = realpath(
+        "$(@__DIR__)/../../resources/cross_sections/tables/csms_differential_cdfs.h5"
+    )
+    tambo_coordinates::Coord = minesite_coord
+    ν_pdg::Int = 16
+    γ::Float64 = 1
+    emin::Float64 = 1e6units.GeV
+    emax::Float64 = 1e9units.GeV
+    θmin::Float64 = 0.0
+    θmax::Float64 = π
+    ϕmin::Float64 = 0.0
+    ϕmax::Float64 = 2π
+    r_injection::Float64 = 900units.m
+    l_endcap::Float64 = 1units.km
+    seed::Int64 = 0
+end
 
 end # module
