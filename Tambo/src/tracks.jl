@@ -33,6 +33,37 @@ function (t::Track)(λ)
     return t.ipoint .+ λ * t.norm * t.direction
 end
 
+struct Segment
+    λstart::Float64
+    λwidth::Float64
+    pstart::SVector{3}
+    length::Float64
+    density::Float64
+    medium_name::String
+end
+
+function Segment(λstart::Float64, λwidth::Float64, t::Track, density::Float64)
+    pstart = t(λstart)
+    width = t.norm * λwidth
+    medium_name = density / (units.gr / units.cm^3) > 1 ? "StandardRock" : "Air"
+    range = Segment(λstart, λwidth, pstart, width, density, medium_name)
+    return range
+end
+
+function Base.show(io::IO, r::Segment)
+    print(
+        io,
+        """
+        λstart: $(r.λstart)
+        λwidth: $(r.λwidth)
+        pstart (m): $(r.pstart / units.m)
+        width (m): $(r.length / units.m)
+        density (g/cm^3): $(r.density / (units.gr / units.cm^3))
+        medium_name: $(r.medium_name)
+        """,
+    )
+end
+
 function Base.intersect(p::SVector{3}, d::Direction, box::Box)
     if !inside(p, box)
         error("Track does not start inside the box")
@@ -50,10 +81,20 @@ function Base.intersect(p::SVector{3}, d::Direction, box::Box)
     return λf * d .+ p
 end
 
+"""
+    Base.intersect(t::Track, b::Box)
+
+TBW
+"""
 function Base.intersect(t::Track, b::Box)
     return intersect(t.ipoint, t.direction, b)
 end
 
+"""
+    Base.intersect(t::Track, z::Float64)
+
+TBW
+"""
 function Base.intersect(t::Track, z::Float64)
     Δz = t.fpoint.z - t.ipoint.z
     root = (z - t.ipoint.z) / Δz
@@ -65,12 +106,23 @@ function Base.intersect(t::Track, z::Float64)
     return root
 end
 
+"""
+    Base.intersect(t::Track, v::Function)
+
+TBW
+"""
 function Base.intersect(t::Track, v::Function)
     oned_valley = reduce_f(t, v)
     root_func(λ) = oned_valley(λ) - t(λ).z
-    return zeros = find_zeros(root_func, 0, 1)
+    zeros = find_zeros(root_func, 0, 1)
+    return zeros
 end
 
+"""
+    Base.intersect(t::Track, g::Geometry)
+
+TBW
+"""
 function Base.intersect(t::Track, g::Geometry)
     ixs = intersect.(Ref(t), g.zboundaries)
     ixs = vcat(ixs, intersect(t, g.valley))
@@ -78,75 +130,78 @@ function Base.intersect(t::Track, g::Geometry)
     return ixs = sort(ixs)
 end
 
+"""
+    Base.reverse(t::Track)
+
+TBW
+"""
 function Base.reverse(t::Track)
     return Track(t.fpoint, t.ipoint)
 end
 
+"""
+    reduce_f(t::Track, f)
+
+TBW
+"""
 function reduce_f(t::Track, f)
     return g(λ) = f(t(λ).x, t(λ).y)
 end
 
-####### Range struct #######
+"""
+    inversecolumndepth(tr::Track, cd::T, g::Geometry) where {T<:Number}
 
-struct Range
-    λstart::Float64
-    λwidth::Float64
-    pstart::SVector{3}
-    length::Float64
-    density::Float64
-    medium_name::String
-end
-
-function Range(λstart::Float64, λwidth::Float64, t::Track, density::Float64)
-    pstart = t(λstart)
-    width = t.norm * λwidth
-    # I'm sorry whoever finds this....
-    medium_name = density / (units.gr / units.cm^3) > 1 ? "StandardRock" : "Air"
-    range = Range(λstart, λwidth, pstart, width, density, medium_name)
-    return range
-end
-
-function Base.show(io::IO, r::Range)
-    print(
-        io,
-        """
-        λstart: $(r.λstart)
-        λwidth: $(r.λwidth)
-        pstart (m): $(r.pstart / units.m)
-        width (m): $(r.length / units.m)
-        density (g/cm^3): $(r.density / (units.gr / units.cm^3))
-        medium_name: $(r.medium_name)
-        """,
-    )
-end
-
+TBW
+"""
 function inversecolumndepth(tr::Track, cd::T, g::Geometry) where {T<:Number}
-    ranges = computeranges(tr, g)
-    return inversecolumndepth(tr, cs, valley, ranges)
+    segments = computesegments(tr, g)
+    return inversecolumndepth(tr, cd, valley, segments)
 end
 
-function inversecolumndepth(tr::Track, cd::T, g::Geometry, ranges::Vector) where {T<:Number}
-    f(λ) = columndepth(tr, λ, ranges) - cd
+"""
+    inversecolumndepth(tr::Track, cd::T, g::Geometry, segments::Vector) where {T<:Number}
+
+TBW
+"""
+function inversecolumndepth(tr::Track, cd::T, g::Geometry, segments::Vector) where {T<:Number}
+    f(λ) = columndepth(tr, λ, segments) - cd
     λ_int = find_zero(f, (0, 1))
     return λ_int
 end
 
-function computeranges(t::Track, g::Geometry, ixs)
+"""
+    computesegments(t::Track, g::Geometry, ixs)
+
+TBW
+"""
+function computesegments(t::Track, g::Geometry, ixs)
     rgen = vcat(0, ixs, 1)
-    ranges = [
-        Range(
-            x[1], x[2] - x[1],
-            t, getdensity(t((x[1] + x[2]) / 2), g)) for
-        x in zip(rgen[1:(end - 1)], rgen[2:end])
+    segments = [
+        Segment(
+            x[1],
+            x[2] - x[1],
+            t,
+            getdensity(t((x[1] + x[2]) / 2), g)
+        ) for x in zip(rgen[1:(end - 1)], rgen[2:end])
     ]
-    return ranges
+    return segments
 end
 
-function computeranges(t::Track, g::Geometry)
+"""
+    computesegments(t::Track, g::Geometry)
+
+TBW
+"""
+function computesegments(t::Track, g::Geometry)
     ixs = intersect(t, g)
-    return computeranges(t, g, ixs)
+    return computesegments(t, g, ixs)
 end
 
+"""
+    getdensity(p::SVector{3}, g::Geometry)
+
+TBW
+"""
 function getdensity(p::SVector{3}, g::Geometry)
     ρ = 0
     if !inside(p, g.valley)
@@ -159,29 +214,49 @@ function getdensity(p::SVector{3}, g::Geometry)
     return ρ
 end
 
-function columndepth(t::Track, λ::T, ranges::Vector) where {T<:Number}
-    ranges = [r for r in ranges if r.λstart < λ]
-    if length(ranges) > 0
-        endrange = ranges[end]
-        ranges[end] = Range(endrange.λstart, λ - endrange.λstart, t, endrange.density)
+"""
+    columndepth(t::Track, λ::T, segments::Vector{Segment}) where {T<:Number}
+
+TBW
+"""
+function columndepth(t::Track, λ::T, segments::Vector{Segment}) where {T<:Number}
+    segments = [r for r in segments if r.λstart < λ]
+    if length(segments) > 0
+        endrange = segments[end]
+        segments[end] = Segment(endrange.λstart, λ - endrange.λstart, t, endrange.density)
     end
     cd = 0units[:mwe]
-    for r in ranges
+    for r in segments
         cd += r.length * r.density
     end
     return cd
 end
 
+"""
+    columndepth(t::Track, λ::T, g::Geometry) where {T<:Number}
+
+TBW
+"""
 function columndepth(t::Track, λ::T, g::Geometry) where {T<:Number}
-    ranges = computeranges(t, g)
-    return columndepth(t, λ, ranges)
+    segments = computesegments(t, g)
+    return columndepth(t, λ, segments)
 end
 
-function totalcolumndepth(t::Track, ranges::Vector)
-    return columndepth(t, 1, ranges)
+"""
+    totalcolumndepth(t::Track, segments::Vector)
+
+TBW
+"""
+function totalcolumndepth(t::Track, segments::Vector)
+    return columndepth(t, 1, segments)
 end
 
+"""
+    totalcolumndepth(t::Track, g::Geometry)
+
+TBW
+"""
 function totalcolumndepth(t::Track, g::Geometry)
-    ranges = computeranges(t, g)
-    return totalcolumndepth(t, ranges)
+    segments = computesegments(t, g)
+    return totalcolumndepth(t, segments)
 end
