@@ -3,7 +3,7 @@ module Samplers
 using Distributions: Uniform
 
 export UniformAngularSampler
-export InjectionVolume
+export SymmetricInjectionCylinder, AsymmetricInjectionCylinder
 export PowerLaw
 export OutgoingCCEnergy
 
