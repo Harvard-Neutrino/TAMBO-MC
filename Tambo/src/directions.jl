@@ -45,8 +45,3 @@ Base.reverse(d::Direction) = Direction(-d.proj...)
 
 Base.:/(sv::SVector{3}, d::Direction) = sv ./ d.proj
 Base.:*(m, d::Direction) = m .* d.proj
-
-struct Box{T<:Number}
-    c1::SVector{3,T}
-    c2::SVector{3,T}
-end

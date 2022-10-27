@@ -1,5 +1,10 @@
 const defaults = (zup=5units.km, zdown=50units.km, depth1=12units.km, depth2=21.4units.km)
 
+struct Box{T<:Number}
+    c1::SVector{3,T}
+    c2::SVector{3,T}
+end
+
 function Box(c1, c2)
     c1, c2 = promote(c1, c2)
     c1, c2 = SVector{3}(c1), SVector{3}(c2)
