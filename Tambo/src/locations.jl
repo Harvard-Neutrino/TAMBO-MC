@@ -3,6 +3,17 @@ struct Coord{T<:Float64}
     longitude::T
 end
 
+function Base.show(io::IO, coord::Coord)
+    roundlat = round(coord.latitude*180/π, sigdigits=5)
+    roundlong = round(coord.longitude*180/π, sigdigits=5)
+    print(
+        io,
+        """
+        ($(roundlat)°, $(roundlong)°)
+        """
+    )
+end
+
 function mincoord_fromfile(;filename = "$(@__DIR__)/../resources/ColcaValleyData.txt")
     open(filename) do file
         latmin = 0
@@ -47,13 +58,12 @@ function latlong_to_xy(lat, long, latmin, longmin)
     y = r * (lat - latmin)
     return SVector{2}(x, y)
 end
-#function latlong_to_xy(lat, long, latmin, longmin)
-#    r = 6_371.0 * units.km
-#    x = r * cos(latmin) * (long - longmin)
-#    y = r * (lat - latmin)
-#    return SVector{2}([x, y])
-#end
 
+"""
+    latlong_to_xy(coord::Coord, coordmin::Coord)
+
+TBW
+"""
 function latlong_to_xy(coord::Coord, coordmin::Coord)
     return latlong_to_xy(
         coord.latitude,
@@ -61,4 +71,34 @@ function latlong_to_xy(coord::Coord, coordmin::Coord)
         coordmin.latitude,
         coordmin.longitude
     )
+end
+
+"""
+    xy_to_latlong(x, y, latmin, longmin)
+
+TBW
+"""
+function xy_to_latlong(x, y, latmin, longmin)
+    r = 6_371.0 * units.km
+    long = x / (r * cos(latmin)) + longmin
+    lat = y / r + latmin
+    return lat, long
+end
+
+"""
+    xy_to_latlong(xy, latmin, longmin)
+
+TBW
+"""
+function xy_to_latlong(xy, latmin, longmin)
+    return xy_to_latlong(xy[1], xy[2], latmin, longmin)
+end
+
+"""
+    xy_to_latlong(xy, coordmin::Coord)
+
+TBW
+"""
+function xy_to_latlong(xy, coordmin::Coord)
+    return xy_to_latlong(xy, coordmin.latitude, coordmin.longitude)
 end
