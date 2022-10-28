@@ -1,7 +1,6 @@
-include("./samplers/Samplers.jl")
 using .Samplers
 
-Base.@kwdef mutable struct Injector
+Base.@kwdef mutable struct InjectionConfig
     n::Int = 10
     geo_spline_path::String = realpath("$(@__DIR__)/../../resources/tambo_spline.jld2")
     diff_xs_path::String = realpath(
@@ -21,7 +20,7 @@ Base.@kwdef mutable struct Injector
 
 end
 
-function Base.show(io::IO, injector::Injector)
+function Base.show(io::IO, injector::InjectionConfig)
     print(
         io,
         """
@@ -38,20 +37,18 @@ function Base.show(io::IO, injector::Injector)
         ϕmin (degrees): $(round(injector.ϕmin * 180 / π, sigdigits=3))°
         ϕmax (degrees): $(round(injector.ϕmax * 180 / π, sigdigits=3))°
         r_injection (m): $(injector.r_injection / units.m)
-        l_endcap (m): $(injector.l_endcap / units.m)
-        """,
+        l_endcap (m): $(injector.l_endcap / units.m)"""
     )
 end
 
-function (injector::Injector)(; track_progress=true)
-    Random.seed!(injector.seed)
+function (injector::InjectionConfig)(geo; track_progress=true)
+    seed!(injector.seed)
     pl = PowerLaw(injector.γ, injector.emin, injector.emax)
     diff_xs = OutgoingCCEnergy(injector.diff_xs_path, injector.ν_pdg)
     anglesampler = UniformAngularSampler(
         injector.θmin, injector.θmax, injector.ϕmin, injector.ϕmax
     )
     injectionvolume = SymmetricInjectionCylinder(injector.r_injection, injector.l_endcap)
-    geo = Geometry(injector.geo_spline_path)
     if track_progress
         iter = ProgressBar(1:(injector.n))
     else
@@ -76,8 +73,7 @@ function Base.show(io::IO, event::InjectionEvent)
         $(event.initial_state)
 
         final_state:
-        $(event.final_state)
-        """,
+        $(event.final_state)""",
     )
 end
 
@@ -160,7 +156,7 @@ function inject_event(
     range = lepton_range(e_init, abs(ν_pdg) == 16)
     d = Direction(rand(anglesampler)...)
     # Construct roatation to plane perpindicular to direction
-    r = (Rotations.RotX(d.θ) * RotZ(π / 2 - d.ϕ))'
+    r = (RotX(d.θ) * RotZ(π / 2 - d.ϕ))'
     p_near = r * rand(injectionvolume)
     p_int = sample_interaction_vertex(injectionvolume, p_near, d, range, geo)
     initial_state = Particle(ν_pdg, e_init, p_int, d, nothing)
