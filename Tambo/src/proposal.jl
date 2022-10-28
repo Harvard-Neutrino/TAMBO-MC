@@ -9,29 +9,176 @@ As per this discussion, pyimports are cached so this shouldn't cause
 a performance hit
 """
 
-const particle_def_dict = Dict(
-    11 => EMinusDef,
-    -11 => EPlusDef,
-    13 => MuMinusDef,
-    -13 => MuPlusDef,
-    15 => TauMinusDef,
-    -15 => TauPlusDef,
-)
+const pp = PyNULL()
+const TauMinusDef = PyNULL()
+const TauPlusDef = PyNULL()
+const MuMinusDef = PyNULL()
+const MuPlusDef = PyNULL()
+const EMinusDef = PyNULL()
+const EPlusDef = PyNULL()
+const EPlusAirCross = [PyNULL(), PyNULL(), PyNULL(), PyNULL(), PyNULL()]
+const EMinusAirCross = [PyNULL(), PyNULL(), PyNULL(), PyNULL()]
+const MuPlusAirCross = [PyNULL(), PyNULL(), PyNULL(), PyNULL()]
+const MuMinusAirCross = [PyNULL(), PyNULL(), PyNULL(), PyNULL()]
+const TauPlusAirCross = [PyNULL(), PyNULL(), PyNULL(), PyNULL()]
+const TauMinusAirCross = [PyNULL(), PyNULL(), PyNULL(), PyNULL()]
+const EPlusRockCross = [PyNULL(), PyNULL(), PyNULL(), PyNULL(), PyNULL()]
+const EMinusRockCross = [PyNULL(), PyNULL(), PyNULL(), PyNULL()]
+const MuPlusRockCross = [PyNULL(), PyNULL(), PyNULL(), PyNULL()]
+const MuMinusRockCross = [PyNULL(), PyNULL(), PyNULL(), PyNULL()]
+const TauPlusRockCross = [PyNULL(), PyNULL(), PyNULL(), PyNULL()]
+const TauMinusRockCross = [PyNULL(), PyNULL(), PyNULL(), PyNULL()]
 
-const pp_crosssections_dict = Dict(
-    (11, "Air") => EMinusAirCross,
-    (-11, "Air") => EPlusAirCross,
-    (13, "Air") => MuMinusAirCross,
-    (-13, "Air") => MuPlusAirCross,
-    (15, "Air") => TauMinusAirCross,
-    (-15, "Air") => TauPlusAirCross,
-    (11, "StandardRock") => EMinusRockCross,
-    (-11, "StandardRock") => EPlusRockCross,
-    (13, "StandardRock") => MuMinusRockCross,
-    (-13, "StandardRock") => MuPlusRockCross,
-    (15, "StandardRock") => TauMinusRockCross,
-    (-15, "StandardRock") => TauPlusRockCross,
+
+Base.@kwdef mutable struct ProposalConfig
+    ecut::Float64 = Inf
+    vcut::Float64 = 1e-2
+    do_interpolate::Bool = true
+    do_continuous::Bool = true
+    tablespath::String = realpath(
+        "$(@__DIR__)/../..//resources/proposal_tables/"
+    )
+end
+
+function prepare_helper_dicts(config::ProposalConfig)
+    copy!(pp, pyimport("proposal"))
+    pp.InterpolationSettings.tables_path = config.tablespath
+    copy!(TauMinusDef, pp.particle.TauMinusDef())
+    copy!(TauPlusDef, pp.particle.TauPlusDef())
+    copy!(MuMinusDef, pp.particle.MuMinusDef())
+    copy!(MuPlusDef, pp.particle.MuPlusDef())
+    copy!(EMinusDef, pp.particle.EMinusDef())
+    copy!(EPlusDef, pp.particle.EPlusDef())
+    function make_pp_crosssection(particle_def, name, config=config)
+        cuts = pp.EnergyCutSettings(
+            config.ecut / units.MeV,
+            config.vcut,
+            config.do_continuous
+        )
+        target = getproperty(pp.medium, name)()
+        cross = pp.crosssection.make_std_crosssection(;
+            particle_def=particle_def,
+            target=target,
+            interpolate=config.do_interpolate,
+            cuts=cuts
+        )
+
+        return cross
+    end
+    xs = make_pp_crosssection(EMinusDef, "Air")
+    ys = EMinusAirCross
+    for (x, y) in zip(xs, ys)
+        copy!(y, x)
+    end
+    xs = make_pp_crosssection(EPlusDef, "Air")
+    ys = EPlusAirCross
+    for (x, y) in zip(xs, ys)
+        copy!(y, x)
+    end
+    xs = make_pp_crosssection(MuMinusDef, "Air")
+    ys = MuMinusAirCross
+    for (x, y) in zip(xs, ys)
+        copy!(y, x)
+    end
+    xs = make_pp_crosssection(MuPlusDef, "Air")
+    ys = MuPlusAirCross
+    for (x, y) in zip(xs, ys)
+        copy!(y, x)
+    end
+    xs = make_pp_crosssection(TauMinusDef, "Air")
+    ys = TauMinusAirCross
+    for (x, y) in zip(xs, ys)
+        copy!(y, x)
+    end
+    xs = make_pp_crosssection(TauPlusDef, "Air")
+    ys = TauPlusAirCross
+    for (x, y) in zip(xs, ys)
+        copy!(y, x)
+    end
+    xs = make_pp_crosssection(EMinusDef, "StandardRock")
+    ys = EMinusRockCross
+    for (x, y) in zip(xs, ys)
+        copy!(y, x)
+    end
+    xs = make_pp_crosssection(EPlusDef, "StandardRock")
+    ys = EPlusRockCross
+    for (x, y) in zip(xs, ys)
+        copy!(y, x)
+    end
+    xs = make_pp_crosssection(MuMinusDef, "StandardRock")
+    ys = MuMinusRockCross
+    for (x, y) in zip(xs, ys)
+        copy!(y, x)
+    end
+    xs = make_pp_crosssection(MuPlusDef, "StandardRock")
+    ys = MuPlusRockCross
+    for (x, y) in zip(xs, ys)
+        copy!(y, x)
+    end
+    xs = make_pp_crosssection(TauMinusDef, "StandardRock")
+    ys = TauMinusRockCross
+    for (x, y) in zip(xs, ys)
+        copy!(y, x)
+    end
+    xs = make_pp_crosssection(TauPlusDef, "StandardRock")
+    ys = TauPlusRockCross
+    for (x, y) in zip(xs, ys)
+        copy!(y, x)
+    end
+
+    pp_particledef_dict= Dict(
+        11 => EMinusDef,
+        -11 => EPlusDef,
+        13 => MuMinusDef,
+        -13 => MuPlusDef,
+        15 => TauMinusDef,
+        -15 => TauPlusDef,
+    )
+
+    pp_crosssections_dict = Dict(
+        (11, "Air") => EMinusAirCross,
+        (-11, "Air") => EPlusAirCross,
+        (13, "Air") => MuMinusAirCross,
+        (-13, "Air") => MuPlusAirCross,
+        (15, "Air") => TauMinusAirCross,
+        (-15, "Air") => TauPlusAirCross,
+        (11, "StandardRock") => EMinusRockCross,
+        (-11, "StandardRock") => EPlusRockCross,
+        (13, "StandardRock") => MuMinusRockCross,
+        (-13, "StandardRock") => MuPlusRockCross,
+        (15, "StandardRock") => TauMinusRockCross,
+        (-15, "StandardRock") => TauPlusRockCross,
+    )
+    return pp_particledef_dict, pp_crosssections_dict
+end
+
+function (config::ProposalConfig)(event::Particle, geo::Geometry)
+    # TODO figure out how seeding works in PROPOSAL
+    pp_particledef_dict, pp_crosssections_dict = (
+        prepare_helper_dicts(config)
+    )
+    result = propagate(event, geo, pp_crosssections_dict, pp_particledef_dict)
+    return result
+end
+
+function (config::ProposalConfig)(
+    events::Vector{Particle},
+    geo::Geometry;
+    track_progress=true
 )
+    pp_particledef_dict, pp_crosssections_dict = (
+        prepare_helper_dicts(config)
+    )
+    if track_progress
+        itr = ProgressBar(events)
+    else
+        itr = events
+    end
+    results = [
+        propagate(event, geo, pp_crosssections_dict, pp_particledef_dict)
+    for event in itr]
+    return results
+end
 
 struct Loss
     int_type::Int64
@@ -66,13 +213,6 @@ struct ProposalResult
     final_pos::SVector{3}
     final_lepton_energy::Float64
 end
-
-#function ProposalResult(pos)
-#    losses = Loss[]
-#    did_decay = false
-#    decay_products = Particle[]
-#    return ProposalResult(losses, did_decay, decay_products, pos)
-#end
 
 function ProposalResult(secondaries, parent_particle)
     losses = Loss[]
@@ -125,9 +265,9 @@ function show(io::IO, result::ProposalResult)
     )
 end
 
-function pp_particle_def(particle::Particle)
-    return particle_def_dict[particle.pdg_mc]
-end
+#function pp_particle_def(particle::Particle)
+#    return particle_def_dict[particle.pdg_mc]
+#end
 
 function position_from_pp_vector(pp_vector)
     return SVector{3}([pp_vector.x, pp_vector.y, pp_vector.z]) .* units.cm
@@ -147,9 +287,9 @@ function make_pp_direction(d::Direction)
     return pp.Cartesian3D(d.proj)
 end
 
-function make_pp_crosssection(particle::Particle, medium_name)
-    return pp_crosssections_dict[(particle.pdg_mc, medium_name)]
-end
+#function make_pp_crosssection(particle::Particle, medium_name)
+#    return pp_crosssections_dict[(particle.pdg_mc, medium_name)]
+#end
 
 function make_pp_utility(particle_def, cross)
     collection = pp.PropagationUtilityCollection()
@@ -187,34 +327,43 @@ end
 
 function make_propagator(
     particle::Particle,
-    particle_def,
     media::Vector{String},
     densities::Vector{Float64},
     lengths::Vector{Float64},
+    pp_crosssections_dict::Dict{Tuple{Int64, String}, Vector{PyObject}},
+    pp_particle_dict::Dict{Int, PyObject}
 )
+    particle_def = pp_particle_dict[particle.pdg_mc]
     geometries =  make_pp_geometry_list(lengths)
     density_distributions = [make_pp_density_distribution(d) for d in densities]
     push!(
         density_distributions,
         make_pp_density_distribution(units.ρair0),
     )
-    crosses = [make_pp_crosssection(particle, m) for m in media]
-    push!(crosses, make_pp_crosssection(particle, "Air"))
+    crosses = [pp_crosssections_dict[(particle.pdg_mc, m)] for m in media]
+    push!(crosses, pp_crosssections_dict[(particle.pdg_mc, "Air")])
     utilities = [make_pp_utility(particle_def, cross) for cross in crosses]
     dumb_list = [x for x in zip(geometries, utilities, density_distributions)]
     prop = pp.Propagator(particle_def, dumb_list)
     return prop 
 end
 
-function propagate_charged_lepton(
+function propagate(
     chargedlepton::Particle,
     media::Vector{String},
     densities::Vector{Float64},
     lengths::Vector{Float64},
+    pp_crosssections_dict::Dict{Tuple{Int64, String}, Vector{PyObject}},
+    pp_particle_dict::Dict{Int, PyObject}
 )
-    particle_def = pp_particle_def(chargedlepton)
-
-    prop = make_propagator(chargedlepton, particle_def, media, densities, lengths)
+    prop = make_propagator(
+        chargedlepton,
+        media,
+        densities,
+        lengths,
+        pp_crosssections_dict,
+        pp_particle_dict,
+    )
 
     lepton = pp.particle.ParticleState()
     lepton.position = make_pp_vector(SVector{3}([0,0,0]))
@@ -223,19 +372,17 @@ function propagate_charged_lepton(
     lepton.propagated_distance = 0.0
     lepton.time = 0.0
     secondaries = prop.propagate(lepton)
-    return secondaries
+
+    result = ProposalResult(secondaries, chargedlepton)
+    return result
 end
 
-function propagate(v::Vector{Particle}, geo::Geometry; track_progress=true)
-    if track_progress
-        iter = ProgressBar(v)
-    else
-        iter = v
-    end
-    return [propagate(p, geo) for p in iter]
-end
-
-function propagate(finalstate::Particle, geo::Geometry)
+function propagate(
+    finalstate::Particle,
+    geo::Geometry,
+    pp_crosssections_dict::Dict{Tuple{Int64, String}, Vector{PyObject}},
+    pp_particle_dict::Dict{Int, PyObject}
+)
     t = Track(finalstate.position, finalstate.direction, geo.box)
     segments = computesegments(t, geo)
     result = propagate(
@@ -243,36 +390,79 @@ function propagate(finalstate::Particle, geo::Geometry)
         getfield.(segments, :medium_name),
         getfield.(segments, :density),
         getfield.(segments, :length),
+        pp_crosssections_dict,
+        pp_particle_dict,
     )
     return result
 end
 
 function propagate(
-    particle::Particle,
-    media::Vector{String},
-    densities::Vector{Float64},
-    lengths::Vector{Float64},
-)
-    if abs(particle.pdg_mc) in [11, 13, 15]
-        secondaries = propagate_charged_lepton(particle, media, densities, lengths)
-        result = ProposalResult(secondaries, particle)
-    else
-        result = ProposalResult(particle.position)
-    end
-    return result
-end
-
-function propagate(
-    vp::Vector{Particle},
-    media::Vector{String},
-    densities::Vector{Float64},
-    lengths::Vector{Float64};
-    track_progress=true,
+    finalstates::Vector{Particle},
+    geo::Geometry,
+    pp_crosssections_dict::Dict{Tuple{Int64, String}, Vector{PyObject}},
+    pp_particle_dict::Dict{String, PyObject};
+    track_progress=true
 )
     if track_progress
-        iter = ProgressBar(vp)
+        itr = ProgressBar(finalstates)
     else
-        iter = vp
+        itr = finalstates
     end
-    return [propagate(p, media, densities, lengths) for p in iter]
+    results = [
+        propagate(fs, geo, pp_crosssections_dict, pp_particle_dict) for fs in itr
+    ]
+    return results
 end
+
+#"""
+#    propagate(
+#    v::Vector{Particle},
+#    geo::Geometry;
+#    track_progress=true
+#)
+#
+#TBW
+#"""
+#function propagate(
+#    v::Vector{Particle},
+#    geo::Geometry;
+#    track_progress=true
+#)
+#    if track_progress
+#        iter = ProgressBar(v)
+#    else
+#        iter = v
+#    end
+#    return [propagate(p, geo) for p in iter]
+#end
+#
+#
+#function propagate(
+#    particle::Particle,
+#    media::Vector{String},
+#    densities::Vector{Float64},
+#    lengths::Vector{Float64},
+#)
+#    if abs(particle.pdg_mc) in [11, 13, 15]
+#        secondaries = propagate_charged_lepton(particle, media, densities, lengths)
+#        result = ProposalResult(secondaries, particle)
+#    else
+#        result = ProposalResult(particle.position)
+#    end
+#    return result
+#end
+#
+#function propagate(
+#    vp::Vector{Particle},
+#    media::Vector{String},
+#    densities::Vector{Float64},
+#    lengths::Vector{Float64};
+#    track_progress=true,
+#)
+#    if track_progress
+#        iter = ProgressBar(vp)
+#    else
+#        iter = vp
+#    end
+#    return [propagate(p, media, densities, lengths) for p in iter]
+#end
