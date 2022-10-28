@@ -1,141 +1,44 @@
-__precompile__()
 module Tambo
 
-export Injector
+export Simulator,
+       InjectionConfig,
+       ProposalConfig, 
+       save_simulation, 
+       simulator_from_file,
+       units
 
-using StaticArrays
-using Rotations
-using Random
-using PyCall
-using LinearAlgebra: norm
-using Roots: find_zeros, find_zero
-using Dierckx
-using JLD2: jldopen
-using ProgressBars
+using Dierckx: Spline2D
 using Distributions: Uniform
+using JLD2: jldopen, JLDFile
+# TODO move h5 to jld2
+using HDF5: h5open
+using LinearAlgebra: norm
+using ProgressBars
+using PyCall: PyCall, PyNULL, PyObject
+using Random: seed!
+using Roots: find_zeros, find_zero
+using Rotations: RotX, RotZ
+using StaticArrays: SVector
 
-const pp = PyNULL()
-const TauMinusDef = PyNULL()
-const TauPlusDef = PyNULL()
-const MuMinusDef = PyNULL()
-const MuPlusDef = PyNULL()
-const EMinusDef = PyNULL()
-const EPlusDef = PyNULL()
-const EPlusAirCross = [PyNULL(), PyNULL(), PyNULL(), PyNULL(), PyNULL()]
-const EMinusAirCross = [PyNULL(), PyNULL(), PyNULL(), PyNULL()]
-const MuPlusAirCross = [PyNULL(), PyNULL(), PyNULL(), PyNULL()]
-const MuMinusAirCross = [PyNULL(), PyNULL(), PyNULL(), PyNULL()]
-const TauPlusAirCross = [PyNULL(), PyNULL(), PyNULL(), PyNULL()]
-const TauMinusAirCross = [PyNULL(), PyNULL(), PyNULL(), PyNULL()]
-const EPlusRockCross = [PyNULL(), PyNULL(), PyNULL(), PyNULL(), PyNULL()]
-const EMinusRockCross = [PyNULL(), PyNULL(), PyNULL(), PyNULL()]
-const MuPlusRockCross = [PyNULL(), PyNULL(), PyNULL(), PyNULL()]
-const MuMinusRockCross = [PyNULL(), PyNULL(), PyNULL(), PyNULL()]
-const TauPlusRockCross = [PyNULL(), PyNULL(), PyNULL(), PyNULL()]
-const TauMinusRockCross = [PyNULL(), PyNULL(), PyNULL(), PyNULL()]
-
-function __init__()
-    copy!(pp, pyimport("proposal"))
-    pp.InterpolationSettings.tables_path = realpath(
-        "$(@__DIR__)/../..//resources/proposal_tables/"
-    )
-    copy!(TauMinusDef, pp.particle.TauMinusDef())
-    copy!(TauPlusDef, pp.particle.TauPlusDef())
-    copy!(MuMinusDef, pp.particle.MuMinusDef())
-    copy!(MuPlusDef, pp.particle.MuPlusDef())
-    copy!(EMinusDef, pp.particle.EMinusDef())
-    copy!(EPlusDef, pp.particle.EPlusDef())
-    function make_pp_crosssection(particle_def, name)
-        ecut = 50
-        vcut = 1e-2
-        cuts = pp.EnergyCutSettings(ecut, vcut, false)
-        interpolate = true
-        target = getproperty(pp.medium, name)()
-        cross = pp.crosssection.make_std_crosssection(;
-            particle_def=particle_def, target=target, interpolate=interpolate, cuts=cuts
-        )
-
-        return cross
-    end
-    xs = make_pp_crosssection(EMinusDef, "Air")
-    ys = EMinusAirCross
-    for (x, y) in zip(xs, ys)
-        copy!(y, x)
-    end
-    xs = make_pp_crosssection(EPlusDef, "Air")
-    ys = EPlusAirCross
-    for (x, y) in zip(xs, ys)
-        copy!(y, x)
-    end
-    xs = make_pp_crosssection(MuMinusDef, "Air")
-    ys = MuMinusAirCross
-    for (x, y) in zip(xs, ys)
-        copy!(y, x)
-    end
-    xs = make_pp_crosssection(MuPlusDef, "Air")
-    ys = MuPlusAirCross
-    for (x, y) in zip(xs, ys)
-        copy!(y, x)
-    end
-    xs = make_pp_crosssection(TauMinusDef, "Air")
-    ys = TauMinusAirCross
-    for (x, y) in zip(xs, ys)
-        copy!(y, x)
-    end
-    xs = make_pp_crosssection(TauPlusDef, "Air")
-    ys = TauPlusAirCross
-    for (x, y) in zip(xs, ys)
-        copy!(y, x)
-    end
-    xs = make_pp_crosssection(EMinusDef, "StandardRock")
-    ys = EMinusRockCross
-    for (x, y) in zip(xs, ys)
-        copy!(y, x)
-    end
-    xs = make_pp_crosssection(EPlusDef, "StandardRock")
-    ys = EPlusRockCross
-    for (x, y) in zip(xs, ys)
-        copy!(y, x)
-    end
-    xs = make_pp_crosssection(MuMinusDef, "StandardRock")
-    ys = MuMinusRockCross
-    for (x, y) in zip(xs, ys)
-        copy!(y, x)
-    end
-    xs = make_pp_crosssection(MuPlusDef, "StandardRock")
-    ys = MuPlusRockCross
-    for (x, y) in zip(xs, ys)
-        copy!(y, x)
-    end
-    xs = make_pp_crosssection(TauMinusDef, "StandardRock")
-    ys = TauMinusRockCross
-    for (x, y) in zip(xs, ys)
-        copy!(y, x)
-    end
-    xs = make_pp_crosssection(TauPlusDef, "StandardRock")
-    ys = TauPlusRockCross
-    for (x, y) in zip(xs, ys)
-        copy!(y, x)
-    end
-end
-
+include("./samplers/Samplers.jl")
 include("units.jl")
-include("locations.jl")
 include("directions.jl")
+include("particles.jl")
+include("locations.jl")
 include("geometries.jl")
 include("tracks.jl")
-#include("segments.jl")
-include("particles.jl")
 include("inject.jl")
 include("proposal.jl")
 
+
 @Base.kwdef mutable struct Simulator
+    # General configuration
     n::Int = 10
+    seed::Int64 = 0
+    # Geometry configuration
     geo_spline_path::String = realpath("$(@__DIR__)/../../resources/tambo_spline.jld2")
-    diff_xs_path::String = realpath(
-        "$(@__DIR__)/../../resources/cross_sections/tables/csms_differential_cdfs.h5"
-    )
     tambo_coordinates::Coord = minesite_coord
+    # Injection configuration
     ν_pdg::Int = 16
     γ::Float64 = 1
     emin::Float64 = 1e6units.GeV
@@ -146,7 +49,134 @@ include("proposal.jl")
     ϕmax::Float64 = 2π
     r_injection::Float64 = 900units.m
     l_endcap::Float64 = 1units.km
-    seed::Int64 = 0
+    diff_xs_path::String = realpath(
+        "$(@__DIR__)/../../resources/cross_sections/tables/csms_differential_cdfs.h5"
+    )
+    # PROPOSAL configuration
+    ecut::Float64 = Inf * units.GeV
+    vcut::Float64 = 1e-2
+    do_interpolate::Bool = true
+    do_continuous::Bool = true
+    tablespath::String = realpath(
+        "$(@__DIR__)/../..//resources/proposal_tables/"
+    )
+
+    injected_events::Vector{InjectionEvent} = InjectionEvent[]
+    proposal_events::Vector{ProposalResult} = ProposalResult[]
+end
+
+function Simulator(fname::String)
+    s = nothing
+    jldopen(fname, "r") do f
+        s = Simulator(; f["config"]...)
+    end
+    return s
+end
+
+function InjectionConfig(s::Simulator)
+    injectordict = Dict(
+        fn => getfield(s, fn) 
+        for fn in intersect(fieldnames(Simulator), fieldnames(InjectionConfig))
+    )
+    return InjectionConfig(; injectordict...)
+end
+
+function ProposalConfig(s::Simulator)
+    propdict = Dict(
+        fn => getfield(s, fn) 
+        for fn in intersect(fieldnames(Simulator), fieldnames(ProposalConfig))
+    )
+    return ProposalConfig(; propdict...)
+end
+
+function Base.show(io::IO, s::Simulator)
+    print(
+        io,
+        """
+        General configuration
+        _____________________
+        n: $(s.n)
+        seed: $(s.seed)
+
+        Geometry configuration
+        ______________________
+        geo_spline_path: $(s.geo_spline_path)
+        tambo_coordinates: $(s.tambo_coordinates)
+
+        Injection configuration
+        _______________________
+        ν_pdg: $(s.ν_pdg)
+        γ: $(s.γ)
+        emin: $(s.emin / units.GeV) GeV
+        emax: $(s.emax / units.GeV) GeV
+        θmin: $(round(s.θmin * 180 / π, sigdigits=3))°
+        θmax: $(round(s.θmax * 180 / π, sigdigits=3))°
+        ϕmin: $(round(s.ϕmin * 180 / π, sigdigits=3))°
+        ϕmax: $(round(s.ϕmax * 180 / π, sigdigits=3))°
+        r_injection: $(s.r_injection / units.m) m
+        l_endcap: $(s.l_endcap / units.m) m
+        diff_xs_path: $(s.diff_xs_path)
+
+        PROPOSAL configuration
+        ______________________
+        ecut: $(s.ecut / units.GeV) GeV
+        vcut: $(s.vcut)
+        do_interpolate: $(s.do_interpolate)
+        do_continuous: $(s.do_continuous)
+        tablespath: $(s.tablespath)"""
+    )
+end
+
+function Base.getindex(s::Simulator, fieldstring::String)
+    getfield(s, Symbol(fieldstring))
+end
+
+function (s::Simulator)(; track_progress=true)
+    seed!(s.seed)
+    if track_progress
+        println("Making geometry")
+    end
+    splf = jldopen(s.geo_spline_path)
+    geo = Geometry(
+        splf["spline"],
+        latlong_to_xy(s.tambo_coordinates, splf["mincoord"])
+    )
+    if track_progress
+        println("Injecting events")
+    end
+
+    injector = InjectionConfig(s)
+    s.injected_events = injector(geo, track_progress=track_progress)
+    if track_progress
+        println("Propagating charged leptons")
+    end
+    propagator = ProposalConfig(s)
+    s.proposal_events = propagator(
+        s.injected_events["final_state"],
+        geo,
+        track_progress=track_progress
+    )
+end
+
+function dump_to_file(s::Simulator, f::JLDFile)
+    resultfields = [:injected_events, :proposal_events]
+    f["injected_events"] = s.injected_events
+    f["proposal_events"] = s.proposal_events
+    f["config"] = Dict(
+        Dict(
+            fn => getfield(s, fn) for fn in fieldnames(Simulator)
+            if fn ∉resultfields
+        )
+    )
+    return
+end
+
+function save_simulation(s::Simulator, path::String)
+    @assert(length(s.injected_events)==s.n)
+    @assert(length(s.proposal_events)==s.n)
+    jldopen(path, "w") do f
+        dump_to_file(s, f)
+    end
 end
 
 end # module
