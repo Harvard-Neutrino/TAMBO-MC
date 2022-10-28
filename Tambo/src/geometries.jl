@@ -1,14 +1,31 @@
 const defaults = (zup=5units.km, zdown=50units.km, depth1=12units.km, depth2=21.4units.km)
 
-struct Box{T<:Number}
-    c1::SVector{3,T}
-    c2::SVector{3,T}
+struct Plane
+    n̂::SVector{3}
+    x0::SVector{3}
+    function Plane(n, x0)
+        n̂ = SVector{3}(n / norm(n))
+        x0 = SVector{3}(x0)
+        return new(n̂, x0)
+    end
 end
 
-function Box(c1, c2)
-    c1, c2 = promote(c1, c2)
-    c1, c2 = SVector{3}(c1), SVector{3}(c2)
-    return Box(c1, c2)
+function Base.show(io::IO, plane::Plane)
+    print(
+        io,
+        """
+        n̂: $(plane.n̂)
+        x0 (m): $(plane.x0 / units.m)"""
+    )
+end
+
+struct Box
+    c1::SVector{3, Float64}
+    c2::SVector{3, Float64}
+    function Box(c1, c2)
+        c1, c2 = SVector{3, Float64}(c1), SVector{3, Float64}(c2)
+        return new(c1, c2)
+    end
 end
 
 function Box(c)
@@ -22,6 +39,18 @@ function Box(x, y, z)
     return Box(c)
 end
 
+struct Valley
+    spline::Spline2D
+    mincoord::Coord
+end
+
+function Valley(splpath::String)
+    f = jldopen(splpath)
+    spl = f["spline"]
+    mincoord = f["mincoord"]
+    return Valley(spl, mincoord)
+end    
+
 function inside(sv::SVector{3}, b::Box)
     e1 = b.c1
     e2 = b.c2
@@ -32,6 +61,8 @@ end
 
 inside(x, y, z, f::Function) = z < f(x, y)
 inside(sv::SVector{3}, f::Function) = inside(sv.x, sv.y, sv[3], f)
+inside(p::Particle, f::Function) = inside(p.position, f)
+inside(ps::Vector{Particle}, f::Function) = [inside(p.position, f) for p in ps]
 
 function load_spline(p, key="spline")
     f = jldopen(p, "r")
@@ -49,7 +80,7 @@ struct Geometry
     ρs::Vector{Float64}
 end
 
-function Geometry(spl::Dierckx.Spline2D, xyzoffset::SVector{3}, depths::Vector, ρs::Vector)
+function Geometry(spl::Spline2D, xyzoffset::SVector{3}, depths::Vector, ρs::Vector)
     zup = defaults.zup
     zdown = defaults.zdown
     knots = spl.tx, spl.ty
@@ -63,30 +94,31 @@ function Geometry(spl::Dierckx.Spline2D, xyzoffset::SVector{3}, depths::Vector, 
     return Geometry(valley, b, xyzoffset, units.ρair0, units.ρrock0, zboundaries, ρs)
 end
 
-function Geometry(spl::Dierckx.Spline2D, depths::Vector, ρs::Vector)
+function Geometry(spl::Spline2D, depths::Vector, ρs::Vector)
     knots = spl.tx, spl.ty
     xmin, xmax = minimum(knots[1]) * units[:m], maximum(knots[1]) * units[:m]
     ymin, ymax = minimum(knots[2]) * units[:m], maximum(knots[2]) * units[:m]
     xmid, ymid = (xmax - xmin) / 2, (ymax - ymin) / 2
     xyzoffset = SVector{3}([
-        xmid, ymid, evaluate(spl, xmid / units[:m], ymid / units[:m]) * units[:m]
+        xmid, ymid, spl(xmid / units[:m], ymid / units[:m]) * units[:m]
+        #xmid, ymid, evaluate(spl, xmid / units[:m], ymid / units[:m]) * units[:m]
     ])
     return Geometry(spl, xyzoffset, depths, ρs)
 end
 
-function Geometry(spl::Dierckx.Spline2D, xyoffset::SVector{2})
+function Geometry(spl::Spline2D, xyoffset::SVector{2})
     depths = []
     ρs = []
     return Geometry(spl, xyoffset, depths, ρs)
 end
 
-function Geometry(spl::Dierckx.Spline2D)
+function Geometry(spl::Spline2D)
     depths = []
     ρs = []
     return Geometry(spl, depths, ρs)
 end
 
-function Geometry(spl::Dierckx.Spline2D, xyoffset::SVector{2}, depths::Vector, ρs::Vector)
+function Geometry(spl::Spline2D, xyoffset::SVector{2}, depths::Vector, ρs::Vector)
     z = spl(xyoffset.x / units[:m], xyoffset.y / units[:m]) * units[:m]
     xyzoffset = SVector{3}([xyoffset.x, xyoffset.y, z])
     return Geometry(spl, xyzoffset, depths, ρs)
@@ -123,7 +155,8 @@ function valley_helper(x, y, xyzoffset, valley_spl)
     # Convert to meters
     xm, ym = xt / units[:m], yt / units[:m]
     # Evaluate spline and convert back to natural units
-    return evaluate(valley_spl, xm, ym) * units[:m] - xyzoffset[3]
+    return valley_spl(xm, ym) * units[:m] - xyzoffset[3]
+    #return evaluate(valley_spl, xm, ym) * units[:m] - xyzoffset[3]
 end
 
 function (g::Geometry)(x, y)
