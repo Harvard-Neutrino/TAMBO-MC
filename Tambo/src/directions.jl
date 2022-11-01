@@ -34,10 +34,7 @@ function Base.show(io::IO, d::Direction)
     print(
         io,
         """
-        θ (degrees): $(d.θ * 180 / π)°
-        ϕ (degrees): $(d.ϕ * 180 / π)°
-        proj: [$(d.proj.x), $(d.proj.y), $(d.proj.z)]
-        """
+        ($(round(rad2deg(d.θ), sigdigits=3))°, $(round(rad2deg(d.ϕ), sigdigits=3))°)"""
     )
 end
 
