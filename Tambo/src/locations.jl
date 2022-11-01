@@ -9,12 +9,11 @@ function Base.show(io::IO, coord::Coord)
     print(
         io,
         """
-        ($(roundlat)°, $(roundlong)°)
-        """
+        ($(roundlat)°, $(roundlong)°)"""
     )
 end
 
-function mincoord_fromfile(;filename = "$(@__DIR__)/../resources/ColcaValleyData.txt")
+function mincoord_fromfile(filename)
     open(filename) do file
         latmin = 0
         longmin = 0
@@ -31,26 +30,18 @@ function mincoord_fromfile(;filename = "$(@__DIR__)/../resources/ColcaValleyData
     end
 end
 
+function mincoord_fromfile()
+    filename = "$(@__DIR__)/../resources/ColcaValleyData.txt"
+    return mincoord_fromfile(filename)
+end
+
 const testsite_coord = Coord(deg2rad(-15.58714), deg2rad(-71.9765237))
 const minesite_coord = Coord(deg2rad(-15.664653), deg2rad(-72.1547479))
 
 """
     latlong_to_xy(lat, long, latmin, longmin)
 
-Function to calculate the xy coordinate for a latitude and longitude
-coordinate. This implicitly assumes that Δθ and Δϕ are small so that
-the sphere is locally floating. All angles are in radians !!!!!
-latmin and longmin are -15.73975004° and -72.336236836° for the current spline
-
-# Example
-```julia-repl
-julia> latmin, longmin = deg2rad(-15.73975004), deg2rad(-72.336236836);
-
-julia> tapay_lat, tapay_long = deg2rad.((-15.63, -72.16));
-
-julia> x_tapay, y_tapay = latlong_to_xy(tapay_lat, tapay_long, latmin, longmin) ./ units.km
-(18.861842060081564, 12.203647647037522)
-```
+TBW
 """
 function latlong_to_xy(lat, long, latmin, longmin)
     r = 6_371.0 * units.km
@@ -82,7 +73,7 @@ function xy_to_latlong(x, y, latmin, longmin)
     r = 6_371.0 * units.km
     long = x / (r * cos(latmin)) + longmin
     lat = y / r + latmin
-    return lat, long
+    return Coord(lat, long)
 end
 
 """
