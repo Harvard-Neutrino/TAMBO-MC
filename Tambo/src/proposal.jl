@@ -1,14 +1,6 @@
 using PyCall
 using StaticArrays
 
-"""
-This function wrapping is necessary to prevent PROPOSAL being
-a PyNull object. I don't know what that means or why this stops it
-https://discourse.jullialang.org/t/can-we-import-dill-in-pycall-rather-than-pickle
-As per this discussion, pyimports are cached so this shouldn't cause
-a performance hit
-"""
-
 const pp = PyNULL()
 const TauMinusDef = PyNULL()
 const TauPlusDef = PyNULL()
@@ -265,10 +257,6 @@ function show(io::IO, result::ProposalResult)
     )
 end
 
-#function pp_particle_def(particle::Particle)
-#    return particle_def_dict[particle.pdg_mc]
-#end
-
 function position_from_pp_vector(pp_vector)
     return SVector{3}([pp_vector.x, pp_vector.y, pp_vector.z]) .* units.cm
 end
@@ -286,10 +274,6 @@ end
 function make_pp_direction(d::Direction)
     return pp.Cartesian3D(d.proj)
 end
-
-#function make_pp_crosssection(particle::Particle, medium_name)
-#    return pp_crosssections_dict[(particle.pdg_mc, medium_name)]
-#end
 
 function make_pp_utility(particle_def, cross)
     collection = pp.PropagationUtilityCollection()
@@ -413,56 +397,3 @@ function propagate(
     ]
     return results
 end
-
-#"""
-#    propagate(
-#    v::Vector{Particle},
-#    geo::Geometry;
-#    track_progress=true
-#)
-#
-#TBW
-#"""
-#function propagate(
-#    v::Vector{Particle},
-#    geo::Geometry;
-#    track_progress=true
-#)
-#    if track_progress
-#        iter = ProgressBar(v)
-#    else
-#        iter = v
-#    end
-#    return [propagate(p, geo) for p in iter]
-#end
-#
-#
-#function propagate(
-#    particle::Particle,
-#    media::Vector{String},
-#    densities::Vector{Float64},
-#    lengths::Vector{Float64},
-#)
-#    if abs(particle.pdg_mc) in [11, 13, 15]
-#        secondaries = propagate_charged_lepton(particle, media, densities, lengths)
-#        result = ProposalResult(secondaries, particle)
-#    else
-#        result = ProposalResult(particle.position)
-#    end
-#    return result
-#end
-#
-#function propagate(
-#    vp::Vector{Particle},
-#    media::Vector{String},
-#    densities::Vector{Float64},
-#    lengths::Vector{Float64};
-#    track_progress=true,
-#)
-#    if track_progress
-#        iter = ProgressBar(vp)
-#    else
-#        iter = vp
-#    end
-#    return [propagate(p, media, densities, lengths) for p in iter]
-#end
