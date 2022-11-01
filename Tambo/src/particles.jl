@@ -1,7 +1,7 @@
 struct Particle
     pdg_mc::Int64
     energy::Float64
-    position::SVector{3}
+    position::SVector{3, Float64}
     direction::Direction
     parent::Union{Particle,Nothing}
 end
