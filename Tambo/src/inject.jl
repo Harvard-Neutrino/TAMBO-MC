@@ -97,23 +97,17 @@ function sample_interaction_vertex(
     range::Float64,
     geo::Geometry
 )
-    # Make track from point of closest approach to point of entry and exitA
     tincoming = Track(p_near, d, geo.box)
     toutgoing = Track(p_near, reverse(d), geo.box)
-    # Compute the intersection of each track with the mountain
     segmentsi = computesegments(tincoming, geo)
     segmentso = computesegments(toutgoing, geo)
-    # Compute the colum depth for both incoming and outgoing portions
     cdincoming = endcapcolumndepth(tincoming, volume.l_endcap, range, segmentsi)
     cdoutgoing = endcapcolumndepth(toutgoing, volume.l_endcap, 0.0, segmentso)
-    # sample column depth uniformly and subtract incoming column depth
     cd = rand(Uniform(-cdoutgoing, cdincoming))
     # If the remainder is positive, you need to be in incoming track, else outgoing
     cd > 0 ? tr = tincoming : tr = toutgoing
     cd > 0 ? segments = segmentsi : segments = segmentso
-    # Find affine parameter where we have traversed proper column depth
     λ_int = inversecolumndepth(tr, abs(cd), geo, segments)
-    # Convert affine parameter to a physical location
     p_int = tr(λ_int)
     return p_int
 end
