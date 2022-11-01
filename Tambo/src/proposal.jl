@@ -288,7 +288,7 @@ function make_pp_utility(particle_def, cross)
 end
 
 function make_pp_geometry_list(lengths)
-    geometries = []
+    geometries = PyObject[]
     start = 0
     end_ = 0
     for l in lengths
@@ -349,6 +349,13 @@ function propagate(
         pp_particle_dict,
     )
 
+    #lepton = pp.particle.ParticleState(
+    #    make_pp_vector(SVector{3}([0,0,0])),
+    #    make_pp_direction(Direction(0, 0, 1)),
+    #    chargedlepton.energy / units.MeV,
+    #    0.0,
+    #    0.0
+    #)
     lepton = pp.particle.ParticleState()
     lepton.position = make_pp_vector(SVector{3}([0,0,0]))
     lepton.direction = make_pp_direction(Direction(0, 0, 1))
@@ -396,4 +403,8 @@ function propagate(
         propagate(fs, geo, pp_crosssections_dict, pp_particle_dict) for fs in itr
     ]
     return results
+end
+
+function Base.getindex(ve::Vector{ProposalResult}, s::String)
+    return getfield.(ve, Symbol(s))
 end
