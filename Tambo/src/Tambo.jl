@@ -5,7 +5,10 @@ export Simulator,
        ProposalConfig, 
        save_simulation, 
        simulator_from_file,
-       units
+       units,
+       minesite_coord,
+       testsite_coord,
+       inside
 
 using Dierckx: Spline2D
 using Distributions: Uniform
@@ -81,12 +84,27 @@ function InjectionConfig(s::Simulator)
     return InjectionConfig(; injectordict...)
 end
 
+function inject(simulator::Simulator; track_progress=true)
+    injector = InjectionConfig(simulator)
+    geo = Geometry(simulator)
+    return inject(injector, geo, track_progress=track_progres)
+end
+
 function ProposalConfig(s::Simulator)
     propdict = Dict(
         fn => getfield(s, fn) 
         for fn in intersect(fieldnames(Simulator), fieldnames(ProposalConfig))
     )
     return ProposalConfig(; propdict...)
+end
+
+function Geometry(s::Simulator)
+    f = jldopen(s.geo_spline_path)
+    spl = f["spline"]
+    mincoord = f["mincoord"]
+    close(f)
+    tambo_xy = latlong_to_xy(s.tambo_coordinates, mincoord)
+    return Geometry(spl, tambo_xy)
 end
 
 function Base.show(io::IO, s::Simulator)
