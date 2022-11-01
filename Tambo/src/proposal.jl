@@ -202,8 +202,7 @@ struct ProposalResult
     continuous_losses::Loss
     did_decay::Bool
     decay_products::Vector{Particle}
-    final_pos::SVector{3}
-    final_lepton_energy::Float64
+    propped_state::Particle
 end
 
 function ProposalResult(secondaries, parent_particle)
@@ -237,7 +236,17 @@ function ProposalResult(secondaries, parent_particle)
         .+ parent_particle.position
     )
     final_e = secondaries.final_state().energy * units.MeV
-    return ProposalResult(losses, continuous_total, did_decay, children, final_pos, final_e)
+    final_state = Particle(
+        parent_particle.pdg_mc,
+        final_e,
+        final_pos,
+        parent_particle.direction,
+        nothing
+    )
+    return ProposalResult(
+        losses, continuous_total, did_decay, 
+        children, final_state#, final_pos, final_e
+    )
 end
 
 function show(io::IO, result::ProposalResult)
@@ -277,12 +286,10 @@ end
 
 function make_pp_utility(particle_def, cross)
     collection = pp.PropagationUtilityCollection()
-
     collection.displacement = pp.make_displacement(cross, true)
     collection.interaction = pp.make_interaction(cross, true)
     collection.time = pp.make_time(cross, particle_def, true)
     collection.decay = pp.make_decay(cross, particle_def, true)
-
     utility = pp.PropagationUtility(; collection=collection)
     return utility
 end
@@ -348,14 +355,6 @@ function propagate(
         pp_crosssections_dict,
         pp_particle_dict,
     )
-
-    #lepton = pp.particle.ParticleState(
-    #    make_pp_vector(SVector{3}([0,0,0])),
-    #    make_pp_direction(Direction(0, 0, 1)),
-    #    chargedlepton.energy / units.MeV,
-    #    0.0,
-    #    0.0
-    #)
     lepton = pp.particle.ParticleState()
     lepton.position = make_pp_vector(SVector{3}([0,0,0]))
     lepton.direction = make_pp_direction(Direction(0, 0, 1))
