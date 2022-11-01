@@ -2,10 +2,10 @@ using .Samplers
 
 Base.@kwdef mutable struct InjectionConfig
     n::Int = 10
-    geo_spline_path::String = realpath("$(@__DIR__)/../../resources/tambo_spline.jld2")
     diff_xs_path::String = realpath(
         "$(@__DIR__)/../../resources/cross_sections/tables/csms_differential_cdfs.h5"
     )
+    tambo_coordinates::Coord = minesite_coord
     ν_pdg::Int = 16
     γ::Float64 = 1
     emin::Float64 = 1e6units.GeV
@@ -17,7 +17,6 @@ Base.@kwdef mutable struct InjectionConfig
     r_injection::Float64 = 900units.m
     l_endcap::Float64 = 1units.km
     seed::Int64 = 0
-
 end
 
 function Base.show(io::IO, injector::InjectionConfig)
@@ -27,7 +26,6 @@ function Base.show(io::IO, injector::InjectionConfig)
         n: $(injector.n)
         seed: $(injector.seed)
         ν_pdg: $(injector.ν_pdg)
-        geo_spline_path: $(injector.geo_spline_path)
         diff_xs_path: $(injector.diff_xs_path)
         γ: $(injector.γ)
         emin (GeV): $(injector.emin / units.GeV)
@@ -41,7 +39,7 @@ function Base.show(io::IO, injector::InjectionConfig)
     )
 end
 
-function (injector::InjectionConfig)(geo; track_progress=true)
+function inject(injector::InjectionConfig, geo::Geometry; track_progress=true)
     seed!(injector.seed)
     pl = PowerLaw(injector.γ, injector.emin, injector.emax)
     diff_xs = OutgoingCCEnergy(injector.diff_xs_path, injector.ν_pdg)
@@ -58,6 +56,10 @@ function (injector::InjectionConfig)(geo; track_progress=true)
         inject_event(injector.ν_pdg, pl, diff_xs, anglesampler, injectionvolume, geo) for
         _ in iter
     ]
+end
+
+function (injector::InjectionConfig)(geo; track_progress=true)
+    return inject(injector, geo, track_progress=track_progress)
 end
 
 struct InjectionEvent
@@ -163,6 +165,13 @@ function inject_event(
     final_state = Particle(ν_pdg - sign(ν_pdg), e_final, p_int, d, initial_state)
     event = InjectionEvent(initial_state, final_state)
     return event
+end
+
+function save_simulation(injector::InjectionConfig, path::String)
+    @assert(length(s.injected_events)==s.n)
+    jldopen(path, "w") do f
+        dump_to_file(s, f)
+    end
 end
 
 ### Convenience functions ###
