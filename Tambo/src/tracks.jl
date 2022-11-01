@@ -120,24 +120,24 @@ end
 
 TBW
 """
-function Base.intersect(t::Track, v::Function)
-    oned_valley = reduce_f(t, v)
+function Base.intersect(t::Track, geo::Geometry)
+    oned_valley(λ) = geo(t(λ).x, t(λ).y)
     root_func(λ) = oned_valley(λ) - t(λ).z
     zeros = find_zeros(root_func, 0, 1)
     return zeros
 end
 
 """
-    Base.intersect(t::Track, g::Geometry)
+    Base.intersect(t::Track, geo::Geometry)
 
 TBW
 """
-function Base.intersect(t::Track, g::Geometry)
-    ixs = intersect.(Ref(t), g.zboundaries)
-    ixs = vcat(ixs, intersect(t, g.valley))
-    ixs = ixs[ixs .<= 1]
-    return ixs = sort(ixs)
-end
+#function Base.intersect(t::Track, geo::Geometry)
+#    #ixs = intersect.(Ref(t), g.zboundaries)
+#    ixs = intersect(t, geo)
+#    ixs = ixs[ixs .<= 1]
+#    return ixs = sort(ixs)
+#end
 
 """
     Base.reverse(t::Track)
@@ -148,14 +148,14 @@ function Base.reverse(t::Track)
     return Track(t.fpoint, t.ipoint)
 end
 
-"""
-    reduce_f(t::Track, f)
-
-TBW
-"""
-function reduce_f(t::Track, f)
-    return g(λ) = f(t(λ).x, t(λ).y)
-end
+#"""
+#    reduce_f(t::Track, f)
+#
+#TBW
+#"""
+#function reduce_f(t::Track, f)
+#    return 
+#end
 
 """
     inversecolumndepth(tr::Track, cd::T, g::Geometry) where {T<:Number}
@@ -211,14 +211,14 @@ end
 
 TBW
 """
-function getdensity(p::SVector{3}, g::Geometry)
+function getdensity(p::SVector{3}, geo::Geometry)
     ρ = 0
-    if !inside(p, g.valley)
-        ρ = g.ρair
-    elseif any(p.z .< g.zboundaries)
-        ρ = g.ρs[findlast(p.z .< g.zboundaries)]
+    if !inside(p, geo)
+        ρ = geo.ρair
+    #elseif any(p.z .< g.zboundaries)
+    #    ρ = geo.ρs[findlast(p.z .< g.zboundaries)]
     else
-        ρ = g.ρrock
+        ρ = geo.ρrock
     end
     return ρ
 end
