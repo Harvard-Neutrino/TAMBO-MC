@@ -1,3 +1,7 @@
+const testsite_coord = Coord(deg2rad(-15.58714), deg2rad(-71.9765237))
+const minesite_coord = Coord(deg2rad(-15.664653), deg2rad(-72.1547479))
+const minesite_normal_vec = Direction([0.732001, 0.59897, 0.324666])
+
 struct Coord{T<:Float64}
     latitude::T
     longitude::T
@@ -34,9 +38,6 @@ function mincoord_fromfile()
     filename = "$(@__DIR__)/../resources/ColcaValleyData.txt"
     return mincoord_fromfile(filename)
 end
-
-const testsite_coord = Coord(deg2rad(-15.58714), deg2rad(-71.9765237))
-const minesite_coord = Coord(deg2rad(-15.664653), deg2rad(-72.1547479))
 
 """
     latlong_to_xy(lat, long, latmin, longmin)
