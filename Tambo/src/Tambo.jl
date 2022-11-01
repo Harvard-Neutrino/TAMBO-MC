@@ -32,12 +32,14 @@ include("geometries.jl")
 include("tracks.jl")
 include("inject.jl")
 include("proposal.jl")
+include("coriska.jl")
 
 
 @Base.kwdef mutable struct Simulator
     # General configuration
     n::Int = 10
-    seed::Int64 = 0
+    seed::Int64 = 925
+    run_n::Int64 = 853
     # Geometry configuration
     geo_spline_path::String = realpath("$(@__DIR__)/../../resources/tambo_spline.jld2")
     tambo_coordinates::Coord = minesite_coord
@@ -87,7 +89,7 @@ end
 function inject(simulator::Simulator; track_progress=true)
     injector = InjectionConfig(simulator)
     geo = Geometry(simulator)
-    return inject(injector, geo, track_progress=track_progres)
+    return inject(injector, geo, track_progress=track_progress)
 end
 
 function ProposalConfig(s::Simulator)
@@ -99,12 +101,17 @@ function ProposalConfig(s::Simulator)
 end
 
 function Geometry(s::Simulator)
-    f = jldopen(s.geo_spline_path)
-    spl = f["spline"]
-    mincoord = f["mincoord"]
-    close(f)
-    tambo_xy = latlong_to_xy(s.tambo_coordinates, mincoord)
-    return Geometry(spl, tambo_xy)
+    geo = Geometry(
+        s.geo_spline_path,
+        s.tambo_coordinates
+    )
+    #f = jldopen(s.geo_spline_path)
+    #spl = f["spline"]
+    #mincoord = f["mincoord"]
+    #close(f)
+    #tambo_xy = latlong_to_xy(s.tambo_coordinates, mincoord)
+    #return Geometry(spl, tambo_xy)
+    return geo
 end
 
 function Base.show(io::IO, s::Simulator)
@@ -115,6 +122,7 @@ function Base.show(io::IO, s::Simulator)
         _____________________
         n: $(s.n)
         seed: $(s.seed)
+        run_n: $(s.run_n)
 
         Geometry configuration
         ______________________
@@ -154,10 +162,10 @@ function (s::Simulator)(; track_progress=true)
     if track_progress
         println("Making geometry")
     end
-    splf = jldopen(s.geo_spline_path)
+    #splf = jldopen(s.geo_spline_path)
     geo = Geometry(
-        splf["spline"],
-        latlong_to_xy(s.tambo_coordinates, splf["mincoord"])
+        s.geo_spline_path,
+        s.tambo_coordinates
     )
     if track_progress
         println("Injecting events")
