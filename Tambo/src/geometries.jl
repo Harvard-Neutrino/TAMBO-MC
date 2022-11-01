@@ -1,10 +1,10 @@
 const defaults = (zup=5units.km, zdown=50units.km, depth1=12units.km, depth2=21.4units.km)
 
 struct Plane
-    n̂::SVector{3}
+    n̂::Direction{3}
     x0::SVector{3}
     function Plane(n, x0)
-        n̂ = SVector{3}(n / norm(n))
+        n̂ = Direction(n)
         x0 = SVector{3}(x0)
         return new(n̂, x0)
     end
@@ -84,8 +84,8 @@ function Geometry(spl::Spline2D, xyzoffset::SVector{3}, depths::Vector, ρs::Vec
     zup = defaults.zup
     zdown = defaults.zdown
     knots = spl.tx, spl.ty
-    xmin, xmax = minimum(knots[1]) * units[:m], maximum(knots[1]) * units[:m]
-    ymin, ymax = minimum(knots[2]) * units[:m], maximum(knots[2]) * units[:m]
+    xmin, xmax = minimum(knots[1]) * units.m, maximum(knots[1]) * units.m
+    ymin, ymax = minimum(knots[2]) * units.m, maximum(knots[2]) * units.m
     xyzmin = SVector{3}([xmin - xyzoffset.x, ymin - xyzoffset.y, -zdown])
     xyzmax = SVector{3}([xmax - xyzoffset.x, ymax - xyzoffset.y, zup])
     valley(x, y) = valley_helper(x, y, xyzoffset, spl)
@@ -96,12 +96,11 @@ end
 
 function Geometry(spl::Spline2D, depths::Vector, ρs::Vector)
     knots = spl.tx, spl.ty
-    xmin, xmax = minimum(knots[1]) * units[:m], maximum(knots[1]) * units[:m]
-    ymin, ymax = minimum(knots[2]) * units[:m], maximum(knots[2]) * units[:m]
+    xmin, xmax = minimum(knots[1]) * units.m, maximum(knots[1]) * units.m
+    ymin, ymax = minimum(knots[2]) * units.m, maximum(knots[2]) * units.m
     xmid, ymid = (xmax - xmin) / 2, (ymax - ymin) / 2
     xyzoffset = SVector{3}([
-        xmid, ymid, spl(xmid / units[:m], ymid / units[:m]) * units[:m]
-        #xmid, ymid, evaluate(spl, xmid / units[:m], ymid / units[:m]) * units[:m]
+        xmid, ymid, spl(xmid / units.m, ymid / units.m) * units.m
     ])
     return Geometry(spl, xyzoffset, depths, ρs)
 end
@@ -119,7 +118,7 @@ function Geometry(spl::Spline2D)
 end
 
 function Geometry(spl::Spline2D, xyoffset::SVector{2}, depths::Vector, ρs::Vector)
-    z = spl(xyoffset.x / units[:m], xyoffset.y / units[:m]) * units[:m]
+    z = spl(xyoffset.x / units.m, xyoffset.y / units.m) * units.m
     xyzoffset = SVector{3}([xyoffset.x, xyoffset.y, z])
     return Geometry(spl, xyzoffset, depths, ρs)
 end
@@ -153,10 +152,9 @@ function valley_helper(x, y, xyzoffset, valley_spl)
     # Translate to spline coordinate system
     xt, yt = x + xyzoffset[1], y + xyzoffset[2]
     # Convert to meters
-    xm, ym = xt / units[:m], yt / units[:m]
+    xm, ym = xt / units.m, yt / units.m
     # Evaluate spline and convert back to natural units
-    return valley_spl(xm, ym) * units[:m] - xyzoffset[3]
-    #return evaluate(valley_spl, xm, ym) * units[:m] - xyzoffset[3]
+    return valley_spl(xm, ym) * units.m - xyzoffset[3]
 end
 
 function (g::Geometry)(x, y)
