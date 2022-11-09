@@ -5,7 +5,7 @@ struct Direction
 end
 
 function Direction(θ::T, ϕ::U) where {T,U<:Number}
-    θ, ϕ = Float64(θ), Float64(ϕ)
+    θ, ϕ = Float64(θ), mod(Float64(ϕ), 2π)
     proj = SVector{3}([cos(ϕ) * sin(θ), sin(ϕ) * sin(θ), cos(θ)])
     return Direction(θ, ϕ, proj)
 end
@@ -14,7 +14,7 @@ function Direction(x::T, y::U, z::V) where {T,U,V<:Number}
     x, y, z = promote(x, y, z)
     proj = SVector{3}([x, y, z]) ./ norm((x, y, z))
     θ = acos(proj.z)
-    ϕ = atan(proj.y, proj.x)
+    ϕ = mod(atan(proj.y, proj.x), 2π) 
     return Direction(θ, ϕ, proj)
 end
 

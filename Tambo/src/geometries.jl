@@ -2,7 +2,7 @@ const defaults = (zup=5units.km, zdown=50units.km, depth1=12units.km, depth2=21.
 
 struct Plane
     n̂::Direction
-    x0::SVector{3}
+    x0::SVector{3, Float64}
     function Plane(n, x0)
         n̂ = Direction(n)
         x0 = SVector{3, Float64}(x0)
