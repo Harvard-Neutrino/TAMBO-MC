@@ -82,12 +82,23 @@ function Base.intersect(p::SVector{3}, d::Direction, box::Box)
 end
 
 """
+    Base.intersect(p0::SVector{3}, d::Direction, plane::Plane)
+
+TBW
+"""
+function Base.intersect(p0::SVector{3}, d::Direction, plane::Plane)
+    norm = sum(plane.n̂ .* (plane.x0 .- p0)) / sum(plane.n̂ .* d.proj)
+    pt = norm * d .+ p0
+    return pt
+end
+
+"""
     Base.intersect(t::Track, plane::Plane)
 
 TBW
 """
 function Base.intersect(t::Track, plane::Plane)
-    return -sum(plane.n̂ .* t.ipoint) / (t.norm * sum(plane.n̂ .* t.direction.proj))
+    return intersect(t.ipoint, t.direction, plane)
 end
 
 """
