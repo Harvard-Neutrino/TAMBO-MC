@@ -10,6 +10,7 @@ export Simulator,
        testsite_coord,
        inside
 
+using CoordinateTransformations: Translation, AffineMap, LinearMap
 using Dierckx: Spline2D
 using Distributions: Uniform
 using JLD2: jldopen, JLDFile
