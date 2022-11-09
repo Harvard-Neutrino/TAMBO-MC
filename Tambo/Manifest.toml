@@ -2,7 +2,7 @@
 
 julia_version = "1.8.2"
 manifest_format = "2.0"
-project_hash = "cd88d5db6d8d3b18b1e5512dc9702c2533c3bd57"
+project_hash = "451d0a53beae51a32ab84e931e2733d5f1025a29"
 
 [[deps.ArgTools]]
 uuid = "0dad84c5-d112-42e6-8d28-ef12dabb789f"
@@ -59,6 +59,12 @@ deps = ["LinearAlgebra"]
 git-tree-sha1 = "fb21ddd70a051d882a1686a5a550990bbe371a95"
 uuid = "187b0558-2788-49d3-abe0-74a17ed4e7c9"
 version = "1.4.1"
+
+[[deps.CoordinateTransformations]]
+deps = ["LinearAlgebra", "StaticArrays"]
+git-tree-sha1 = "681ea870b918e7cff7111da58791d7f718067a19"
+uuid = "150eb455-5306-5404-9cee-2592286d6298"
+version = "0.6.2"
 
 [[deps.DataAPI]]
 git-tree-sha1 = "46d2680e618f8abd007bce0c3026cb0c4a8f2032"
