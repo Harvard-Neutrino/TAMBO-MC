@@ -5,7 +5,7 @@ struct Plane
     x0::SVector{3}
     function Plane(n, x0)
         n̂ = Direction(n)
-        x0 = SVector{3}(x0)
+        x0 = SVector{3, Float64}(x0)
         return new(n̂, x0)
     end
 end
@@ -97,6 +97,16 @@ function Geometry(spl_path::String, tambo_coord::Coord)
     xyzmax = SVector{3}([xmax - xyzoffset.x, ymax - xyzoffset.y, zup])
     box = Box(xyzmin, xyzmax)
     return Geometry(valley, box, xyzoffset, units.ρair0, units.ρrock0)
+end
+
+function Plane(n̂::Direction, coord::Coord, geo::Geometry)
+    plane_xy = latlong_to_xy(coord, geo.valley.mincoord) .- geo.tambo_offset[1:2]
+    plane_z = geo(plane_xy...)
+    x0 = SVector{3}(
+        plane_xy...,
+        plane_z
+    )
+    return Plane(n̂.proj, x0)
 end
 
 function (geo::Geometry)(x, y)
