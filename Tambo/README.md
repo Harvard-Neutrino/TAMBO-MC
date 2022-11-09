@@ -5,7 +5,9 @@ With that in mind, if things don't work, or there is a change you would like to 
 Or if you feel up to it, you can fork this repo, make the change, and initiate a pull request.
 Alright, let's get things moving.
 
-## 0. Jump into Julia
+## 0. Prerequisites
+
+### 0.0 Jump into Julia
 The code reies mostly on the Julia language so you will need to install that.
 This was developed using Julia version 1.8.2 so get that one if you can.
 You can find precompiled Julia version for many systems [here](https://julialang.org/downloads/).
@@ -18,7 +20,7 @@ There were still some growing pains, but I felt it gave me enough information to
 Also, I highly recommend joining the [Julia Slack](https://julialang.org/slack/).
 it is very active, and everyone there is extremely helpful.
 
-## 1. Install PROPOSAL
+### 0.1 Install PROPOSAL
 PROPOSAL is the library that we use to propoagate charged leptons.
 It is written in c++, but we rely on the Python interface.
 This can sometimes be installed with `pip` by running `pip install proposal==7.4.2`.
@@ -26,7 +28,26 @@ You can also install it from source using their [GitHub](https://github.com/tudo
 This can be a bit of battle so fortify your spirit.
 If you find yourself banging your head against the wall, get in touch because we may have some tricks up our sleeve.
 
-## 2. Activate the package
+## 1. Conventions
+
+### 1.0. Units
+
+Any variable that is saved internally will *always* be in natural units with `eV=1`.
+`PROPOSAL` and `CORISKA`, which we use for charged lepton propagation and air-shower simulation respectively, have different unit conventions.
+These conventions are summarized in the following table.
+
+|           | `TAMBO`    | `PROPOSAL` | `CORSIKA` |
+| :---      |  :----:    |   :----:   | :---:     |
+| length    | eV $^{-1}$ | cm         | cm [^1]   |
+| energy    |            |            |           | 
+| Footnotes | [^1] Caveat emptor | | |
+
+If you are accessingor setting a variable that does not exist solely to go to an external dependency, *please* remember and respect this convention.
+
+## 2. Fun
+
+### 2.0 Download and activate the code
+
 Use the command line to navigate to where you would like to store the repository and clone this package with:
 ```
 git clone https://github.com/Harvard-Neutrino/TAMBO-MC.git
@@ -44,7 +65,9 @@ julia> using Tambo
 ```
 Hopefully that worked...
 Assuming it did, we can actually start using the code.
-### 2.1. The `Simulator` `struct`
+
+## 3. The `Simulator` `struct`
+
 This is a backbone of the code, and we can make it in the following way
 ```julia-repl
 julia> simulator = Simulator()
@@ -246,5 +269,26 @@ do_interpolate: true
 do_continuous: true
 tablespath: /Users/jlazar/research/TAMBO-MC/resources/proposal_tables
 ```
+
+## 4. `Simulator` under the hood
+
+WIP
+
+## CORSIKA interface
+
+We are using `CORSIKA` to model the $\tau^{\pm}$ air shower.
+This is a `FORTRAN 77` script that needs configuration cards to run and thus cannot be easily interfaced with our Julia code.
+As a design rule, we do not store any variables internally that are not in our unit system or in the coordinate system established by the `Geometry` object.
+If you are accessing or setting a variable, *please* keep this in mind.
+
+The CORSIKA coordinate system aligns its $x-$ and $y-$ axes with the magnetic north and west respectively.
+TAMBO aligns these axes with east and north.
+Furthermore, the TAMBO coordinate system is always centered on the TAMBO detector, whereas CORSIKA centers it's coordinate system on the primary particles incident particle's initial horizontal position in the $x-$ and $y$- directions, and at sea-level in the $z$-direction.
+CORSIKA has base units
+
+
+As of this writing, we are approximating the mountain face as a perfect plane, since `CORSIKA`'s geometry handling is a bit limited.
+Thus, much of the convenience functions use the internal `Plane` struct.
+
 
 ### To be continued...
