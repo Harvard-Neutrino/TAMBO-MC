@@ -5,9 +5,9 @@ With that in mind, if things don't work, or there is a change you would like to 
 Or if you feel up to it, you can fork this repo, make the change, and initiate a pull request.
 Alright, let's get things moving.
 
-## 0. Prerequisites
+## [0] Prerequisites
 
-### 0.0 Jump into Julia
+### [0.0] Jump into Julia
 The code reies mostly on the Julia language so you will need to install that.
 This was developed using Julia version 1.8.2 so get that one if you can.
 You can find precompiled Julia version for many systems [here](https://julialang.org/downloads/).
@@ -20,7 +20,7 @@ There were still some growing pains, but I felt it gave me enough information to
 Also, I highly recommend joining the [Julia Slack](https://julialang.org/slack/).
 it is very active, and everyone there is extremely helpful.
 
-### 0.1 Install PROPOSAL
+### [0.1] Install PROPOSAL
 PROPOSAL is the library that we use to propoagate charged leptons.
 It is written in c++, but we rely on the Python interface.
 This can sometimes be installed with `pip` by running `pip install proposal==7.4.2`.
@@ -28,21 +28,48 @@ You can also install it from source using their [GitHub](https://github.com/tudo
 This can be a bit of battle so fortify your spirit.
 If you find yourself banging your head against the wall, get in touch because we may have some tricks up our sleeve.
 
-## 1. Conventions
+## [1] Conventions
 
-### 1.0. Units
+### [1.0] Units
 
 Any variable that is saved internally will *always* be in natural units with `eV=1`.
 `PROPOSAL` and `CORISKA`, which we use for charged lepton propagation and air-shower simulation respectively, have different unit conventions.
 These conventions are summarized in the following table.
 
-|           | `TAMBO`    | `PROPOSAL` | `CORSIKA` |
-| :---      |  :----:    |   :----:   | :---:     |
-| length    | eV $^{-1}$ | cm         | cm [^1]   |
-| energy    |            |            |           | 
-| Footnotes | [^1] Caveat emptor | | |
+|               | `TAMBO`    | `PROPOSAL`    | `CORSIKA`     |
+| :---          |  :----:    |   :----:      | :---:         |
+| energy        | eV         | MeV           | GeV           |
+| length        | eV $^{-1}$ | cm            | cm [^1]       |
+| time          | eV $^{-1}$ | s             | s [^2]        |
+| magn. field   | eV $^{2}$  | N/A           | $\mu$ T       |
+| denisity      | eV $^{4}$  | g / cm $^{3}$ | g / cm $^{3}$ |
+| column depths | eV $^{3}$  | g / cm $^{2}$ | g / cm $^{2}$ |
+| angle         | rad        | rad           | rad [^3]      |
+
+[^1]: In some subroutines also m is used
+[^2]: For output files ns is used
+[^3]: For some in- and output files also $\circ$ is used
+
 
 If you are accessingor setting a variable that does not exist solely to go to an external dependency, *please* remember and respect this convention.
+I would strongly prefer not having to put a bunch of caveats and footnotes in here.
+
+It is worth noting that sometimes the variables will be displayed in units besides what is specified here.
+If there is the case, the units will be specified in the display.
+I will note this when we get to actually running the code.
+
+### [1.1] Coordinates
+
+TAMBO uses a coordinate system that is aligns the $x$-axis with east and the $y$-axis with north.
+To ensure a right-handed coordinate system, the $z$-axis points to the sky.
+The origin of the coordinate system is always assumed to be at the center of the detector
+This differs from `CORSIKA`, which aligns the $x$- and $y$-axes with north and west respectively.
+
+In both softwares, the azimuthal angle is measured from the $x$-axis, with positive values corresponding to right-handed rotations; however, since each software defines the $x$-axis differently, the azimuths are offset by $\pi/2$.
+Furthermore, CORSIKA defines directions in terms of the nadir angle of the particle, *i.e.* the angle relative to the negative $z$-axis, whereas TAMBO defines directions in terms of the zenith angle, *i.e.* relative to the positive $z$-axis.
+Thus, the angles are related by $\theta_{x} = \pi - \theta_{y}$ where $x$ and $y$ dinote different softwares.
+
+I'm going to work on a figure summarizing this information.
 
 ## 2. Fun
 
@@ -55,7 +82,9 @@ git clone https://github.com/Harvard-Neutrino/TAMBO-MC.git
 Now launch up a Julia REPL session and let's run some code.
 You can activate the TAMBO code by running
 ```julia-repl
-julia> using Pkg; Pkg.activate("TAMBO-MC/Tambo/")
+julia> tambopath = realpath("./TAMBO-MC/Tambo/");
+
+julia> using Pkg; Pkg.activate(tambopath)
   Activating project at "~/research/TAMBO-MC/Tambo"
 ```
 And now let's import the package like
@@ -278,17 +307,89 @@ WIP
 
 We are using `CORSIKA` to model the $\tau^{\pm}$ air shower.
 This is a `FORTRAN 77` script that needs configuration cards to run and thus cannot be easily interfaced with our Julia code.
-As a design rule, we do not store any variables internally that are not in our unit system or in the coordinate system established by the `Geometry` object.
-If you are accessing or setting a variable, *please* keep this in mind.
-
-The CORSIKA coordinate system aligns its $x-$ and $y-$ axes with the magnetic north and west respectively.
-TAMBO aligns these axes with east and north.
-Furthermore, the TAMBO coordinate system is always centered on the TAMBO detector, whereas CORSIKA centers it's coordinate system on the primary particles incident particle's initial horizontal position in the $x-$ and $y$- directions, and at sea-level in the $z$-direction.
-CORSIKA has base units
-
+Please see [Conventions](#1-conventions) for a sumary of the differing conventions between `CORISKA` and the TAMBO softwares.
+We provide some utilities for converting between these two coordinate systems, but I want to reiterate the most important point: if you are accessing or setting a variable, it should *always* be in the TAMBO coordiante system and in natural units.
 
 As of this writing, we are approximating the mountain face as a perfect plane, since `CORSIKA`'s geometry handling is a bit limited.
 Thus, much of the convenience functions use the internal `Plane` struct.
 
+Anyway, let's get into this.
+First we need some particles that have been propagated by `PROPOSAL` to play with.
+Let's load up the sample particles.
 
-### To be continued...
+```julia-repl
+julia> simulator = Simulator("$(tambopath)/../resources/test_simulation.jld2");
+
+julia> propped_event = simulator["proposal_events"]["propped_state"][1]
+pdg_mc: 15,
+energy (GeV): 7.98354457151977e7,
+position (m): [743.5773489408602, 6016.299983245579, 1884.8049109545677],
+direction: (77.2°, 81.1°)
+```
+
+Remember, the `CORSIKA` coordinate system is always centered on the particle in $x$ and $y$ and the sea-level in $z$ and so the tranformation from TAMBO coordinates to `CORSIKA` coordinates is dependent on a `Particle` and a `Geometry`.
+
+```julia-repl
+julia> geo = Tambo.Geometry(simulator);
+
+julia> corsika_map = Tambo.CorsikaMap(propped_state, geo);
+```
+
+Now, we can convert positions and directions from the TAMBO coordinate system to the `CORSIKA` one.
+
+```julia-repl
+julia> corsika_map(propped_state.position) / units.km
+3-element StaticArrays.SVector{3, Float64} with indices SOneTo(3):
+ 0.0
+ 0.0
+ 4.383170971544474
+```
+
+As expected the $x$- and $y$-coordinates of the `Particle` are 0, and it is a reaasonable 4.4 km above sea level.
+
+```julia-repl
+julia> propped_state.direction
+(77.2°, 81.1°)
+
+julia> corsika_map(propped_state.direction)
+(103.0°, 351.0°)
+```
+
+And as expected, the zenith angles are supplementary to each other, and the azimuths are offset by 90 $\circ$
+
+To run CORSIKA, we need the run number; the particle type; the particle energy; the partcle $\theta$ and $\phi$; the observational elevation,; the plane $x_{0}$, $y_{0}$, $z_{0}$, $\theta$, and $\phi$.
+Let's compute those now
+
+```julia-repl
+julia> simulator.run_n
+853
+
+julia> propped_state.pdg_mc
+15
+
+julia> propped_state.energy / units.GeV
+7.98354457151977e7
+
+julia> corsika_map(propped_state.direction).θ, corsika_map(propped_state.direction).ϕ
+(1.7935118399633503, 6.127143541595226)
+
+julia> plane = Tambo.Plane(minesite_normal_vec, minesite_coord, geo)
+n̂: (71.1°, 141.0°)
+x0 (m): [0.0, 0.0, 0.0]
+
+julia> corsika_map(plane.x0) / units.cm
+3-element StaticArrays.SVector{3, Float64} with indices SOneTo(3):
+ -601629.9983245579
+   74357.73489408598
+  249836.60605899058
+
+julia> corsika_map(plane.n̂).θ, corsika_map(plane.n̂).ϕ
+(1.9014551551890944, 0.8850176443692401)
+
+julia> corsika_map(intersect(propped_state.position, propped_state.direction, plane)).z / units.cm
+287548.56253341207
+
+
+```
+
+## To be continued...
