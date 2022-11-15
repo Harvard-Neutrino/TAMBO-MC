@@ -328,11 +328,19 @@ direction: (77.2°, 81.1°)
 ```
 
 Remember, the `CORSIKA` coordinate system is always centered on the particle in $x$ and $y$ and the sea-level in $z$ and so the tranformation from TAMBO coordinates to `CORSIKA` coordinates is dependent on a `Particle` and a `Geometry`.
+We can construct a geometry object from a simulator as longa s you have access to the spline file which was used in generation.
 
 ```julia-repl
-julia> geo = Tambo.Geometry(simulator);
+julia> geo = Geometry(simulator);
+```
 
-julia> corsika_map = Tambo.CorsikaMap(propped_state, geo);
+This should break for you, because, ideally, you aren't on my computer.
+This should work though.
+
+```julia-repl
+julia> geo = Geometry("$(tambopath)/../resources/tambo_spline.jld2", simulator.tambo_coordinates);
+
+julia> corsika_map = CorsikaMap(propped_state, geo);
 ```
 
 Now, we can convert positions and directions from the TAMBO coordinate system to the `CORSIKA` one.
