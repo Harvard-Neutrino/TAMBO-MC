@@ -124,13 +124,6 @@ center of TAMBO in the spline coordinate system.
 
 # Example
 ```julia-repl
-julia> v = valley_helper(
-           1000m, 4000m, 
-           TPoint(1.08e11, 9.255e10, 1.35e10), 
-           spl
-       ) / m
-
-       488.4400118544429
 ```
 """
 function valley_helper(x, y, xyzoffset, valley_spl)
