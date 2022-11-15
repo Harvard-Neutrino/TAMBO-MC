@@ -2,12 +2,15 @@ module Tambo
 
 export Simulator,
        InjectionConfig,
-       ProposalConfig, 
+       ProposalConfig,
+       Geometry,
+       CorsikaMap,
        save_simulation, 
        simulator_from_file,
        units,
        minesite_coord,
        testsite_coord,
+       minesite_normal_vec,
        inside
 
 using CoordinateTransformations: Translation, AffineMap, LinearMap
@@ -75,6 +78,8 @@ function Simulator(fname::String)
     s = nothing
     jldopen(fname, "r") do f
         s = Simulator(; f["config"]...)
+        s.injected_events = f["injected_events"]
+        s.proposal_events = f["proposal_events"]
     end
     return s
 end
