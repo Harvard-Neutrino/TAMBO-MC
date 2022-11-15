@@ -4,12 +4,22 @@ struct Direction
     proj::SVector{3,Float64}
 end
 
+"""
+    Direction(θ::T, ϕ::U) where {T,U<:Number}
+
+TBW
+"""
 function Direction(θ::T, ϕ::U) where {T,U<:Number}
     θ, ϕ = Float64(θ), mod(Float64(ϕ), 2π)
     proj = SVector{3}([cos(ϕ) * sin(θ), sin(ϕ) * sin(θ), cos(θ)])
     return Direction(θ, ϕ, proj)
 end
 
+"""
+    Direction(x::T, y::U, z::V) where {T,U,V<:Number}
+
+TBW
+"""
 function Direction(x::T, y::U, z::V) where {T,U,V<:Number}
     x, y, z = promote(x, y, z)
     proj = SVector{3}([x, y, z]) ./ norm((x, y, z))
