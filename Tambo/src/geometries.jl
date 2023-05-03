@@ -72,6 +72,7 @@ struct Geometry
     tambo_offset::SVector{3, Float64}
     ρair::Float64
     ρrock::Float64
+    tambo_bounds::SMatrix{4, 2, Float64}
     #zboundaries::Vector{Float64}
     #ρs::Vector{Float64}
 end
@@ -96,7 +97,11 @@ function Geometry(spl_path::String, tambo_coord::Coord)
     xyzmin = SVector{3}([xmin - xyzoffset.x, ymin - xyzoffset.y, -zdown])
     xyzmax = SVector{3}([xmax - xyzoffset.x, ymax - xyzoffset.y, zup])
     box = Box(xyzmin, xyzmax)
-    return Geometry(valley, box, xyzoffset, units.ρair0, units.ρrock0)
+    bounds = units.km .* SMatrix{4,2, Float64}([
+        -1.0 1.0 -1.0 1.0;
+        -0.5 -0.5 0.5 0.5
+    ])
+    return Geometry(valley, box, xyzoffset, units.ρair0, units.ρrock0, bounds)
 end
 
 function Plane(n̂::Direction, coord::Coord, geo::Geometry)
@@ -111,6 +116,10 @@ end
 
 function (geo::Geometry)(x, y)
     return valley_helper(x, y, geo.tambo_offset, geo.valley.spline)
+end
+
+function (geo::Geometry)(sv::SVector{2})
+    return geo(sv...)
 end
 
 """
