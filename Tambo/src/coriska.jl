@@ -62,3 +62,12 @@ end
 function Base.inv(cm::CorsikaMap)
     return CorsikaMap(inv(cm.direction_map), inv(cm.position_map))
 end
+
+function should_do_coriska(event::ProposalResult, geo::Geometry)
+    # Check if going right direction
+    norm_pos = event.propped_state.position ./ norm(event.propped_state.position)
+    # TODO I made up this Number. We should check if it makes any sense
+    if event.propped_state.direction.proj .* norm_pos < -0.1
+        return false
+    return has_unobstructed_path(event.propped_state.position, geo)
+end
