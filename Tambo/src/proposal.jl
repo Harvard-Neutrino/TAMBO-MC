@@ -1,5 +1,6 @@
 using PyCall
 using StaticArrays
+using Rotations
 
 const pp = PyNULL()
 const TauMinusDef = PyNULL()
@@ -206,21 +207,28 @@ struct ProposalResult
 end
 
 function ProposalResult(secondaries, parent_particle)
+    r = LinearMap(RotY(-parent_particle.direction.θ) * RotZ(-parent_particle.direction.ϕ))
+    t = Translation(-parent_particle.position)
+    shift = r ∘ t
     losses = Loss[]
     for sec in secondaries.stochastic_losses()
         int_type = sec.type
         sec_e = sec.energy
         sec_e = sec.energy * units.MeV
-        pos = parent_particle.direction.proj * position_from_pp_vector(sec.position).z + parent_particle.position
-        l = Loss(int_type, sec_e, pos)
+        position = inv(shift)(position_from_pp_vector(sec.position))
+        #position = parent_particle.direction.proj * position_from_pp_vector(sec.position).z + parent_particle.position
+        l = Loss(int_type, sec_e, position)
         push!(losses, l)
     end
     children = Particle[]
     for product in secondaries.decay_products()
         pdg_code = product.type
         energy = product.energy * units.MeV
-        position = parent_particle.direction.proj * position_from_pp_vector(product.position).z + parent_particle.position
-        direction = Direction(product.direction)
+        position = inv(shift)(position_from_pp_vector(product.position))
+        #position = parent_particle.direction.proj * position_from_pp_vector(product.position).z + parent_particle.position
+        direction = Direction(
+            r(SVector{3}(product.direction.x, product.direction.y, product.direction.z))
+        )
         parent = parent_particle
         child = Particle(pdg_code, energy, position, direction, parent)
         push!(children, child)
@@ -231,10 +239,12 @@ function ProposalResult(secondaries, parent_particle)
         parent_particle.position
     )
     did_decay = length(children) > 0
-    final_pos = (
-        parent_particle.direction.proj * position_from_pp_vector(secondaries.final_state().position).z
-        .+ parent_particle.position
-    )
+    p = secondaries.final_state().position
+    final_pos = inv(shift)(SVector{3}(p.x, p.y, p.z))
+    #final_pos = (
+    #    parent_particle.direction.proj * position_from_pp_vector(secondaries.final_state().position).z
+    #    .+ parent_particle.position
+    #)
     final_e = secondaries.final_state().energy * units.MeV
     final_state = Particle(
         parent_particle.pdg_mc,
@@ -393,10 +403,9 @@ function propagate(
     pp_particle_dict::Dict{String, PyObject};
     track_progress=true
 )
+    itr = finalstates
     if track_progress
-        itr = ProgressBar(finalstates)
-    else
-        itr = finalstates
+        itr = ProgressBar(itr)
     end
     results = [
         propagate(fs, geo, pp_crosssections_dict, pp_particle_dict) for fs in itr
