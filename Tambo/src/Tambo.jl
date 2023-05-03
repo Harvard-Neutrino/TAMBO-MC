@@ -25,7 +25,7 @@ using PyCall: PyCall, PyNULL, PyObject
 using Random: seed!
 using Roots: find_zeros, find_zero
 using Rotations: RotX, RotZ
-using StaticArrays: SVector
+using StaticArrays: SVector, SMatrix
 
 include("./samplers/Samplers.jl")
 include("units.jl")
