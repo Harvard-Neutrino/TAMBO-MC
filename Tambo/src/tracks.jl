@@ -280,3 +280,23 @@ function totalcolumndepth(t::Track, g::Geometry)
     segments = computesegments(t, g)
     return totalcolumndepth(t, segments)
 end
+
+function has_unobstructed_path(i::SVector{3}, geo::Geometry)
+    # Things to not have an unobstructed path if they are inside the mountain
+    if inside(i, geo)
+        return false
+    end
+
+    for idx in 1..size(geo.tambo_bounds[1])
+        bound = geo.tambo_bounds[idx, :]
+        f = SVector{3, Float64}(bound..., geo(bound))
+        t = Track(i, f)
+        intersections = intersect(t, geo)
+        # By contruction, it intersects at the end of the Track
+        if length(intersections) == 1
+            return true
+        end
+    end
+
+    return false
+end
