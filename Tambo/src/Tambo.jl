@@ -11,7 +11,8 @@ export Simulator,
        minesite_coord,
        testsite_coord,
        minesite_normal_vec,
-       inside
+       inside,
+       should_do_corsika
 
 using CoordinateTransformations: Translation, AffineMap, LinearMap
 using Dierckx: Spline2D

@@ -286,8 +286,7 @@ function has_unobstructed_path(i::SVector{3}, geo::Geometry)
     if inside(i, geo)
         return false
     end
-
-    for idx in 1..size(geo.tambo_bounds[1])
+    for idx in 1:size(geo.tambo_bounds,1)
         bound = geo.tambo_bounds[idx, :]
         f = SVector{3, Float64}(bound..., geo(bound))
         t = Track(i, f)
