@@ -87,9 +87,11 @@ end
 TBW
 """
 function Base.intersect(p0::SVector{3}, d::Direction, plane::Plane)
+    
     norm = sum(plane.n̂.proj .* (plane.x0 .- p0)) / sum(plane.n̂.proj .* d.proj)
     pt = norm * d .+ p0
-    return pt
+    dot = sum(d.proj.*plane.n̂.proj) 
+    return norm,pt,dot
 end
 
 """
@@ -138,6 +140,7 @@ function Base.intersect(t::Track, geo::Geometry)
     return zeros
 end
 
+"""
 """
     Base.intersect(t::Track, geo::Geometry)
 
@@ -280,6 +283,7 @@ function totalcolumndepth(t::Track, g::Geometry)
     segments = computesegments(t, g)
     return totalcolumndepth(t, segments)
 end
+"""
 
 function has_unobstructed_path(i::SVector{3}, geo::Geometry)
     # Things to not have an unobstructed path if they are inside the mountain
@@ -298,4 +302,3 @@ function has_unobstructed_path(i::SVector{3}, geo::Geometry)
     end
 
     return false
-end

@@ -71,5 +71,63 @@ function should_do_corsika(event::ProposalResult, geo::Geometry)
         return false
     end
     return has_unobstructed_path(event.propped_state.position, geo)
+#=
+function should_do_corsika(event::ProposalResult, geo::Geometry)
+    # Check if going right direction
+    decay_pos = event.decay_products[1].position/units.m
+    
+    """
+    If the decay occurs inside the mountain, cut. 
+    """
+    if inside(decay_pos,geo) 
+    return false 
+    end 
+
+    propped_dir = event.propped_state.direction
+    
+    distance, point, dot = intersect(dstate.position,state.direction,plane) 
+    
+    """
+    The particle has to travel backwards to reach the plane. 
+    We don't want particles that have to travel backwards to reach the plane. 
+    """
+    if distance/units.m < 0
+    return false 
+    end 
+    
+    """
+    The particle direction is in the same direction as the plane's normal vector. 
+    To intercept with positive distance, the particle would have to be traveling from inside the mountain.  
+    """
+
+    if dot > 0 
+    return false 
+    end 
+
+    """
+    Cutting near-orthogonal particle directions with the plane normal. 
+    """
+    if abs(dot) < 1e-3
+    return false  
+    end
+
+    """
+    point[3] = z-intercept of particle and TAMBO plane.If the elevation in TAMBO coords is greater than 10km, cut. 
+    """
+    if point[3]/units.m > 10000
+    return false 
+    end 
+
+    """
+    If the distance length is greater than 20km between particle position and intercept with TAMBO plane, cut. 
+    """
+
+    if distance/units.m > 20000
+    return false 
+    end 
+
+    return has_unobstructed_path(event.decay_state[1].position, geo)
+=#
+
 end
 
