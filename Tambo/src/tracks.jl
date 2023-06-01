@@ -141,7 +141,6 @@ function Base.intersect(t::Track, geo::Geometry)
 end
 
 """
-"""
     Base.intersect(t::Track, geo::Geometry)
 
 TBW
@@ -300,5 +299,4 @@ function has_unobstructed_path(i::SVector{3}, geo::Geometry)
             return true
         end
     end
-
-    return false
+"""
