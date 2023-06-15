@@ -38,7 +38,7 @@ include("tracks.jl")
 include("inject.jl")
 include("proposal.jl")
 include("corsika.jl")
-
+include("weights.jl")
 
 @Base.kwdef mutable struct Simulator
     # General configuration
