@@ -11,7 +11,8 @@ export Simulator,
        minesite_coord,
        testsite_coord,
        minesite_normal_vec,
-       inside
+       inside,
+       should_do_corsika
 
 using CoordinateTransformations: Translation, AffineMap, LinearMap
 using Dierckx: Spline2D
@@ -25,7 +26,7 @@ using PyCall: PyCall, PyNULL, PyObject
 using Random: seed!
 using Roots: find_zeros, find_zero
 using Rotations: RotX, RotZ
-using StaticArrays: SVector
+using StaticArrays: SVector, SMatrix
 
 include("./samplers/Samplers.jl")
 include("units.jl")
@@ -36,8 +37,8 @@ include("geometries.jl")
 include("tracks.jl")
 include("inject.jl")
 include("proposal.jl")
-include("coriska.jl")
-
+include("corsika.jl")
+include("weights.jl")
 
 @Base.kwdef mutable struct Simulator
     # General configuration
