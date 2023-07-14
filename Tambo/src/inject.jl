@@ -68,8 +68,8 @@ function (injector::InjectionConfig)(geo; track_progress=true)
 end
 
 struct InjectionEvent
-    initial_state::Particle
     entry_state::Particle
+    initial_state::Particle
     final_state::Particle
     X::Float64
 end
