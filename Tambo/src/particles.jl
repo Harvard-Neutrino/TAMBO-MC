@@ -7,9 +7,10 @@ struct Particle
 end
 
 function Base.show(io::IO, particle::Particle)
-    s = "pdg_mc=$(particle.pdg_mc), energy=$(particle.energy / units.GeV) GeV,
-        position (m): $(particle.position / units.m),
-        direction: $(particle.direction)"""
+    s = "pdg_mc=$(particle.pdg_mc), "
+    s *= "energy=$(particle.energy / units.GeV) GeV, "
+    s *= "position=$(particle.position / units.m)m, "
+    s *= "direction=$(particle.direction)"
     print(io, s)
 end
 
