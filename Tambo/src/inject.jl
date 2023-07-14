@@ -41,19 +41,24 @@ end
 
 function inject(injector::InjectionConfig, geo::Geometry; track_progress=true)
     seed!(injector.seed)
-    pl = PowerLaw(injector.γ, injector.emin, injector.emax)
+    spectrum = PowerLaw(injector.γ, injector.emin, injector.emax)
     diff_xs = OutgoingCCEnergy(injector.diff_xs_path, injector.ν_pdg)
     anglesampler = UniformAngularSampler(
-        injector.θmin, injector.θmax, injector.ϕmin, injector.ϕmax
+        injector.θmin,
+        injector.θmax,
+        injector.ϕmin,
+        injector.ϕmax
     )
+
     injectionvolume = SymmetricInjectionCylinder(injector.r_injection, injector.l_endcap)
+
+    iter = 1:(injector.n)
     if track_progress
-        iter = ProgressBar(1:(injector.n))
-    else
-        iter = 1:(injector.n)
+        iter = ProgressBar(iter)
     end
+
     return [
-        inject_event(injector.ν_pdg, pl, diff_xs, anglesampler, injectionvolume, geo) for
+        inject_event(injector.ν_pdg, spectrum, diff_xs, anglesampler, injectionvolume, geo) for
         _ in iter
     ]
 end
@@ -64,7 +69,9 @@ end
 
 struct InjectionEvent
     initial_state::Particle
+    entry_state::Particle
     final_state::Particle
+    X::Float64
 end
 
 function Base.show(io::IO, event::InjectionEvent)
@@ -82,7 +89,7 @@ end
 """
     sample_interaction_vertex(
         volume::InjectionVolume,
-        p_near::SVector{3},
+        closest_approach::SVector{3},
         d::Direction,
         range,
         geo::Geometry
@@ -92,23 +99,19 @@ TBW
 """
 function sample_interaction_vertex(
     volume::SymmetricInjectionCylinder,
-    p_near::SVector{3},
+    closest_approach::SVector{3},
     d::Direction,
     range::Float64,
     geo::Geometry
 )
-    tincoming = Track(p_near, d, geo.box)
-    toutgoing = Track(p_near, reverse(d), geo.box)
-    segmentsi = computesegments(tincoming, geo)
-    segmentso = computesegments(toutgoing, geo)
-    cdincoming = endcapcolumndepth(tincoming, volume.l_endcap, range, segmentsi)
-    cdoutgoing = endcapcolumndepth(toutgoing, volume.l_endcap, 0.0, segmentso)
-    cd = rand(Uniform(-cdoutgoing, cdincoming))
-    # If the remainder is positive, you need to be in incoming track, else outgoing
-    cd > 0 ? tr = tincoming : tr = toutgoing
-    cd > 0 ? segments = segmentsi : segments = segmentso
-    λ_int = inversecolumndepth(tr, abs(cd), geo, segments)
-    p_int = tr(λ_int)
+    # Track from closest approach to incoming edge
+    track = Track(closest_approach, d, geo.box)
+    # Only computing these once speeds things up
+    segments = computesegments(track, geo)
+    tot_X = endcapcolumndepth(track, volume.l_endcap, range, segments)
+    X = rand(Uniform(0.0, tot_X))
+    λ_int = inversecolumndepth(track, X, geo, segments)
+    p_int = track(λ_int)
     return p_int
 end
 
@@ -147,22 +150,26 @@ function inject_event(
     injectionvolume::SymmetricInjectionCylinder,
     geo::Geometry,
 )
-    e_init = rand(e_sampler)
-    e_final = rand(diff_xs, e_init)
-    range = lepton_range(e_init, abs(ν_pdg) == 16)
-    d = Direction(rand(anglesampler)...)
+    direction = Direction(rand(anglesampler)...)
     # Construct roatation to plane perpindicular to direction
-    r = (RotX(d.θ) * RotZ(π / 2 - d.ϕ))'
-    p_near = r * rand(injectionvolume)
-    p_int = sample_interaction_vertex(injectionvolume, p_near, d, range, geo)
-    initial_state = Particle(ν_pdg, e_init, p_int, d, nothing)
-    final_state = Particle(ν_pdg - sign(ν_pdg), e_final, p_int, d, initial_state)
-    event = InjectionEvent(initial_state, final_state)
+    rotator = (RotX(direction.θ) * RotZ(π / 2 - direction.ϕ))'
+    closest_approach = rotator * rand(injectionvolume)
+    xb = intersect(closest_approach, reverse(direction), geo.box)
+
+    proposed_e_init = rand(e_sampler)
+    proposed_particle = Particle(ν_pdg, proposed_e_init, xb, direction, nothing)
+    particle_entry, X = tr_propagate(proposed_particle, geo.tambo_offset.z)
+    e_final = rand(diff_xs, particle_entry.energy)
+
+    range = lepton_range(particle_entry.energy, ν_pdg)
+    p_int = sample_interaction_vertex(injectionvolume, closest_approach, direction, range, geo)
+    final_state = Particle(ν_pdg - sign(ν_pdg), e_final, p_int, direction, particle_entry)
+    event = InjectionEvent(proposed_particle, particle_entry, final_state, X)
     return event
 end
 
 function save_simulation(injector::InjectionConfig, path::String)
-    @assert(length(s.injected_events)==s.n)
+    @assert length(s.injected_events)==s.n "Looks like you didn't inject the right number of events"
     jldopen(path, "w") do f
         dump_to_file(s, f)
     end

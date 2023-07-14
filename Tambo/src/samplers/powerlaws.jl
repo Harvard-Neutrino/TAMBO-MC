@@ -28,11 +28,7 @@ end
 function Base.show(io::IO, pl::PowerLaw)
     print(
         io,
-        """{
-            "emin (GeV)" : $(pl.emin / units.GeV),
-            "emax (GeV)" : $(pl.emax / units.GeV)
-            "γ" : $(pl.γ)
-            }""",
+        "PowerLaw(γ=$(pl.γ), emin=$(pl.emin / units.GeV) GeV, emax=$(pl.emax / units.GeV) GeV)",
     )
 end
 
@@ -45,11 +41,10 @@ function Base.rand(pl::PowerLaw)
     if pl.γ == 1
         b = (pl.emax) .^ u
         a = (pl.emin) .^ (u .- 1)
-        val = b ./ a
-    else
-        mg = 1 - pl.γ
-        val = (u .* pl.emax .^ mg + (1 .- u) .* pl.emin^mg) .^ (1 / mg)
+        return b ./ a
     end
+    mg = 1 - pl.γ
+    val = (u .* pl.emax .^ mg + (1 .- u) .* pl.emin^mg) .^ (1 / mg)
     return val
 end
 
@@ -59,9 +54,9 @@ function Base.rand(n::Int, pl::PowerLaw)
         b = (pl.emax) .^ u
         a = (pl.emin) .^ (u .- 1)
         val = b ./ a
-    else
-        mg = 1 - pl.γ
-        val = (u .* pl.emax .^ mg + (1 .- u) .* pl.emin^mg) .^ (1 / mg)
+        return val
     end
+    mg = 1 - pl.γ
+    val = (u .* pl.emax .^ mg + (1 .- u) .* pl.emin^mg) .^ (1 / mg)
     return val
 end
