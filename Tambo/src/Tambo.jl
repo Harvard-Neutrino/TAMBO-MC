@@ -199,7 +199,7 @@ function dump_to_file(s::SimulationConfig, f::JLDFile)
     f["config"] = Dict(
         Dict(
             fn => getfield(s, fn) for fn in fieldnames(SimulationConfig)
-            if fn ∉resultfields
+            if fn ∉ resultfields
         )
     )
     return
