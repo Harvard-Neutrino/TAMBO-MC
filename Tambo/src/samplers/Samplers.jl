@@ -5,7 +5,9 @@ using Distributions: Uniform
 export UniformAngularSampler
 export SymmetricInjectionCylinder, AsymmetricInjectionCylinder
 export PowerLaw
-export OutgoingCCEnergy
+export OutgoingEnergy
+export Interaction
+export CrossSection
 
 include("crosssections.jl")
 include("angularsamplers.jl")

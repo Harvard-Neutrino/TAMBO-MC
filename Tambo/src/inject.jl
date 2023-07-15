@@ -2,9 +2,11 @@ using .Samplers
 
 Base.@kwdef mutable struct InjectionConfig
     n::Int = 10
-    diff_xs_path::String = realpath(
-        "$(@__DIR__)/../../resources/cross_sections/tables/csms_differential_cdfs.h5"
+    xs_dir::String = realpath(
+        "$(@__DIR__)/../../resources/cross_sections/tables/"
     )
+    xs_model::String = "csms"
+    interaction::Interaction = Interaction(1) # Charged current
     tambo_coordinates::Coord = minesite_coord
     ν_pdg::Int = 16
     γ::Float64 = 1
@@ -19,71 +21,79 @@ Base.@kwdef mutable struct InjectionConfig
     seed::Int64 = 0
 end
 
-function Base.show(io::IO, injector::InjectionConfig)
+function Base.show(io::IO, config::InjectionConfig)
     print(
         io,
         """
-        n: $(injector.n)
-        seed: $(injector.seed)
-        ν_pdg: $(injector.ν_pdg)
-        diff_xs_path: $(injector.diff_xs_path)
-        γ: $(injector.γ)
-        emin (GeV): $(injector.emin / units.GeV)
-        emax (GeV): $(injector.emax / units.GeV)
-        θmin (degrees): $(round(injector.θmin * 180 / π, sigdigits=3))°
-        θmax (degrees): $(round(injector.θmax * 180 / π, sigdigits=3))°
-        ϕmin (degrees): $(round(injector.ϕmin * 180 / π, sigdigits=3))°
-        ϕmax (degrees): $(round(injector.ϕmax * 180 / π, sigdigits=3))°
-        r_injection (m): $(injector.r_injection / units.m)
-        l_endcap (m): $(injector.l_endcap / units.m)"""
+        n=$(config.n)
+        seed=$(config.seed)
+        ν_pdg=$(config.ν_pdg)
+        interaction=$(config.interaction)
+        xs_model=$(config.xs_model)
+        γ=$(config.γ)
+        emin=$(config.emin / units.GeV) GeV
+        emax=$(config.emax / units.GeV) GeV
+        θmin=$(round(config.θmin * 180 / π, sigdigits=3))°
+        θmax=$(round(config.θmax * 180 / π, sigdigits=3))°
+        ϕmin=$(round(config.ϕmin * 180 / π, sigdigits=3))°
+        ϕmax=$(round(config.ϕmax * 180 / π, sigdigits=3))°
+        r_injection=$(config.r_injection / units.m) m 
+        l_endcap=$(config.l_endcap / units.m) m
+        xs_dir=$(config.xs_dir)
+        """
     )
 end
 
-function inject(injector::InjectionConfig, geo::Geometry; track_progress=true)
-    seed!(injector.seed)
-    spectrum = PowerLaw(injector.γ, injector.emin, injector.emax)
-    diff_xs = OutgoingCCEnergy(injector.diff_xs_path, injector.ν_pdg)
+struct Injector
+    config::InjectionConfig
+    powerlaw::PowerLaw
+    xs::CrossSection
+    anglesampler::UniformAngularSampler
+    injectionvolume::SymmetricInjectionCylinder
+    geo::Geometry
+end
+
+function Injector(config::InjectionConfig, geo::Geometry)
+    pl = PowerLaw(config.γ, config.emin, config.emax)
+    xs = CrossSection(config.xs_dir, config.xs_model, config.ν_pdg, config.interaction)
     anglesampler = UniformAngularSampler(
-        injector.θmin,
-        injector.θmax,
-        injector.ϕmin,
-        injector.ϕmax
+        config.θmin,
+        config.θmax,
+        config.ϕmin,
+        config.ϕmax
     )
 
-    injectionvolume = SymmetricInjectionCylinder(injector.r_injection, injector.l_endcap)
+    injectionvolume = SymmetricInjectionCylinder(config.r_injection, config.l_endcap)
+    return Injector(config, pl, xs, anglesampler, injectionvolume, geo)
+end
 
-    iter = 1:(injector.n)
+function inject_event(injector::Injector)
+    event = inject_event(
+        injector.config.ν_pdg,
+        injector.powerlaw,
+        injector.xs,
+        injector.anglesampler,
+        injector.injectionvolume,
+        injector.geo
+    )
+    return event
+end
+
+function (injector::Injector)(; track_progress=true)
+    seed!(injector.config.seed)
+    iter = 1:injector.config.n
     if track_progress
         iter = ProgressBar(iter)
     end
-
-    return [
-        inject_event(injector.ν_pdg, spectrum, diff_xs, anglesampler, injectionvolume, geo) for
-        _ in iter
-    ]
-end
-
-function (injector::InjectionConfig)(geo; track_progress=true)
-    return inject(injector, geo, track_progress=track_progress)
+    return [inject_event(injector) for _ in iter]
 end
 
 struct InjectionEvent
     entry_state::Particle
     initial_state::Particle
     final_state::Particle
-    X::Float64
-end
-
-function Base.show(io::IO, event::InjectionEvent)
-    print(
-        io,
-        """
-        initial_state:
-        $(event.initial_state)
-
-        final_state:
-        $(event.final_state)""",
-    )
+    physX::Float64
+    genX::Float64
 end
 
 """
@@ -104,9 +114,7 @@ function sample_interaction_vertex(
     range::Float64,
     geo::Geometry
 )
-    # Track from closest approach to incoming edge
     track = Track(closest_approach, d, geo.box)
-    # Only computing these once speeds things up
     segments = computesegments(track, geo)
     tot_X = endcapcolumndepth(track, volume.l_endcap, range, segments)
     X = rand(Uniform(0.0, tot_X))
@@ -134,7 +142,14 @@ end
     inject_event(
     ν_pdg::Int,
     e_sampler,
-    diff_xs::OutgoingCCEnergy,
+    diff_xs::CrossSection,
+    anglesampler,
+    injectionvolume::SymmetricInjectionCylinder,
+    geo::Geometry,
+)
+    ν_pdg::Int,
+    e_sampler,
+    diff_xs::OutgoingEnergy,
     anglesampler,
     injectionvolume::SymmetricInjectionCylinder,
     geo::Geometry,
@@ -144,31 +159,31 @@ TBW
 """
 function inject_event(
     ν_pdg::Int,
-    e_sampler,
-    diff_xs::OutgoingCCEnergy,
-    anglesampler,
+    power_law::PowerLaw,
+    xs::CrossSection,
+    anglesampler::UniformAngularSampler,
     injectionvolume::SymmetricInjectionCylinder,
     geo::Geometry,
 )
     direction = Direction(rand(anglesampler)...)
-    # Construct roatation to plane perpindicular to direction
+    # Rotation to plane perpindicular to direction
     rotator = (RotX(direction.θ) * RotZ(π / 2 - direction.ϕ))'
     closest_approach = rotator * rand(injectionvolume)
     xb = intersect(closest_approach, reverse(direction), geo.box)
 
-    proposed_e_init = rand(e_sampler)
+    proposed_e_init = rand(power_law)
     proposed_particle = Particle(ν_pdg, proposed_e_init, xb, direction, nothing)
-    particle_entry, X = tr_propagate(proposed_particle, geo.tambo_offset.z)
-    e_final = rand(diff_xs, particle_entry.energy)
+    particle_entry, physX = tr_propagate(proposed_particle, geo.tambo_offset.z)
+    e_final = rand(xs, particle_entry.energy)
 
     range = lepton_range(particle_entry.energy, ν_pdg)
-    p_int = sample_interaction_vertex(injectionvolume, closest_approach, direction, range, geo)
+    p_int, genX = sample_interaction_vertex(injectionvolume, closest_approach, direction, range, geo)
     final_state = Particle(ν_pdg - sign(ν_pdg), e_final, p_int, direction, particle_entry)
-    event = InjectionEvent(proposed_particle, particle_entry, final_state, X)
+    event = InjectionEvent(proposed_particle, particle_entry, final_state, physX, genX)
     return event
 end
 
-function save_simulation(injector::InjectionConfig, path::String)
+function save_simulation(config::InjectionConfig, path::String)
     @assert length(s.injected_events)==s.n "Looks like you didn't inject the right number of events"
     jldopen(path, "w") do f
         dump_to_file(s, f)

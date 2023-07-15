@@ -81,6 +81,6 @@ end
 
 TBW
 """
-function (cylinder::SymmetricInjectionCylinder)(p::SVector{3})
+function probability(cylinder::SymmetricInjectionCylinder)
     return 1 / (π * cylinder.r_injection^2)
 end

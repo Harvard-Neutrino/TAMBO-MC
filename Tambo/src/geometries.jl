@@ -11,12 +11,8 @@ struct Plane
 end
 
 function Base.show(io::IO, plane::Plane)
-    print(
-        io,
-        """
-        n̂: $(plane.n̂)
-        x0 (m): $(plane.x0 / units.m)"""
-    )
+    s = "Plane(n̂=$(plane.n̂), x0=$(plane.x0 / units.m))"
+    print(io, s)
 end
 
 struct Box
@@ -51,20 +47,13 @@ function Valley(splpath::String)
     return Valley(spl, mincoord)
 end    
 
-function inside(sv::SVector{3}, b::Box)
-    e1 = b.c1
-    e2 = b.c2
-    s = sign.(e2 .- e1)
-    is_in = all(s .* e1 .< s .* sv < s .* e2)
-    return is_in
-end
 
 
-function load_spline(p, key="spline")
-    f = jldopen(p, "r")
-    spl = f[key]
-    return spl
-end
+#function load_spline(p, key="spline")
+#    f = jldopen(p, "r")
+#    spl = f[key]
+#    return spl
+#end
 
 struct Geometry
     valley::Valley
@@ -73,8 +62,6 @@ struct Geometry
     ρair::Float64
     ρrock::Float64
     tambo_bounds::SMatrix{4, 2, Float64}
-    #zboundaries::Vector{Float64}
-    #ρs::Vector{Float64}
 end
 
 function Geometry(spl_path::String, tambo_coord::Coord)
@@ -144,6 +131,28 @@ function valley_helper(x, y, xyzoffset, valley_spl)
     return valley_spl(xm, ym) * units.m - xyzoffset[3]
 end
 
+"""
+    density(p::SVector{3}, g::Geometry)
+
+TBW
+"""
+function density(p::SVector{3}, geo::Geometry)
+    ρ = 0
+    if !inside(p, geo)
+        ρ = geo.ρair
+    else
+        ρ = geo.ρrock
+    end
+    return ρ
+end
+
+function inside(sv::SVector{3}, b::Box)
+    e1 = b.c1
+    e2 = b.c2
+    s = sign.(e2 .- e1)
+    is_in = all(s .* e1 .< s .* sv < s .* e2)
+    return is_in
+end
 inside(x, y, z, f::Function) = z < f(x, y)
 inside(x, y, z, geo::Geometry) = z < geo(x, y)
 inside(sv::SVector{3}, f::Function) = inside(sv.x, sv.y, sv[3], f)

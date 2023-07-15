@@ -1,6 +1,6 @@
 module Tambo
 
-export Simulator,
+export SimulationConfig,
        InjectionConfig,
        ProposalConfig,
        Geometry,
@@ -41,7 +41,7 @@ include("corsika.jl")
 include("weights.jl")
 include("taurunner.jl")
 
-@Base.kwdef mutable struct Simulator
+@Base.kwdef mutable struct SimulationConfig
     # General configuration
     n::Int = 10
     seed::Int64 = 925
@@ -76,39 +76,39 @@ include("taurunner.jl")
     proposal_events::Vector{ProposalResult} = ProposalResult[]
 end
 
-function Simulator(fname::String)
+function SimulationConfig(fname::String)
     s = nothing
     jldopen(fname, "r") do f
-        s = Simulator(; f["config"]...)
+        s = SimulationConfig(; f["config"]...)
         s.injected_events = f["injected_events"]
         s.proposal_events = f["proposal_events"]
     end
     return s
 end
 
-function InjectionConfig(s::Simulator)
+function InjectionConfig(s::SimulationConfig)
     injectordict = Dict(
         fn => getfield(s, fn) 
-        for fn in intersect(fieldnames(Simulator), fieldnames(InjectionConfig))
+        for fn in intersect(fieldnames(SimulationConfig), fieldnames(InjectionConfig))
     )
     return InjectionConfig(; injectordict...)
 end
 
-function inject(simulator::Simulator; track_progress=true)
+function inject(simulator::SimulationConfig; track_progress=true)
     injector = InjectionConfig(simulator)
     geo = Geometry(simulator)
     return inject(injector, geo, track_progress=track_progress)
 end
 
-function ProposalConfig(s::Simulator)
+function ProposalConfig(s::SimulationConfig)
     propdict = Dict(
         fn => getfield(s, fn) 
-        for fn in intersect(fieldnames(Simulator), fieldnames(ProposalConfig))
+        for fn in intersect(fieldnames(SimulationConfig), fieldnames(ProposalConfig))
     )
     return ProposalConfig(; propdict...)
 end
 
-function Geometry(s::Simulator)
+function Geometry(s::SimulationConfig)
     geo = Geometry(
         s.geo_spline_path,
         s.tambo_coordinates
@@ -122,7 +122,7 @@ function Geometry(s::Simulator)
     return geo
 end
 
-function Base.show(io::IO, s::Simulator)
+function Base.show(io::IO, s::SimulationConfig)
     print(
         io,
         """
@@ -161,11 +161,11 @@ function Base.show(io::IO, s::Simulator)
     )
 end
 
-function Base.getindex(s::Simulator, fieldstring::String)
+function Base.getindex(s::SimulationConfig, fieldstring::String)
     getfield(s, Symbol(fieldstring))
 end
 
-function (s::Simulator)(; track_progress=true)
+function (s::SimulationConfig)(; track_progress=true)
     seed!(s.seed)
     if track_progress
         println("Making geometry")
@@ -192,20 +192,20 @@ function (s::Simulator)(; track_progress=true)
     )
 end
 
-function dump_to_file(s::Simulator, f::JLDFile)
+function dump_to_file(s::SimulationConfig, f::JLDFile)
     resultfields = [:injected_events, :proposal_events]
     f["injected_events"] = s.injected_events
     f["proposal_events"] = s.proposal_events
     f["config"] = Dict(
         Dict(
-            fn => getfield(s, fn) for fn in fieldnames(Simulator)
+            fn => getfield(s, fn) for fn in fieldnames(SimulationConfig)
             if fn ∉resultfields
         )
     )
     return
 end
 
-function save_simulation(s::Simulator, path::String)
+function save_simulation(s::SimulationConfig, path::String)
     @assert(length(s.injected_events)==s.n)
     @assert(length(s.proposal_events)==s.n)
     jldopen(path, "w") do f

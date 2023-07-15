@@ -60,3 +60,7 @@ function Base.rand(n::Int, pl::PowerLaw)
     val = (u .* pl.emax .^ mg + (1 .- u) .* pl.emin^mg) .^ (1 / mg)
     return val
 end
+
+function probability(pl::PowerLaw, e::Float64)
+    pl(e)
+end
