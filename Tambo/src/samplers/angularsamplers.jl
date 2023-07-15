@@ -3,18 +3,23 @@ struct UniformAngularSampler
     θmax::Float64
     ϕmin::Float64
     ϕmax::Float64
+    function UniformAngularSampler(θmin, θmax, ϕmin, ϕmax)
+        ϕmin = mod(ϕmin, 2π)
+        ϕmax = mod(ϕmax, 2π)
+        @assert ϕmin <= ϕmax "ϕmin greater than ϕmax"
+        @assert θmin <= θmax "θmin greater than θmax"
+        return new(θmin, θmax, ϕmin, ϕmax)
+    end
 end
 
 function Base.show(io::IO, uniformsampler::UniformAngularSampler)
-    print(
-        io,
-        """
-        θmin (degrees): $(uniformsampler.θmin / π * 180)
-        θmax (degrees): $(uniformsampler.θmax / π * 180)
-        ϕmin (degrees): $(uniformsampler.ϕmin / π * 180)
-        ϕmax (degrees): $(uniformsampler.ϕmax / π * 180)
-        """,
-    )
+    s = "UniformAngularSampler("
+    s *= "θmin=$(uniformsampler.θmin / π * 180)∘, "
+    s *= "θmax=$(uniformsampler.θmax / π * 180)∘, "
+    s *= "ϕmin=$(uniformsampler.ϕmin / π * 180)∘, "
+    s *= "ϕmax=$(uniformsampler.ϕmax / π * 180)∘"
+    s *= ")"
+    print(io, s)
 end
 
 """
@@ -30,4 +35,9 @@ function Base.rand(uniformsampler::UniformAngularSampler)
     # Randomly sample azimuth
     ϕ = rand(Uniform(uniformsampler.ϕmin, uniformsampler.ϕmax))
     return θ, ϕ
+end
+
+function probability(sampler::UniformAngularSampler)
+    Ω = (sampler.ϕmax - sampler.ϕmin) * (cos(sampler.θmin) - cos(sampler.θmax))
+    return 1 / Ω
 end
