@@ -28,8 +28,11 @@ using Roots: find_zeros, find_zero
 using Rotations: RotX, RotZ
 using StaticArrays: SVector, SMatrix
 
-include("./samplers/Samplers.jl")
 include("units.jl")
+include("samplers/angularsamplers.jl")
+include("samplers/crosssections.jl")
+include("samplers/injectionvolumes.jl")
+include("samplers/powerlaws.jl")
 include("directions.jl")
 include("particles.jl")
 include("locations.jl")
@@ -38,7 +41,7 @@ include("tracks.jl")
 include("inject.jl")
 include("proposal.jl")
 include("corsika.jl")
-include("weights.jl")
+include("weightings.jl")
 include("taurunner.jl")
 
 @Base.kwdef mutable struct SimulationConfig

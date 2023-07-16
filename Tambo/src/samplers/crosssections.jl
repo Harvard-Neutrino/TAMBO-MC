@@ -49,7 +49,7 @@ function CrossSection(dir::String, model_name::String, ν_pdg::Int, interaction:
     total_file = "$(dir)/$(model_name)_total_cross_section.h5"
     differential_file = "$(dir)/$(model_name)_differential_cross_section.h5"
     tot = TotalXS(total_file, ν_pdg, interaction)
-    diff = TotalXS(differential_file, ν_pdg, interaction)
+    diff = DifferentialXS(differential_file, ν_pdg, interaction)
     sampl = OutgoingEnergy(sampling_file, ν_pdg, interaction)
     return CrossSection(ν_pdg, interaction, sampl, tot, diff)
 end
@@ -105,6 +105,9 @@ function (xs::TotalXS)(e)
 end
 
 function (xs::DifferentialXS)(ein, eout)
+    if eout < xs.log_emin_z
+        return 0.0
+    end
     z = (eout - 10^xs.log_emin_z) / (ein - 10^xs.log_emin_z)
     return 10 ^ xs.itp(log(10, ein), z) / eout
 end
@@ -114,9 +117,17 @@ function (xs::OutgoingEnergy)(ein, u)
 end
 
 function Base.rand(xs::OutgoingEnergy, ein::Float64)
+    # Hack to catch love energy things that are beneath our tables
+    if log(10, ein) < 11.000000000000433
+        return 0.0
+    end
     u = rand()
     eout = xs(ein, u) * (ein - 10^xs.log_emin_z) + 10^xs.log_emin_z
     return eout
+end
+
+function Base.rand(xs::CrossSection, ein::Float64)
+    return rand(xs.energy_sampler, ein)
 end
 
 function Base.rand(n::Int, xs::OutgoingEnergy, ein::Float64)

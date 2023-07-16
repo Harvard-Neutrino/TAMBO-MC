@@ -1,5 +1,3 @@
-using .Samplers
-
 Base.@kwdef mutable struct InjectionConfig
     n::Int = 10
     xs_dir::String = realpath(
@@ -120,7 +118,7 @@ function sample_interaction_vertex(
     X = rand(Uniform(0.0, tot_X))
     λ_int = inversecolumndepth(track, X, geo, segments)
     p_int = track(λ_int)
-    return p_int
+    return p_int, X
 end
 
 """

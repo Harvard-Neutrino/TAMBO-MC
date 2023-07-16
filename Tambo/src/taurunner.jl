@@ -12,7 +12,7 @@ function tr_startup()
     copy!(earth, x.construct_earth())
     copy!(xs, tr.cross_sections.CrossSections(tr.cross_sections.XSModel.CSMS))
     copy!(clp, tr.proposal_interface.ChargedLeptonPropagator(earth, xs))
-    copy!(chord, tr.track.Chord)
+    copy!(chord, tr.track.chord)
 end
 
 function run_taurunner(p:: Particle, θ:: Float64, depth:: Float64)
@@ -25,20 +25,16 @@ end
 
 function tr_propagate(p::Particle, ztambo::Float64)
     # Check that TR variables have been initiailized
-    #@assert chord != PyNULL() "TauRunner variables not initialized. Need to run `tr_startup`"
+    @assert chord != PyNULL() "TauRunner variables not initialized. Need to run `tr_startup`"
     
     xb′ = p.position + SVector{3}([0, 0, ztambo + units.earthradius])
-    #@show xb′
     depth = (units.earthradius - norm(xb′)) / units.earthradius
-    #@show depth
     # The neutrino does not pass through the Earth
     if depth <= 0
         return p, 0.0
     end
     ψ = acos(xb′.z / norm(xb′))
-    #@show θ
     θ_tr = p.direction.θ + ψ
-    #@show θ_tr
     eout, X = run_taurunner(p, θ_tr, depth)
     return Particle(p.pdg_mc, eout, xb′, p.direction, p.parent), X
 end

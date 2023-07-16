@@ -66,65 +66,58 @@ function Loss(int_type::Int, e::Float64, pp_position::PyObject)
 end
 
 
-function (config::ProposalConfig)(event::Particle, geo::Geometry)
-    # TODO figure out how seeding works in PROPOSAL
-    pp_particledef_dict, pp_crosssections_dict = (
-        make_proposal_dicts(config)
-    )
-    result = propagate(event, geo, pp_crosssections_dict, pp_particledef_dict)
-    return result
-end
+#function (config::ProposalConfig)(event::Particle, geo::Geometry)
+#    # TODO figure out how seeding works in PROPOSAL
+#    pp_particledef_dict, pp_crosssections_dict = (
+#        make_proposal_dicts(config)
+#    )
+#    secondaries = propagate(event, geo, pp_crosssections_dict, pp_particledef_dict)
+#    ProposalResult(secondaries, events)
+#    return result
+#end
 
 function (prop::ProposalPropagator)(
     particle::Particle,
     geo::Geometry;
 )
 
-    @assert particle.ν_pdg in [15, 13, 11, -11, -13, -15] "$(particle) is not a charged lepton"
-
-    t = Track(particle.position, position.direction, geo.box)
+    @assert particle.pdg_mc in [15, 13, 11, -11, -13, -15] "$(particle) is not a charged lepton"
+    
+    t = Track(particle.position, particle.direction, geo.box)
     segments = computesegments(t, geo)
-    result = propagate(
+    secondaries = propagate(
         particle,
         getfield.(segments, :medium_name),
         getfield.(segments, :density),
         getfield.(segments, :length),
-        pp_crosssections_dict,
-        pp_particle_dict,
+        prop.crosssection_dict,
+        prop.particledef_dict,
     )
-    lepton = pp.particle.ParticleState()
-    lepton.position = make_pp_vector(SVector{3}([0,0,0]))
-    lepton.direction = make_pp_direction(Direction(0, 0, 1))
-    lepton.energy = chargedlepton.energy / units.MeV
-    lepton.propagated_distance = 0.0
-    lepton.time = 0.0
-    secondaries = prop.propagate(lepton)
-
-    result = ProposalResult(secondaries, chargedlepton)
-    return result
+    return ProposalResult(secondaries, particle)
 end
 
+
 function (prop::ProposalPropagator)(
-    particles::Vector{Particle},
+    events::Vector{InjectionEvent},
     geo::Geometry;
     track_progress::Bool=true
 )
     if track_progress
-        particle = ProgressBar(particles)
+        events = ProgressBar(events)
     end
-    return [prop(particle, geo) for particle in particles]
+    return [prop(event.final_state, geo) for event in events]
 end
 
 function ProposalResult(secondaries, parent_particle)
     r = LinearMap(RotY(-parent_particle.direction.θ) * RotZ(-parent_particle.direction.ϕ))
     t = Translation(-parent_particle.position)
-    shift = r ∘ t
+    shift = inv(r ∘ t)
     losses = Loss[]
     for sec in secondaries.stochastic_losses()
         int_type = sec.type
         sec_e = sec.energy
         sec_e = sec.energy * units.MeV
-        position = inv(shift)(position_from_pp_vector(sec.position))
+        position = shift(position_from_pp_vector(sec.position))
         l = Loss(int_type, sec_e, position)
         push!(losses, l)
     end
@@ -132,9 +125,9 @@ function ProposalResult(secondaries, parent_particle)
     for product in secondaries.decay_products()
         pdg_code = product.type
         energy = product.energy * units.MeV
-        position = inv(shift)(position_from_pp_vector(product.position))
+        position = shift(position_from_pp_vector(product.position))
         direction = Direction(
-            r(SVector{3}(product.direction.x, product.direction.y, product.direction.z))
+            inv(r)(SVector{3}(product.direction.x, product.direction.y, product.direction.z))
         )
         parent = parent_particle
         child = Particle(pdg_code, energy, position, direction, parent)
@@ -147,7 +140,7 @@ function ProposalResult(secondaries, parent_particle)
     )
     did_decay = length(children) > 0
     p = secondaries.final_state().position
-    final_pos = inv(shift)(SVector{3}(p.x, p.y, p.z))
+    final_pos = shift(position_from_pp_vector(p))
     final_e = secondaries.final_state().energy * units.MeV
     final_state = Particle(
         parent_particle.pdg_mc,
@@ -157,7 +150,7 @@ function ProposalResult(secondaries, parent_particle)
         nothing
     )
     return ProposalResult(
-        losses, continuous_total, did_decay, 
+        losses, continuous_total, did_decay,
         children, final_state#, final_pos, final_e
     )
 end
@@ -210,33 +203,41 @@ function make_propagator(
     return prop 
 end
 
-#function propagate(
-#    chargedlepton::Particle,
-#    media::Vector{String},
-#    densities::Vector{Float64},
-#    lengths::Vector{Float64},
-#    pp_crosssections_dict::Dict{Tuple{Int64, String}, Vector{PyObject}},
-#    pp_particle_dict::Dict{Int, PyObject}
-#)
-#    prop = make_propagator(
-#        chargedlepton,
-#        media,
-#        densities,
-#        lengths,
-#        pp_crosssections_dict,
-#        pp_particle_dict,
-#    )
-#    lepton = pp.particle.ParticleState()
-#    lepton.position = make_pp_vector(SVector{3}([0,0,0]))
-#    lepton.direction = make_pp_direction(Direction(0, 0, 1))
-#    lepton.energy = chargedlepton.energy / units.MeV
-#    lepton.propagated_distance = 0.0
-#    lepton.time = 0.0
-#    secondaries = prop.propagate(lepton)
-#
-#    result = ProposalResult(secondaries, chargedlepton)
-#    return result
-#end
+function propagate(
+    chargedlepton::Particle,
+    media::Vector{String},
+    densities::Vector{Float64},
+    lengths::Vector{Float64},
+    pp_crosssections_dict::Dict{Tuple{Int64, String}, Vector{PyObject}},
+    pp_particle_dict::Dict{Int, PyObject}
+)
+    # Double hack. We should fix this
+    if chargedlepton.energy==0
+        return ProposalResult(
+            Loss[],
+            Loss(-1, 0.0, SVector{3}([0,0,0])),
+            false,
+            Particle[],
+            chargedlepton
+        )
+    end
+    prop = make_propagator(
+        chargedlepton,
+        media,
+        densities,
+        lengths,
+        pp_crosssections_dict,
+        pp_particle_dict,
+    )
+    lepton = pp.particle.ParticleState()
+    lepton.position = make_pp_vector(SVector{3}([0,0,0]))
+    lepton.direction = make_pp_direction(Direction(0, 0, 1))
+    lepton.energy = chargedlepton.energy / units.MeV
+    lepton.propagated_distance = 0.0
+    lepton.time = 0.0
+    secondaries = prop.propagate(lepton)
+    return secondaries
+end
 #
 #function propagate(
 #    finalstate::Particle,

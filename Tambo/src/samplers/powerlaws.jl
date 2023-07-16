@@ -62,5 +62,8 @@ function Base.rand(n::Int, pl::PowerLaw)
 end
 
 function probability(pl::PowerLaw, e::Float64)
-    pl(e)
+    if pl.γ==1
+        return pl(e) / (pl.norm * log(pl.emax / pl.emin))
+    end
+    return pl(e) / (pl.norm * (pl.emax^(1-pl.γ) - pl.emin^(1-pl.γ)))
 end
