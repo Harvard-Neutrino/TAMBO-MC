@@ -173,8 +173,7 @@ function (s::SimulationConfig)(; track_progress=true)
     if track_progress
         println("Making geometry")
     end
-    #splf = jldopen(s.geo_spline_path)
-    geo = Geometry(
+    geo = Tambo.Geometry(
         s.geo_spline_path,
         s.tambo_coordinates
     )
@@ -182,17 +181,20 @@ function (s::SimulationConfig)(; track_progress=true)
         println("Injecting events")
     end
 
-    injector = InjectionConfig(s)
-    s.injected_events = injector(geo, track_progress=track_progress)
+    injection_config = Tambo.InjectionConfig(s)
+    injector = Tambo.Injector(injection_config, geo)
+    s.injected_events = injector(track_progress=track_progress)
     if track_progress
         println("Propagating charged leptons")
     end
-    propagator = ProposalConfig(s)
+    proposal_config = Tambo.ProposalConfig(s)
+    propagator = Tambo.ProposalPropagator(proposal_config)
     s.proposal_events = propagator(
-        s.injected_events["final_state"],
+        s.injected_events,
         geo,
         track_progress=track_progress
     )
+
 end
 
 function dump_to_file(s::SimulationConfig, f::JLDFile)

@@ -109,6 +109,9 @@ function (prop::ProposalPropagator)(
 end
 
 function ProposalResult(secondaries, parent_particle)
+    if typeof(secondaries)==ProposalResult
+        return secondaries
+    end
     r = LinearMap(RotY(-parent_particle.direction.θ) * RotZ(-parent_particle.direction.ϕ))
     t = Translation(-parent_particle.position)
     shift = inv(r ∘ t)
