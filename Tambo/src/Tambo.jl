@@ -61,7 +61,7 @@ include("taurunner.jl")
     θmax::Float64 = π
     ϕmin::Float64 = 0.0
     ϕmax::Float64 = 2π
-    r_injection::Float64 = 900units.m
+    r_injection::Float64 = 2000units.m
     l_endcap::Float64 = 1units.km
     diff_xs_path::String = realpath(
         "$(@__DIR__)/../../resources/cross_sections/tables/csms_differential_cdfs.h5"
