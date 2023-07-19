@@ -203,7 +203,7 @@ function computesegments(t::Track, g::Geometry, ixs)
             x[1],
             x[2] - x[1],
             t,
-            getdensity(t((x[1] + x[2]) / 2), g)
+            density(t((x[1] + x[2]) / 2), g)
         ) for x in zip(rgen[1:(end - 1)], rgen[2:end])
     ]
     return segments
@@ -219,22 +219,6 @@ function computesegments(t::Track, g::Geometry)
     return computesegments(t, g, ixs)
 end
 
-"""
-    getdensity(p::SVector{3}, g::Geometry)
-
-TBW
-"""
-function getdensity(p::SVector{3}, geo::Geometry)
-    ρ = 0
-    if !inside(p, geo)
-        ρ = geo.ρair
-    #elseif any(p.z .< g.zboundaries)
-    #    ρ = geo.ρs[findlast(p.z .< g.zboundaries)]
-    else
-        ρ = geo.ρrock
-    end
-    return ρ
-end
 
 """
     columndepth(t::Track, λ::T, segments::Vector{Segment}) where {T<:Number}

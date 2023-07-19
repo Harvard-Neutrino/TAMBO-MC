@@ -3,31 +3,46 @@ struct UniformAngularSampler
     θmax::Float64
     ϕmin::Float64
     ϕmax::Float64
+    function UniformAngularSampler(θmin, θmax, ϕmin, ϕmax)
+        if ϕmin < 0 || 2π < ϕmin
+            ϕmin = mod(ϕmin, 2π)
+        end
+        if ϕmax < 0 || 2π < ϕmax
+            ϕmax = mod(ϕmax, 2π)
+        end
+
+        @assert ϕmin <= ϕmax "ϕmin greater than ϕmax"
+        @assert θmin <= θmax "θmin greater than θmax"
+        return new(θmin, θmax, ϕmin, ϕmax)
+    end
 end
 
-function Base.show(io::IO, uniformsampler::UniformAngularSampler)
-    print(
-        io,
-        """
-        θmin (degrees): $(uniformsampler.θmin / π * 180)
-        θmax (degrees): $(uniformsampler.θmax / π * 180)
-        ϕmin (degrees): $(uniformsampler.ϕmin / π * 180)
-        ϕmax (degrees): $(uniformsampler.ϕmax / π * 180)
-        """,
-    )
+function Base.show(io::IO, sampler::UniformAngularSampler)
+    s = "UniformAngularSampler("
+    s *= "θmin=$(sampler.θmin / π * 180)∘, "
+    s *= "θmax=$(sampler.θmax / π * 180)∘, "
+    s *= "ϕmin=$(sampler.ϕmin / π * 180)∘, "
+    s *= "ϕmax=$(sampler.ϕmax / π * 180)∘"
+    s *= ")"
+    print(io, s)
 end
 
 """
-    Base.rand(uniformsampler::UniformAngularSampler)
+    Base.rand(sampler::UniformAngularSampler)
 
 Return zenith (θ) and azimuth (ϕ) angles sampled uniformly on a sphere
 
 TBW
 """
-function Base.rand(uniformsampler::UniformAngularSampler)
+function Base.rand(sampler::UniformAngularSampler)
     # Randomly sample zenith uniform in phase space
-    θ = acos(rand(Uniform(cos(uniformsampler.θmax), cos(uniformsampler.θmin))))
+    θ = acos(rand(Uniform(cos(sampler.θmax), cos(sampler.θmin))))
     # Randomly sample azimuth
-    ϕ = rand(Uniform(uniformsampler.ϕmin, uniformsampler.ϕmax))
+    ϕ = rand(Uniform(sampler.ϕmin, sampler.ϕmax))
     return θ, ϕ
+end
+
+function probability(sampler::UniformAngularSampler)
+    Ω = (sampler.ϕmax - sampler.ϕmin) * (cos(sampler.θmin) - cos(sampler.θmax))
+    return 1 / Ω
 end

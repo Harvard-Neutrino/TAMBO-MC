@@ -1,6 +1,6 @@
 module Tambo
 
-export Simulator,
+export SimulationConfig,
        InjectionConfig,
        ProposalConfig,
        Geometry,
@@ -28,8 +28,11 @@ using Roots: find_zeros, find_zero
 using Rotations: RotX, RotZ
 using StaticArrays: SVector, SMatrix
 
-include("./samplers/Samplers.jl")
 include("units.jl")
+include("samplers/angularsamplers.jl")
+include("samplers/crosssections.jl")
+include("samplers/injectionvolumes.jl")
+include("samplers/powerlaws.jl")
 include("directions.jl")
 include("particles.jl")
 include("locations.jl")
@@ -38,9 +41,10 @@ include("tracks.jl")
 include("inject.jl")
 include("proposal.jl")
 include("corsika.jl")
-include("weights.jl")
+include("weightings.jl")
+include("taurunner.jl")
 
-@Base.kwdef mutable struct Simulator
+@Base.kwdef mutable struct SimulationConfig
     # General configuration
     n::Int = 10
     seed::Int64 = 925
@@ -57,7 +61,7 @@ include("weights.jl")
     θmax::Float64 = π
     ϕmin::Float64 = 0.0
     ϕmax::Float64 = 2π
-    r_injection::Float64 = 900units.m
+    r_injection::Float64 = 2000units.m
     l_endcap::Float64 = 1units.km
     diff_xs_path::String = realpath(
         "$(@__DIR__)/../../resources/cross_sections/tables/csms_differential_cdfs.h5"
@@ -75,39 +79,39 @@ include("weights.jl")
     proposal_events::Vector{ProposalResult} = ProposalResult[]
 end
 
-function Simulator(fname::String)
+function SimulationConfig(fname::String)
     s = nothing
     jldopen(fname, "r") do f
-        s = Simulator(; f["config"]...)
+        s = SimulationConfig(; f["config"]...)
         s.injected_events = f["injected_events"]
         s.proposal_events = f["proposal_events"]
     end
     return s
 end
 
-function InjectionConfig(s::Simulator)
+function InjectionConfig(s::SimulationConfig)
     injectordict = Dict(
         fn => getfield(s, fn) 
-        for fn in intersect(fieldnames(Simulator), fieldnames(InjectionConfig))
+        for fn in intersect(fieldnames(SimulationConfig), fieldnames(InjectionConfig))
     )
     return InjectionConfig(; injectordict...)
 end
 
-function inject(simulator::Simulator; track_progress=true)
+function inject(simulator::SimulationConfig; track_progress=true)
     injector = InjectionConfig(simulator)
     geo = Geometry(simulator)
     return inject(injector, geo, track_progress=track_progress)
 end
 
-function ProposalConfig(s::Simulator)
+function ProposalConfig(s::SimulationConfig)
     propdict = Dict(
         fn => getfield(s, fn) 
-        for fn in intersect(fieldnames(Simulator), fieldnames(ProposalConfig))
+        for fn in intersect(fieldnames(SimulationConfig), fieldnames(ProposalConfig))
     )
     return ProposalConfig(; propdict...)
 end
 
-function Geometry(s::Simulator)
+function Geometry(s::SimulationConfig)
     geo = Geometry(
         s.geo_spline_path,
         s.tambo_coordinates
@@ -121,7 +125,7 @@ function Geometry(s::Simulator)
     return geo
 end
 
-function Base.show(io::IO, s::Simulator)
+function Base.show(io::IO, s::SimulationConfig)
     print(
         io,
         """
@@ -160,17 +164,16 @@ function Base.show(io::IO, s::Simulator)
     )
 end
 
-function Base.getindex(s::Simulator, fieldstring::String)
+function Base.getindex(s::SimulationConfig, fieldstring::String)
     getfield(s, Symbol(fieldstring))
 end
 
-function (s::Simulator)(; track_progress=true)
+function (s::SimulationConfig)(; track_progress=true)
     seed!(s.seed)
     if track_progress
         println("Making geometry")
     end
-    #splf = jldopen(s.geo_spline_path)
-    geo = Geometry(
+    geo = Tambo.Geometry(
         s.geo_spline_path,
         s.tambo_coordinates
     )
@@ -178,33 +181,36 @@ function (s::Simulator)(; track_progress=true)
         println("Injecting events")
     end
 
-    injector = InjectionConfig(s)
-    s.injected_events = injector(geo, track_progress=track_progress)
+    injection_config = Tambo.InjectionConfig(s)
+    injector = Tambo.Injector(injection_config, geo)
+    s.injected_events = injector(track_progress=track_progress)
     if track_progress
         println("Propagating charged leptons")
     end
-    propagator = ProposalConfig(s)
+    proposal_config = Tambo.ProposalConfig(s)
+    propagator = Tambo.ProposalPropagator(proposal_config)
     s.proposal_events = propagator(
-        s.injected_events["final_state"],
+        s.injected_events,
         geo,
         track_progress=track_progress
     )
+
 end
 
-function dump_to_file(s::Simulator, f::JLDFile)
+function dump_to_file(s::SimulationConfig, f::JLDFile)
     resultfields = [:injected_events, :proposal_events]
     f["injected_events"] = s.injected_events
     f["proposal_events"] = s.proposal_events
     f["config"] = Dict(
         Dict(
-            fn => getfield(s, fn) for fn in fieldnames(Simulator)
-            if fn ∉resultfields
+            fn => getfield(s, fn) for fn in fieldnames(SimulationConfig)
+            if fn ∉ resultfields
         )
     )
     return
 end
 
-function save_simulation(s::Simulator, path::String)
+function save_simulation(s::SimulationConfig, path::String)
     @assert(length(s.injected_events)==s.n)
     @assert(length(s.proposal_events)==s.n)
     jldopen(path, "w") do f
