@@ -4,15 +4,9 @@ struct UniformAngularSampler
     ϕmin::Float64
     ϕmax::Float64
     function UniformAngularSampler(θmin, θmax, ϕmin, ϕmax)
-        if ϕmin < 0 || 2π < ϕmin
-            ϕmin = mod(ϕmin, 2π)
-        end
-        if ϕmax < 0 || 2π < ϕmax
-            ϕmax = mod(ϕmax, 2π)
-        end
-
         @assert ϕmin <= ϕmax "ϕmin greater than ϕmax"
         @assert θmin <= θmax "θmin greater than θmax"
+        @assert ϕmax - ϕmin <= 2π "Azimuthal range is greater than one period"
         return new(θmin, θmax, ϕmin, ϕmax)
     end
 end
