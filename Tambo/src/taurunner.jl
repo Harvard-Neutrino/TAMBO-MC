@@ -25,7 +25,9 @@ end
 
 function tr_propagate(p::Particle, ztambo::Float64)
     # Check that TR variables have been initiailized
-    @assert chord != PyNULL() "TauRunner variables not initialized. Need to run `tr_startup`"
+    if chord == PyNULL()
+        tr_startup()
+    end
     
     xb′ = p.position + SVector{3}([0, 0, ztambo + units.earthradius])
     depth = (units.earthradius - norm(xb′)) / units.earthradius
