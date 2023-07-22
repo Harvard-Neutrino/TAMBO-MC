@@ -105,11 +105,13 @@ function (xs::TotalXS)(e)
 end
 
 function (xs::DifferentialXS)(ein, eout)
-    if eout < xs.log_emin_z
+    emin = 10^xs.log_emin_z
+    if eout < emin
         return 0.0
     end
-    z = (eout - 10^xs.log_emin_z) / (ein - 10^xs.log_emin_z)
-    return 10 ^ xs.itp(log(10, ein), z) / eout
+    z = (eout - emin) / (ein - emin)
+    logein = log(10, ein)
+    return 10 ^ xs.itp(logein, z)
 end
 
 function (xs::OutgoingEnergy)(ein, u)
