@@ -101,6 +101,10 @@ function OutgoingEnergy(fname::String, ν_pdg::Int, interaction::Interaction)
 end
 
 function (xs::TotalXS)(e)
+    # TODO fix this hack
+    if e <= 105 * units.GeV
+        return 0
+    end
     return 10 ^ xs.itp(log(10, e))
 end
 

@@ -1,4 +1,4 @@
-const defaults = (zup=5units.km, zdown=50units.km, depth1=12units.km, depth2=21.4units.km)
+const defaults = (zup=5units.km, zdown=10units.km, depth1=12units.km, depth2=21.4units.km)
 
 struct Plane
     n̂::Direction

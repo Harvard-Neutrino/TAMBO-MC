@@ -11,13 +11,6 @@ function p_mc(
     p *= density(event.final_state.position, geo) / event.genX
     p *= probability(xs, event.entry_state.energy, event.final_state.energy)
     p *= probability(pl, event.initial_state.energy)
-    #p = (
-    #    probability(anglesampler) * 
-    #    probability(injectionvolume) * 
-    #    density(event.final_state.position, geo) / event.genX * 
-    #    probability(xs, event.entry_state.energy, event.final_state.energy) * 
-    #    probability(pl, event.initial_state.energy)
-    #)
     return p
 end
 
@@ -28,15 +21,9 @@ function p_phys(
     geo::Geometry
 )
     Miso = (938.27208816units.MeV + 939.5654133units.MeV) / 2
-    Na = 6.02214076e23
-    p = (event.physX +event.genX) * Na / Miso
-    p *= density(event.final_state.position, geo) / (event.physX + event.genX)
+    p = event.genX / Miso
+    p *= density(event.final_state.position, geo) / event.genX
     p *= xs.differential_xs(event.entry_state.energy, event.final_state.energy)
-    #p = (
-    #    event.physX * Na / Miso *
-    #    density(event.final_state.position, geo) / event.physX * 
-    #    xs.differential_xs(event.entry_state.energy, event.final_state.energy)
-    #)
     return p
 end
 
@@ -47,8 +34,21 @@ function oneweight(
     pl::PowerLaw,
     anglesampler::UniformAngularSampler,
     injectionvolume::SymmetricInjectionCylinder,
-    geo
+    geo::Geometry
 )
-    w = p_phys(event, xsphys, geo) / p_mc(event, pl, xsgen, anglesampler, injectionvolume, geo)
+    n = p_phys(event, xsphys, geo)
+    d = p_mc(event, pl, xsgen, anglesampler, injectionvolume, geo)
+    if n==0
+        return 0
+    end
+    w = n / d
     return w
+end
+
+function oneweight(
+    event::InjectionEvent,
+    injector::Injector,
+    xsphys::CrossSection,
+)
+    return oneweight(event, injector.xs, xsphys, injector.powerlaw, injector.anglesampler, injector.injectionvolume, injector.geo)
 end
