@@ -89,12 +89,10 @@ function SimulationConfig(fname::String)
     return s
 end
 
-function InjectionConfig(s::SimulationConfig)
-    injectordict = Dict(
-        fn => getfield(s, fn) 
-        for fn in intersect(fieldnames(SimulationConfig), fieldnames(InjectionConfig))
-    )
-    return InjectionConfig(; injectordict...)
+function Injector(config::SimulationConfig)
+    geo = Geometry(config)
+    cfg = InjectionConfig(config)
+    return Injector(cfg, geo)
 end
 
 function inject(simulator::SimulationConfig; track_progress=true)
@@ -109,6 +107,11 @@ function ProposalConfig(s::SimulationConfig)
         for fn in intersect(fieldnames(SimulationConfig), fieldnames(ProposalConfig))
     )
     return ProposalConfig(; propdict...)
+end
+
+function InjectionConfig(config::SimulationConfig)
+    d = Dict(f=>getfield(config, f) for f in fieldnames(SimulationConfig) if f in fieldnames(InjectionConfig))
+    return InjectionConfig(;d...)
 end
 
 function Geometry(s::SimulationConfig)
@@ -173,7 +176,7 @@ function (s::SimulationConfig)(; track_progress=true)
     if track_progress
         println("Making geometry")
     end
-    geo = Tambo.Geometry(
+    geo = Geometry(
         s.geo_spline_path,
         s.tambo_coordinates
     )
@@ -181,14 +184,14 @@ function (s::SimulationConfig)(; track_progress=true)
         println("Injecting events")
     end
 
-    injection_config = Tambo.InjectionConfig(s)
-    injector = Tambo.Injector(injection_config, geo)
+    injection_config = InjectionConfig(s)
+    injector = Injector(injection_config, geo)
     s.injected_events = injector(track_progress=track_progress)
     if track_progress
         println("Propagating charged leptons")
     end
-    proposal_config = Tambo.ProposalConfig(s)
-    propagator = Tambo.ProposalPropagator(proposal_config)
+    proposal_config = ProposalConfig(s)
+    propagator = ProposalPropagator(proposal_config)
     s.proposal_events = propagator(
         s.injected_events,
         geo,
