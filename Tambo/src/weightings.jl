@@ -14,7 +14,6 @@ function p_mc(
     return p
 end
 
-
 function p_phys(
     event::InjectionEvent,
     xs::CrossSection,
