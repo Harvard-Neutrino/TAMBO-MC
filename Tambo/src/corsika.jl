@@ -63,6 +63,124 @@ function Base.inv(cm::CorsikaMap)
     return CorsikaMap(inv(cm.direction_map), inv(cm.position_map))
 end
 
+function check_inside_mtn(event, geo; verbose=false)
+    decay_pos = event.propped_state.position
+    if inside(decay_pos, geo) 
+        if verbose
+            println("inside mountain")
+        end
+        return false 
+    end 
+    return true 
+end
+
+function check_right_direction(event, geo; verbose=false)
+    """
+    The particle has to travel backwards to reach the plane. 
+    We don't want particles that have to travel backwards to reach the plane. 
+    """
+    decay_pos = event.propped_state.position
+    propped_dir = event.propped_state.direction
+    plane = Tambo.Plane(minesite_normal_vec, minesite_coord, geo)      
+    distance, _, _ = intersect(decay_pos, propped_dir, plane) 
+    if distance/units.m < 0
+        if verbose
+            println("negative distance")
+        end
+        return false 
+    end
+    return true 
+end
+
+function check_plane_dot(event, geo; verbose=false)
+    """
+    The particle direction is in the same direction as the plane's normal vector. 
+    To intercept with positive distance, the particle would have to be traveling from inside the mountain.  
+    """
+
+    decay_pos = event.propped_state.position
+    propped_dir = event.propped_state.direction
+    plane = Tambo.Plane(minesite_normal_vec, minesite_coord, geo)      
+    _, _, dot = intersect(decay_pos, propped_dir, plane) 
+    if dot > 0 
+        if verbose
+            println("DOT > 0")
+        end
+        return false 
+    end 
+    return true 
+end
+
+function check_near_orthogonal(event, geo; verbose=false)
+    """
+    Cutting near-orthogonal particle directions with the plane normal. 
+    """
+    decay_pos = event.propped_state.position
+    propped_dir = event.propped_state.direction
+    plane = Tambo.Plane(minesite_normal_vec, minesite_coord, geo)      
+    _, _, dot = intersect(decay_pos, propped_dir, plane) 
+    if abs(dot) < 1e-3
+        if verbose
+            println("ORTHOGONAL")
+        end
+        return false  
+    end
+    return true 
+end
+
+function check_z_intercept(event, geo; verbose=false)
+    """
+    point[3] = z-intercept of particle and TAMBO plane.If the elevation in TAMBO coords is greater than 10km, cut. 
+    """
+    decay_pos = event.propped_state.position
+    propped_dir = event.propped_state.direction
+    plane = Tambo.Plane(minesite_normal_vec, minesite_coord, geo)      
+    _, point, _ = intersect(decay_pos, propped_dir, plane) 
+    if point.z > 10 * units.km
+        if verbose
+            println("Z-intercept GREATER THAN 10km")
+        end
+        return false 
+    end 
+    return true 
+end
+
+function check_track_length(event, geo; verbose=false)
+    """
+    If the distance length is greater than 20km between particle position and intercept with TAMBO plane, cut. 
+    """
+    decay_pos = event.propped_state.position
+    propped_dir = event.propped_state.direction
+    plane = Tambo.Plane(minesite_normal_vec, minesite_coord, geo)      
+    distance, _, _ = intersect(decay_pos, propped_dir, plane) 
+    if distance > 20000 * units.km
+        if verbose
+            println("Distance length greater than 20km") 
+        end
+        return false 
+    end 
+    return true 
+end
+
+function check_intersections(event, geo; verbose=false)
+    decay_pos = event.propped_state.position
+    propped_dir = event.propped_state.direction
+    plane = Tambo.Plane(minesite_normal_vec, minesite_coord, geo)      
+    _, point, _ = intersect(decay_pos, propped_dir, plane) 
+    t = Track(decay_pos, point)
+    intersections = intersect(t, geo)
+
+    """
+    If the intersection with the mountain > 1 then we cut.
+    When it intersects TAMBO plane.
+    """
+    if length(intersections) > 1
+        return false
+    end
+    
+    return true 
+end
+
 #=
 function should_do_corsika(event::ProposalResult, geo::Geometry)
     # Check if going right direction
@@ -73,78 +191,118 @@ function should_do_corsika(event::ProposalResult, geo::Geometry)
     end
     return has_unobstructed_path(event.propped_state.position, geo)
 =#
-function should_do_corsika(event::ProposalResult, geo::Geometry)
-    # Check if going right direction
-    decay_pos = event.decay_products[1].position
-    
-    plane = Tambo.Plane(minesite_normal_vec, minesite_coord, geo)      
-    """
-    If the decay occurs inside the mountain, cut. 
-    """
-    if inside(decay_pos,geo) 
-    println("inside mountain")
-    return false 
-    end 
-
-    propped_dir = event.propped_state.direction
-    
-    distance, point, dot = intersect(decay_pos,propped_dir,plane) 
-
-    """
-    The particle has to travel backwards to reach the plane. 
-    We don't want particles that have to travel backwards to reach the plane. 
-    """
-    if distance/units.m < 0
-    println("negative distance")
-    return false 
-    end 
-    
-    """
-    The particle direction is in the same direction as the plane's normal vector. 
-    To intercept with positive distance, the particle would have to be traveling from inside the mountain.  
-    """
-
-    if dot > 0 
-    println("DOT > 0")
-    return false 
-    end 
-
-    """
-    Cutting near-orthogonal particle directions with the plane normal. 
-    """
-    if abs(dot) < 1e-3
-    println("ORTHOGONAL")
-    return false  
+function should_do_corsika(event::ProposalResult, geo::Geometry, criteria::Array{Function}; verbose=false, check_mode=false)
+    # Seems like we should do `check_mode` via dependency injection but weeeeeeeeeeee
+    if check_mode
+        b = Bool[]
     end
 
-    """
-    point[3] = z-intercept of particle and TAMBO plane.If the elevation in TAMBO coords is greater than 10km, cut. 
-    """
-    if point[3]/units.m > 10000
-    println("Z-intercept GREATER THAN 10km")
-    return false 
-    end 
+    for criterion in criteria
+        v = criterion(event, geo; verbose=verbose)
+        if check_mode
+            push!(b, v)
+        else
+            if !v
+                return false
+            end
+        end
+    end
 
-    """
-    If the distance length is greater than 20km between particle position and intercept with TAMBO plane, cut. 
-    """
+    if check_mode
+        return b
+    else
+        return true
+    end
+    
+    #"""
+    #If the decay occurs inside the mountain, cut. 
+    #"""
+    #if inside(decay_pos,geo) 
+    #    if verbose
+    #        println("inside mountain")
+    #    end
+    #    return false 
+    #end 
 
-    if distance/units.m > 20000
-    println("Distance length greater than 20km") 
-    return false 
-    end 
+    
+
+    #"""
+    #The particle has to travel backwards to reach the plane. 
+    #We don't want particles that have to travel backwards to reach the plane. 
+    #"""
+    #if distance/units.m < 0
+    #    if verbose
+    #        println("negative distance")
+    #    end
+    #    return false 
+    #end 
+    
+    #"""
+    #The particle direction is in the same direction as the plane's normal vector. 
+    #To intercept with positive distance, the particle would have to be traveling from inside the mountain.  
+    #"""
+
+    #if dot > 0 
+    #    if verbose
+    #        println("DOT > 0")
+    #    end
+    #    return false 
+    #end 
+
+    #"""
+    #Cutting near-orthogonal particle directions with the plane normal. 
+    #"""
+    #if abs(dot) < 1e-3
+    #    if verbose
+    #        println("ORTHOGONAL")
+    #    end
+    #    return false  
+    #end
+
+    #"""
+    #point[3] = z-intercept of particle and TAMBO plane.If the elevation in TAMBO coords is greater than 10km, cut. 
+    #"""
+    #if point[3]/units.m > 10000
+    #    if verbose
+    #        println("Z-intercept GREATER THAN 10km")
+    #    end
+    #    return false 
+    #end 
+
+    #"""
+    #If the distance length is greater than 20km between particle position and intercept with TAMBO plane, cut. 
+    #"""
+    #if distance/units.m > 20000
+    #    if verbose
+    #        println("Distance length greater than 20km") 
+    #    end
+    #    return false 
+    #end 
    
-    t = Track(decay_pos,point)
-    intersections = intersect(t, geo)
-    """
-    If the intersection with the mountain > 1 then we cut.
-    When it intersects TAMBO plane.
-    """
-    if length(intersections) == 1
-    return true
-    end
-    
-    return true 
+    #t = Track(decay_pos, point)
+    #intersections = intersect(t, geo)
+
+    #"""
+    #If the intersection with the mountain > 1 then we cut.
+    #When it intersects TAMBO plane.
+    #"""
+    #if length(intersections) == 1
+    #    return true
+    #end
+    #
+    #return true 
 
 end
 
+function should_do_corsika(event::ProposalResult, geo::Geometry; verbose=false, check_mode=false)
+    checks = [
+        check_inside_mtn,
+        check_right_direction,
+        check_plane_dot,
+        check_near_orthogonal,
+        check_z_intercept,
+        check_track_length,
+        check_intersections
+    ]
+    return should_do_corsika(event, geo, checks; verbose=verbose, check_mode=check_mode)
+end
