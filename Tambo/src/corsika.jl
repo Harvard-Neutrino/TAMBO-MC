@@ -63,7 +63,7 @@ function Base.inv(cm::CorsikaMap)
     return CorsikaMap(inv(cm.direction_map), inv(cm.position_map))
 end
 
-function check_inside_mtn(event, geo; verbose=false)
+function check_inside_mtn(event, plane, geo; verbose=false)
     decay_pos = event.propped_state.position
     if inside(decay_pos, geo) 
         if verbose
@@ -74,14 +74,14 @@ function check_inside_mtn(event, geo; verbose=false)
     return true 
 end
 
-function check_right_direction(event, geo; verbose=false)
+function check_right_direction(event, plane, geo; verbose=false)
     """
     The particle has to travel backwards to reach the plane. 
     We don't want particles that have to travel backwards to reach the plane. 
     """
     decay_pos = event.propped_state.position
     propped_dir = event.propped_state.direction
-    plane = Tambo.Plane(minesite_normal_vec, minesite_coord, geo)      
+    #plane = Tambo.Plane(minesite_normal_vec, minesite_coord, geo)      
     distance, _, _ = intersect(decay_pos, propped_dir, plane) 
     if distance/units.m < 0
         if verbose
@@ -92,7 +92,7 @@ function check_right_direction(event, geo; verbose=false)
     return true 
 end
 
-function check_plane_dot(event, geo; verbose=false)
+function check_plane_dot(event, plane, geo; verbose=false)
     """
     The particle direction is in the same direction as the plane's normal vector. 
     To intercept with positive distance, the particle would have to be traveling from inside the mountain.  
@@ -100,7 +100,7 @@ function check_plane_dot(event, geo; verbose=false)
 
     decay_pos = event.propped_state.position
     propped_dir = event.propped_state.direction
-    plane = Tambo.Plane(minesite_normal_vec, minesite_coord, geo)      
+    #plane = Tambo.Plane(minesite_normal_vec, minesite_coord, geo)      
     _, _, dot = intersect(decay_pos, propped_dir, plane) 
     if dot > 0 
         if verbose
@@ -111,13 +111,13 @@ function check_plane_dot(event, geo; verbose=false)
     return true 
 end
 
-function check_near_orthogonal(event, geo; verbose=false)
+function check_near_orthogonal(event, plane, geo; verbose=false)
     """
     Cutting near-orthogonal particle directions with the plane normal. 
     """
     decay_pos = event.propped_state.position
     propped_dir = event.propped_state.direction
-    plane = Tambo.Plane(minesite_normal_vec, minesite_coord, geo)      
+    #plane = Tambo.Plane(minesite_normal_vec, minesite_coord, geo)      
     _, _, dot = intersect(decay_pos, propped_dir, plane) 
     if abs(dot) < 1e-3
         if verbose
@@ -128,13 +128,13 @@ function check_near_orthogonal(event, geo; verbose=false)
     return true 
 end
 
-function check_z_intercept(event, geo; verbose=false)
+function check_z_intercept(event, plane, geo; verbose=false)
     """
     point[3] = z-intercept of particle and TAMBO plane.If the elevation in TAMBO coords is greater than 10km, cut. 
     """
     decay_pos = event.propped_state.position
     propped_dir = event.propped_state.direction
-    plane = Tambo.Plane(minesite_normal_vec, minesite_coord, geo)      
+    #plane = Tambo.Plane(minesite_normal_vec, minesite_coord, geo)      
     _, point, _ = intersect(decay_pos, propped_dir, plane) 
     if point.z > 10 * units.km
         if verbose
@@ -145,13 +145,13 @@ function check_z_intercept(event, geo; verbose=false)
     return true 
 end
 
-function check_track_length(event, geo; verbose=false)
+function check_track_length(event, plane, geo; verbose=false)
     """
     If the distance length is greater than 20km between particle position and intercept with TAMBO plane, cut. 
     """
     decay_pos = event.propped_state.position
     propped_dir = event.propped_state.direction
-    plane = Tambo.Plane(minesite_normal_vec, minesite_coord, geo)      
+    #plane = Tambo.Plane(minesite_normal_vec, minesite_coord, geo)      
     distance, _, _ = intersect(decay_pos, propped_dir, plane) 
     if distance > 20000 * units.km
         if verbose
@@ -162,10 +162,10 @@ function check_track_length(event, geo; verbose=false)
     return true 
 end
 
-function check_intersections(event, geo; verbose=false)
+function check_intersections(event, plane, geo; verbose=false)
     decay_pos = event.propped_state.position
     propped_dir = event.propped_state.direction
-    plane = Tambo.Plane(minesite_normal_vec, minesite_coord, geo)      
+    #plane = Tambo.Plane(minesite_normal_vec, minesite_coord, geo)      
     _, point, _ = intersect(decay_pos, propped_dir, plane) 
     t = Track(decay_pos, point)
     intersections = intersect(t, geo)
@@ -198,7 +198,7 @@ function should_do_corsika(event::ProposalResult, geo::Geometry, criteria::Array
     end
 
     for criterion in criteria
-        v = criterion(event, geo; verbose=verbose)
+        v = criterion(event,plane, geo; verbose=verbose)
         if check_mode
             push!(b, v)
         else
@@ -215,7 +215,7 @@ function should_do_corsika(event::ProposalResult, geo::Geometry, criteria::Array
     end
 end
 
-function should_do_corsika(event::ProposalResult, geo::Geometry; verbose=false, check_mode=false)
+function should_do_corsika(event::ProposalResult, plane::Plane, geo::Geometry; verbose=false, check_mode=false)
     checks = [
         check_inside_mtn,
         check_right_direction,
@@ -225,5 +225,5 @@ function should_do_corsika(event::ProposalResult, geo::Geometry; verbose=false, 
         check_track_length,
         check_intersections
     ]
-    return should_do_corsika(event, geo, checks; verbose=verbose, check_mode=check_mode)
+    return should_do_corsika(event, plane, geo, checks; verbose=verbose, check_mode=check_mode)
 end
