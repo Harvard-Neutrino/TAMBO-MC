@@ -191,7 +191,7 @@ function should_do_corsika(event::ProposalResult, geo::Geometry)
     end
     return has_unobstructed_path(event.propped_state.position, geo)
 =#
-function should_do_corsika(event::ProposalResult, geo::Geometry, criteria::Array{Function}; verbose=false, check_mode=false)
+function should_do_corsika(event::ProposalResult, plane::Plane, geo::Geometry, criteria::Array{Function}; verbose=false, check_mode=false)
     # Seems like we should do `check_mode` via dependency injection but weeeeeeeeeeee
     if check_mode
         b = Bool[]
