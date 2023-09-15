@@ -16,12 +16,13 @@ end
 
 # ╔═╡ 75cc79a1-a15e-4631-a275-3ee3053aaa5d
 begin 
+	using Dierckx
 	tambopath = realpath("/Users/pavelzhelnin/Documents/physics/TAMBO/tambo");
 	using Pkg; 
 	Pkg.activate(tambopath)
 	
 	using Tambo
-	simulator = Simulator("/Users/pavelzhelnin/Documents/physics/TAMBO/notebooks/new_test_sim.jld2")
+	simulator = SimulationConfig("/Users/pavelzhelnin/Documents/physics/TAMBO/notebooks/WhitePaper_EarthMantle_test.jld2")
 	geo = Geometry("$(tambopath)/../resources/tambo_spline.jld2", simulator.tambo_coordinates);
 end 
 
@@ -61,7 +62,7 @@ function full_particle_viewer(index)
 		zenith = state.direction.θ*180/pi
     	azimuth = state.direction.ϕ*180/pi
 
-	df = CSV.File("/Users/pavelzhelnin/Documents/physics/TAMBO/notebooks/InjectionData.csv")
+	df = CSV.File("/Users/pavelzhelnin/Documents/physics/TAMBO/notebooks/WhitePaper_EarthMantle.csv")
 
 	result = index in df["index"]
 
@@ -241,7 +242,7 @@ function particle_viewer_1d(index)
 end
 
 # ╔═╡ 0a203549-8d17-43c1-91c5-1e6018544d3f
-particle_viewer_1d(5888)
+particle_viewer_1d(11010)
 
 # ╔═╡ 220345e2-83b3-4434-bcb4-3b5f5352b8bf
 begin 
@@ -360,7 +361,7 @@ end
 
 # ╔═╡ 29bea1aa-62c3-4b8f-bf92-6f6e0792e98d
 begin 
-df = CSV.File("/Users/pavelzhelnin/Documents/physics/TAMBO/notebooks/InjectionData.csv")
+df = CSV.File("/Users/pavelzhelnin/Documents/physics/TAMBO/notebooks/WhitePaper_EarthMantle.csv")
 end 
 
 # ╔═╡ 0052ae3e-6d6d-4ecd-ab21-4c6350313fa5
@@ -668,6 +669,13 @@ begin
 end
 
 # ╔═╡ 8b62919f-c68d-436a-b23e-905695948b8a
+begin 
+a = 0.452174
+b = -0.366163
+c = 0.813304
+print(findmax(df["inter_x"]*a + df["inter_y"]*b + df["inter_z"]*c))
+print(findmax(df["xdir"]*a + df["ydir"]*b + df["zdir"]*c))
+end
 
 
 # ╔═╡ Cell order:
