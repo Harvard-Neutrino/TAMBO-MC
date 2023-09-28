@@ -28,10 +28,6 @@ struct Injector
     geo::Geometry
 end
 
-function f()
-    return 4
-end
-
 function Injector(config::InjectionConfig, geo::Geometry)
     pl = PowerLaw(config.γ, config.emin, config.emax)
     xs = CrossSection(config.xs_dir, config.xs_model, config.ν_pdg, config.interaction)
