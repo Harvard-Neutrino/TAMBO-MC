@@ -26,7 +26,7 @@ function make_trianglearray(x0, x1, y0, y1, ds::Float64; ϕ::Float64=0.0)
     if idx %2==0
        offset = 0
     end
-    v = m * SVector{3}(x, y+offset, 0)
+    v = m * SVector{3}(x+offset, y, 0)
     mod = DetectionModule(v[1], v[2], 1, 1, mod_idx)
     push!(detection_modules, mod)
     mod_idx += 1
@@ -56,13 +56,12 @@ function compute_minimum_distance(xy::SVector{2}, detmods::Vector{DetectionModul
   return idx, x[idx]
 end
 
-function plane_z(x::Number, y::Number, plane::Plane, geo::Geometry)
+function plane_z(x::Number, y::Number, plane::Plane)
     z = (
          -plane.n̂.proj.x * (x - plane.x0.x)
          -plane.n̂.proj.y * (y - plane.x0.y)
     )
     z /= plane.n̂.proj.z
-    z += geo.tambo_offset.z
     return z
 end
 
