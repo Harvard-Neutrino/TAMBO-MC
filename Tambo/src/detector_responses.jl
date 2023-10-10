@@ -12,7 +12,6 @@ struct Hit
   event::CorsikaEvent
 end
 
-
 function make_trianglearray(x0, x1, y0, y1, ds::Float64; ϕ::Float64=0.0)
   dy = ds * sqrt(3) / 2
   ys = y0:dy:y1
@@ -67,11 +66,13 @@ end
 
 function find_near_hits(
   pyparquetfile,
-  detmods::Vector{DetectionModule};
+  detmods::Vector{DetectionModule},
+  xoffset::Float64,
+  yoffset::Float64;
   thresh=1units.m
 )
-  xs = pyparquetfile["x"].to_numpy() .* units.m
-  ys = pyparquetfile["y"].to_numpy() .* units.m
+  xs = pyparquetfile["x"].to_numpy() .* units.m .- xoffset
+  ys = pyparquetfile["y"].to_numpy() .* units.m .- yoffset
   xys = [SVector{2}([xy...]) for xy in zip(xs, ys)]
   hits = Hit[]
   for (jdx, xy) in enumerate(xys)

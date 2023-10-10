@@ -4,6 +4,7 @@ Pkg.activate(".")
 using Tambo
 using PyCall
 using JLD2
+using CSV
 
 np = pyimport("numpy")
 ak = pyimport("awkward")
@@ -27,16 +28,21 @@ plane = Tambo.Plane(whitepaper_normal_vec, whitepaper_coord, geo)
 detection_modules = Tambo.make_trianglearray(-800units.m, 2000units.m, -ℓ/2, ℓ/2, Δs, ϕ=ϕ)
 
 # Remove detectors that are out of range
-zmin = 2100units.m
-zmax = 5000units.m
+zmin = 2100units.m - geo.tambo_offset.z
+zmax = 5000units.m - geo.tambo_offset.z
 mask = zmin .< Tambo.plane_z.(getfield.(detection_modules, :x), getfield.(detection_modules, :y), Ref(plane), Ref(geo)) .< zmax
 detection_modules = detection_modules[mask]
 
 outdir = ARGS[3]
 
 neutrino_events = np.load("/n/home12/jlazar/CORSIKA_runs.npy")
-basedir = "/n/holylfs05/LABS/arguelles_delgado_lab/Lab/common_software/source/corsika8/corsika-work/WhitePaper_300k/test/WhitePaper_300k"
+basedir = "/n/holylfs05/LABS/arguelles_delgado_lab/Everyone/jlazar/whitepaper_sim/"
+pavel_magic_csv = "/n/holylfs05/LABS/arguelles_delgado_lab/Lab/common_software/source/corsika8/corsika-work/WhitePaper_300k.csv"
 savefile = "$(outdir)/test_events_$(ℓ/units.m)_$(Δs / units.m).npy"
+
+csv = CSV.File(pavel_magic_csv)
+idxs = getindex.(csv, 16)
+subidxs = getindex.(csv, 17)
 
 thresh = 1units.m # distance from detection module center to consider a hit
 triggered_evts = []
@@ -46,6 +52,11 @@ for (kdx, neutrino_event) in enumerate(neutrino_events)
   # Make a vactor that we will fill with hits
   plz = Tambo.Hit[]
   for file in files
+    desc = split(file, "/")[end-2]
+    idx = parse(Int, split(desc, "_")[end-1])
+    subidx = parse(Int, split(desc, "_")[end])
+    row = first(csv[(idx.==idxs) .&& (subidx.==subidxs)])
+
     # try to load the file
     # We need this try/catch logic cuz empty files give issues
     a = nothing
@@ -55,7 +66,13 @@ for (kdx, neutrino_event) in enumerate(neutrino_events)
       continue
     end
     # Find hits that fall within a certain distance of any detection unit
-    hits = Tambo.find_near_hits(a, detection_modules; thresh=thresh)
+    hits = Tambo.find_near_hits(
+      a,
+      detection_modules,
+      row.inter_x*units.km,
+      row.inter_y * units.km;
+      thresh=thresh
+    )
     # Add these hits to the global list of such hits
     # plz = hcat(plz, hits) Is probably right
     for hit in hits
