@@ -18,7 +18,7 @@ export SimulationConfig,
 
 using CoordinateTransformations: Translation, AffineMap, LinearMap
 using Dierckx: Spline2D
-using Distributions: Uniform
+using Distributions: Uniform, Poisson
 using JLD2: jldopen, JLDFile
 # TODO move h5 to jld2
 using HDF5: h5open
@@ -45,6 +45,7 @@ include("proposal.jl")
 include("corsika.jl")
 include("weightings.jl")
 include("taurunner.jl")
+include("detector_responses.jl")
 
 @Base.kwdef mutable struct SimulationConfig
     # General configuration
