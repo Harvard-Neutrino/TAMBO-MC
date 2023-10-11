@@ -19,6 +19,10 @@ function CorsikaEvent(a::PyObject, particle_idx::Int)
   return CorsikaEvent(pdg, kinetic_energy, x, y, z, t, weight)
 end
 
+function CorsikaEvent(weight)
+    return CorsikaEvent(0, 0.0, 0.0, 0.0, 0.0, 0.0, weight)
+end
+
 struct DirectionMap
     ϕ_offset::Float64
 end
