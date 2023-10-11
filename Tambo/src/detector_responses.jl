@@ -65,14 +65,12 @@ function plane_z(x::Number, y::Number, plane::Plane)
 end
 
 function find_near_hits(
-  pyparquetfile,
-  detmods::Vector{DetectionModule},
-  xoffset::Float64,
-  yoffset::Float64;
+  xs,
+  ys,
+  weights,
+  detmods::Vector{DetectionModule};
   thresh=1units.m
 )
-  xs = pyparquetfile["x"].to_numpy() .* units.m .- xoffset
-  ys = pyparquetfile["y"].to_numpy() .* units.m .- yoffset
   xys = [SVector{2}([xy...]) for xy in zip(xs, ys)]
   hits = Hit[]
   for (jdx, xy) in enumerate(xys)
@@ -80,7 +78,7 @@ function find_near_hits(
     if dist > thresh
       continue
     end
-    evt = CorsikaEvent(pyparquetfile, jdx)
+    evt = CorsikaEvent(weights[jdx])
     push!(
       hits,
       Hit(detmods[module_idx], evt)
