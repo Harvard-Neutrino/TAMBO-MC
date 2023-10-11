@@ -115,7 +115,7 @@ for (kdx, neutrino_event) in enumerate(neutrino_events)
     n += v
   end
   # Trigger criterion is 30 particles from tirggered detection modules
-  if n >= 20
+  if n >= 30
     push!(triggered_evts, neutrino_event)
   end
   if kdx % 100==0
