@@ -5,6 +5,7 @@ using Tambo
 using PyCall
 using JLD2
 using CSV
+using StaticArrays
 
 np = pyimport("numpy")
 ak = pyimport("awkward")
@@ -15,22 +16,18 @@ injector = Tambo.Injector(config)
 geo = Tambo.Geometry(config)
 plane = Tambo.Plane(whitepaper_normal_vec, whitepaper_coord, geo)
 
-# This rotates the geometry to align with the river
-#ϕ = atan(-0.366163, whitepaper_normal_vec.)
-ϕ = atan(-0.366163, 0.452174)
-
 # This is the parameter we want to vary
 ℓ = parse(Float64, ARGS[1]) * units.m
 
 # This is the spacing between detectors
 Δs = parse(Float64, ARGS[2]) * units.m # meters
 
-detection_modules = Tambo.make_trianglearray(-800units.m, 2000units.m, -ℓ/2, ℓ/2, Δs, ϕ=ϕ)
+detection_modules = Tambo.make_trianglearray(-900units.m, 2000units.m, -ℓ/2, ℓ/2, Δs, ϕ=whitepaper_normal_vec.ϕ)
 
 # Remove detectors that are out of range
-zmin = 2100units.m - geo.tambo_offset.z
-zmax = 5000units.m - geo.tambo_offset.z
-mask = zmin .< Tambo.plane_z.(getfield.(detection_modules, :x), getfield.(detection_modules, :y), Ref(plane), Ref(geo)) .< zmax
+zmin = -1100units.m
+zmax = 1100units.m
+mask = zmin .< Tambo.plane_z.(getfield.(detection_modules, :x), getfield.(detection_modules, :y), Ref(plane)) .< zmax
 detection_modules = detection_modules[mask]
 
 outdir = ARGS[3]
@@ -44,45 +41,70 @@ csv = CSV.File(pavel_magic_csv)
 idxs = getindex.(csv, 16)
 subidxs = getindex.(csv, 17)
 
+function load(files, csv_x, csv_y, csy_z)
+    ycorsika = SVector{3}([0.89192975455881607, 0.18563051261662877, -0.41231374670066206])
+    xcorsika = SVector{3}([0, -0.91184756344828699, -0.41052895273466672])
+    zcorsika = whitepaper_normal_vec.proj
+    xyzcorsika = [
+      xcorsika.x xcorsika.y xcorsika.z;
+      ycorsika.x ycorsika.y ycorsika.z;
+      zcorsika.x zcorsika.y zcorsika.z;
+    ]
+    particle_xs = []
+    particle_ys = []
+    particle_zs = []
+    particle_ts = []
+    weights = []
+    for file in files
+        x = nothing
+        try
+            x = ak.from_parquet(file)
+        catch
+            continue
+        end
+        xs = x["x"].to_numpy() .* units.m
+        ys = x["y"].to_numpy() .* units.m
+        zs = x["z"].to_numpy() .* units.m
+        ws = x["weight"].to_numpy()
+        new_poss = []
+        for (x, y, z) in zip(xs, ys, zs)
+            push!(new_poss, transpose([x,y,z]' * xyzcorsika) .+ [csv_x, csv_y, csy_z])
+        end
+        ts = x["time"].to_numpy() .* units.second
+        particle_xs = cat(particle_xs, getindex.(new_poss, 1), dims=1)
+        particle_ys = cat(particle_ys, getindex.(new_poss, 2), dims=1)
+        particle_zs = cat(particle_zs, getindex.(new_poss, 3), dims=1)
+        particle_ts = cat(particle_ts, ts, dims=1)
+        weights = cat(weights, ws, dims=1)
+    end
+    return particle_xs, particle_ys, particle_zs, particle_ts, weights
+end
+
 thresh = 1units.m # distance from detection module center to consider a hit
 triggered_evts = []
 for (kdx, neutrino_event) in enumerate(neutrino_events)
   # Find all showers for this events
   files = Tambo.find_extant_files(neutrino_event, basedir)
   # Make a vactor that we will fill with hits
-  plz = Tambo.Hit[]
-  for file in files
-    desc = split(file, "/")[end-2]
-    idx = parse(Int, split(desc, "_")[end-1])
-    subidx = parse(Int, split(desc, "_")[end])
-    row = first(csv[(idx.==idxs) .&& (subidx.==subidxs)])
+  desc = split(first(files), "/")[end-2]
+  idx = parse(Int, split(desc, "_")[end-1])
+  row = first(csv[idx.==idxs])
+  csv_x, csv_y, csv_z = row.inter_x, row.inter_y, row.inter_z
 
-    # try to load the file
-    # We need this try/catch logic cuz empty files give issues
-    a = nothing
-    try
-      a = ak.from_parquet(file)
-    catch
-      continue
-    end
-    # Find hits that fall within a certain distance of any detection unit
-    hits = Tambo.find_near_hits(
-      a,
-      detection_modules,
-      row.inter_x*units.km,
-      row.inter_y * units.km;
-      thresh=thresh
-    )
-    # Add these hits to the global list of such hits
-    # plz = hcat(plz, hits) Is probably right
-    for hit in hits
-      push!(plz, hit)
-    end
-  end
+  xs, ys, _, _, weights = load(files, csv_x, csv_y, csv_z)
+
+  # Find hits that fall within a certain distance of any detection unit
+  hits = Tambo.find_near_hits(
+    xs,
+    ys,
+    weights,
+    detection_modules;
+    thresh=thresh
+  )
   # A dictionary whose keys are detection modules and whose values are
   # integer number of particles. This does Poisson sampling for events
   # that have thinning
-  d = Tambo.make_hit_dict(plz)
+  d = Tambo.make_hit_dict(hits)
   # Count the number of particles from triggered modules
   n = 0
   for (_, v) in d
@@ -93,7 +115,7 @@ for (kdx, neutrino_event) in enumerate(neutrino_events)
     n += v
   end
   # Trigger criterion is 30 particles from tirggered detection modules
-  if n >= 30
+  if n >= 20
     push!(triggered_evts, neutrino_event)
   end
   if kdx % 100==0
