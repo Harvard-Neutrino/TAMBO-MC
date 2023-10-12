@@ -55,6 +55,11 @@ function compute_minimum_distance(xy::SVector{2}, detmods::Vector{DetectionModul
   return idx, x[idx]
 end
 
+function compute_minimum_distance(event::CorsikaEvent, detmods::Vector{DetectionModule})
+    xy = SVector{2}([event.x, event.y])
+    return compute_minimum_distance(xy, detmods)
+end
+
 function plane_z(x::Number, y::Number, plane::Plane)
     z = (
          -plane.n̂.proj.x * (x - plane.x0.x)
@@ -65,23 +70,19 @@ function plane_z(x::Number, y::Number, plane::Plane)
 end
 
 function find_near_hits(
-  xs,
-  ys,
-  weights,
+  events::Vector{CorsikaEvent},
   detmods::Vector{DetectionModule};
   thresh=1units.m
 )
-  xys = [SVector{2}([xy...]) for xy in zip(xs, ys)]
   hits = Hit[]
-  for (jdx, xy) in enumerate(xys)
-    module_idx, dist = compute_minimum_distance(xy, detmods)
+  for (jdx, event) in enumerate(events)
+    module_idx, dist = compute_minimum_distance(event, detmods)
     if dist > thresh
       continue
     end
-    evt = CorsikaEvent(weights[jdx])
     push!(
       hits,
-      Hit(detmods[module_idx], evt)
+      Hit(detmods[module_idx], event)
     )
   end
   return hits

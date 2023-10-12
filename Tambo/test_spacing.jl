@@ -10,6 +10,17 @@ using StaticArrays
 np = pyimport("numpy")
 ak = pyimport("awkward")
 
+const zmin = -1100units.m
+const zmax = 1100units.m
+const ycorsika = SVector{3}([0.89192975455881607, 0.18563051261662877, -0.41231374670066206])
+const xcorsika = SVector{3}([0, -0.91184756344828699, -0.41052895273466672])
+const zcorsika = whitepaper_normal_vec.proj
+const xyzcorsika = inv([
+  xcorsika.x xcorsika.y xcorsika.z;
+  ycorsika.x ycorsika.y ycorsika.z;
+  zcorsika.x zcorsika.y zcorsika.z;
+ ])
+
 pavel_sim = jldopen("/n/holylfs05/LABS/arguelles_delgado_lab/Lab/common_software/source/corsika8/corsika-work/WhitePaper_300k.jld2")
 config = SimulationConfig(; pavel_sim["config"]...)
 injector = Tambo.Injector(config)
@@ -22,62 +33,73 @@ plane = Tambo.Plane(whitepaper_normal_vec, whitepaper_coord, geo)
 # This is the spacing between detectors
 Δs = parse(Float64, ARGS[2]) * units.m # meters
 
-detection_modules = Tambo.make_trianglearray(-900units.m, 2000units.m, -ℓ/2, ℓ/2, Δs, ϕ=whitepaper_normal_vec.ϕ)
-
+detection_modules = Tambo.make_trianglearray(-2000units.m, 3000units.m, -ℓ/2, ℓ/2, Δs, ϕ=whitepaper_normal_vec.ϕ)
 # Remove detectors that are out of range
-zmin = -1100units.m
-zmax = 1100units.m
-mask = zmin .< Tambo.plane_z.(getfield.(detection_modules, :x), getfield.(detection_modules, :y), Ref(plane)) .< zmax
+mask = zmin .< Tambo.plane_z.(getfield.(detection_modules, :x), getfield.(detection_modules, :y), Ref(plane)) .< zmax;
 detection_modules = detection_modules[mask]
+println(sum(mask))
 
 outdir = ARGS[3]
 
 neutrino_events = np.load("/n/home12/jlazar/CORSIKA_runs.npy")
 basedir = "/n/holylfs05/LABS/arguelles_delgado_lab/Everyone/jlazar/whitepaper_sim/"
-pavel_magic_csv = "/n/holylfs05/LABS/arguelles_delgado_lab/Lab/common_software/source/corsika8/corsika-work/WhitePaper_300k.csv"
 savefile = "$(outdir)/test_events_$(ℓ/units.m)_$(Δs / units.m).npy"
 
-csv = CSV.File(pavel_magic_csv)
-idxs = getindex.(csv, 16)
-subidxs = getindex.(csv, 17)
-
-function load(files, csv_x, csv_y, csy_z)
-    ycorsika = SVector{3}([0.89192975455881607, 0.18563051261662877, -0.41231374670066206])
-    xcorsika = SVector{3}([0, -0.91184756344828699, -0.41052895273466672])
-    zcorsika = whitepaper_normal_vec.proj
-    xyzcorsika = [
-      xcorsika.x xcorsika.y xcorsika.z;
-      ycorsika.x ycorsika.y ycorsika.z;
-      zcorsika.x zcorsika.y zcorsika.z;
-    ]
-    particle_xs = []
-    particle_ys = []
-    particle_zs = []
-    particle_ts = []
-    weights = []
+function loadcorsika(files)
+    events = Tambo.CorsikaEvent[]
     for file in files
-        x = nothing
-        try
-            x = ak.from_parquet(file)
-        catch
-            continue
-        end
-        xs = x["x"].to_numpy() .* units.m
-        ys = x["y"].to_numpy() .* units.m
-        zs = x["z"].to_numpy() .* units.m
-        ws = x["weight"].to_numpy()
-        new_poss = []
-        for (x, y, z) in zip(xs, ys, zs)
-            push!(new_poss, transpose([x,y,z]' * xyzcorsika) .+ [csv_x, csv_y, csy_z])
-        end
-        ts = x["time"].to_numpy() .* units.second
-        particle_xs = cat(particle_xs, getindex.(new_poss, 1), dims=1)
-        particle_ys = cat(particle_ys, getindex.(new_poss, 2), dims=1)
-        particle_zs = cat(particle_zs, getindex.(new_poss, 3), dims=1)
-        particle_ts = cat(particle_ts, ts, dims=1)
-        weights = cat(weights, ws, dims=1)
+      x = nothing
+      try
+        x = ak.from_parquet(file)
+      catch
+        continue
+      end
+      xs = x["x"].to_numpy() .* units.m
+      ys = x["y"].to_numpy() .* units.m
+      zs = x["z"].to_numpy() .* units.m
+      new_poss = []
+      for (x, y, z) in zip(xs, ys, zs)
+        push!(new_poss, xyzcorsika * [x,y,z])
+      end
+      xs = getindex.(new_poss, 1)
+      ys = getindex.(new_poss, 2)
+      zs = getindex.(new_poss, 3)
+      ts = x["time"].to_numpy() .* units.second
+      ws = x["weight"].to_numpy() .* 1.0
+      ids = x["pdg"].to_numpy()
+      es = x["kinetic_energy"].to_numpy() .* units.GeV
+      for tup in zip(ids, es, xs, ys, zs, ts, ws)
+        push!(events, Tambo.CorsikaEvent(tup...))
+      end
     end
-    return particle_xs, particle_ys, particle_zs, particle_ts, weights
+    return events
+end
+
+function did_trigger(files, detection_modules; thresh=1units.m, module_trigger=3, trigger_n=30)
+  events = loadcorsika(files)
+  # You can't trigger if there are too few particles
+  if length(events) <= 1
+    return false
+  end
+  if sum(getfield.(events, :weight)) < trigger_n * 0.5
+    return false
+  end
+  m = zmin .<= getfield.(events, :z) .<= zmax
+  hits = Tambo.find_near_hits(
+    events,
+    detection_modules;
+    thresh=thresh
+  )
+  d = Tambo.make_hit_dict(hits)
+  n = 0
+  for (_, v) in d
+    # a module is not triggered if it has less than three hits
+    if v < module_trigger
+      continue
+    end
+    n += v
+  end
+  return n >= trigger_n
 end
 
 thresh = 1units.m # distance from detection module center to consider a hit
@@ -85,37 +107,7 @@ triggered_evts = []
 for (kdx, neutrino_event) in enumerate(neutrino_events)
   # Find all showers for this events
   files = Tambo.find_extant_files(neutrino_event, basedir)
-  # Make a vactor that we will fill with hits
-  desc = split(first(files), "/")[end-2]
-  idx = parse(Int, split(desc, "_")[end-1])
-  row = first(csv[idx.==idxs])
-  csv_x, csv_y, csv_z = row.inter_x, row.inter_y, row.inter_z
-
-  xs, ys, _, _, weights = load(files, csv_x, csv_y, csv_z)
-
-  # Find hits that fall within a certain distance of any detection unit
-  hits = Tambo.find_near_hits(
-    xs,
-    ys,
-    weights,
-    detection_modules;
-    thresh=thresh
-  )
-  # A dictionary whose keys are detection modules and whose values are
-  # integer number of particles. This does Poisson sampling for events
-  # that have thinning
-  d = Tambo.make_hit_dict(hits)
-  # Count the number of particles from triggered modules
-  n = 0
-  for (_, v) in d
-    # a module is not triggered if it has less than three hits
-    if v < 3
-      continue
-    end
-    n += v
-  end
-  # Trigger criterion is 30 particles from tirggered detection modules
-  if n >= 30
+  if did_trigger(files, detection_modules)
     push!(triggered_evts, neutrino_event)
   end
   if kdx % 100==0
