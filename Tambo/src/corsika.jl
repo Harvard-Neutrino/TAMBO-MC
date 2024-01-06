@@ -1,9 +1,7 @@
 struct CorsikaEvent
   pdg::Int
   kinetic_energy::Number
-  x::Float64
-  y::Float64
-  z::Float64
+  pos::SVector{3}
   time::Float64
   weight::Float64
 end
@@ -16,7 +14,7 @@ function CorsikaEvent(a::PyObject, particle_idx::Int)
   z = a["z"].to_numpy()[particle_idx]
   kinetic_energy = a["kinetic_energy"].to_numpy()[particle_idx]
   weight = a["weight"].to_numpy()[particle_idx]
-  return CorsikaEvent(pdg, kinetic_energy, x, y, z, t, weight)
+  return CorsikaEvent(pdg, kinetic_energy, SVector{3}([x, y, z]), t, weight)
 end
 
 function CorsikaEvent(weight)
