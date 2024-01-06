@@ -1,14 +1,14 @@
-using Revise
 using Pkg
-Pkg.activate(".")
+Pkg.activate("../Tambo")
 using Tambo
 using PyCall
 using JLD2
-using CSV
+#using CSV
 using StaticArrays
+using ProgressBars
 
-np = pyimport("numpy")
 ak = pyimport("awkward")
+np = pyimport("numpy")
 
 const zmin = -1100units.m
 const zmax = 1100units.m
@@ -21,58 +21,81 @@ const xyzcorsika = inv([
   zcorsika.x zcorsika.y zcorsika.z;
  ])
 
-pavel_sim = jldopen("/n/holylfs05/LABS/arguelles_delgado_lab/Lab/common_software/source/corsika8/corsika-work/WhitePaper_300k.jld2")
-config = SimulationConfig(; pavel_sim["config"]...)
-injector = Tambo.Injector(config)
-geo = Tambo.Geometry(config)
-plane = Tambo.Plane(whitepaper_normal_vec, whitepaper_coord, geo)
+const pavel_sim = jldopen("/n/holylfs05/LABS/arguelles_delgado_lab/Lab/common_software/source/corsika8/corsika-work/WhitePaper_300k.jld2")
+const config = SimulationConfig(; pavel_sim["config"]...)
+const injector = Tambo.Injector(config)
+const geo = Tambo.Geometry(config)
+const plane = Tambo.Plane(whitepaper_normal_vec, whitepaper_coord, geo)
 
 # This is the parameter we want to vary
-ℓ = parse(Float64, ARGS[1]) * units.m
+const ℓ = parse(Float64, ARGS[1]) * units.m
 
 # This is the spacing between detectors
-Δs = parse(Float64, ARGS[2]) * units.m # meters
+const Δs = parse(Float64, ARGS[2]) * units.m # meters
 
-detection_modules = Tambo.make_trianglearray(-2000units.m, 3000units.m, -ℓ/2, ℓ/2, Δs, ϕ=whitepaper_normal_vec.ϕ)
-# Remove detectors that are out of range
-mask = zmin .< Tambo.plane_z.(getfield.(detection_modules, :x), getfield.(detection_modules, :y), Ref(plane)) .< zmax;
-detection_modules = detection_modules[mask]
-println(sum(mask))
+detection_modules_tmp = Tambo.make_trianglearray(-2000units.m, 3000units.m, -ℓ/2, ℓ/2, Δs, ϕ=whitepaper_normal_vec.ϕ)
+const detection_modules = filter((m,) -> zmin < Tambo.plane_z(m.x, m.y, plane) < zmax, detection_modules_tmp)
 
 outdir = ARGS[3]
 
-neutrino_events = np.load("/n/home12/jlazar/CORSIKA_runs.npy")
-basedir = "/n/holylfs05/LABS/arguelles_delgado_lab/Everyone/jlazar/whitepaper_sim/"
 savefile = "$(outdir)/test_events_$(ℓ/units.m)_$(Δs / units.m).npy"
 
-function loadcorsika(files)
-    events = Tambo.CorsikaEvent[]
-    for file in files
-      x = nothing
-      try
-        x = ak.from_parquet(file)
-      catch
-        continue
-      end
-      xs = x["x"].to_numpy() .* units.m
-      ys = x["y"].to_numpy() .* units.m
-      zs = x["z"].to_numpy() .* units.m
-      new_poss = []
-      for (x, y, z) in zip(xs, ys, zs)
-        push!(new_poss, xyzcorsika * [x,y,z])
-      end
-      xs = getindex.(new_poss, 1)
-      ys = getindex.(new_poss, 2)
-      zs = getindex.(new_poss, 3)
-      ts = x["time"].to_numpy() .* units.second
-      ws = x["weight"].to_numpy() .* 1.0
-      ids = x["pdg"].to_numpy()
-      es = x["kinetic_energy"].to_numpy() .* units.GeV
-      for tup in zip(ids, es, xs, ys, zs, ts, ws)
-        push!(events, Tambo.CorsikaEvent(tup...))
-      end
+function geteventnumbers(basedir)
+    sims = glob("sim_test_*_?", basedir)
+    event_numbers = []
+    for sim in sims
+        event_number = parse(Int, split(sim, "_")[end-1])
+        if event_number in event_numbers
+            continue
+        end
+        push!(event_numbers, event_number)
     end
-    return events
+    return sort(event_numbers)
+end
+
+function loadcorsika(files)
+  events = Tambo.CorsikaEvent[]
+  for file in files
+    x = nothing
+    try
+      x = ak.from_parquet(file)
+    catch
+      continue
+    end
+    xs = x["x"].to_numpy() .* units.m
+    ys = x["y"].to_numpy() .* units.m
+    zs = x["z"].to_numpy() .* units.m
+    new_poss = []
+    for (x, y, z) in zip(xs, ys, zs)
+      push!(new_poss, SVector{3}(xyzcorsika * [x,y,z]))
+    end
+    xs = getindex.(new_poss, 1)
+    ys = getindex.(new_poss, 2)
+    zs = getindex.(new_poss, 3)
+    ts = x["time"].to_numpy() .* units.second
+    ws = x["weight"].to_numpy() .* 1.0
+    ids = x["pdg"].to_numpy()
+    es = x["kinetic_energy"].to_numpy() .* units.GeV
+    for id, e, x,y,z,t,w in zip(ids, es, xs, ys, zs, ts, ws)
+      pos = SVector{3}([x,y,z])
+      push!(events, Tambo.CorsikaEvent(id, e, pos, t, w))
+    end
+  end
+  return events
+end
+
+function find_extant_files(run_number::Int, basedir::String) Vector{String}
+  particle_number = 1
+  files = String[]
+  while true # iterate until the file doesn't exist
+    path = "$(basedir)/sim_test_$(run_number)_$(particle_number)/particles/particles.parquet"
+    if !ispath(path)
+      break
+    end
+    push!(files, path)
+    particle_number += 1
+  end
+  return files
 end
 
 function did_trigger(files, detection_modules; thresh=1units.m, module_trigger=3, trigger_n=30)
@@ -84,12 +107,13 @@ function did_trigger(files, detection_modules; thresh=1units.m, module_trigger=3
   if sum(getfield.(events, :weight)) < trigger_n * 0.5
     return false
   end
-  m = zmin .<= getfield.(events, :z) .<= zmax
+  events = filter((e,)->zmin < e.z < zmax, events)
   hits = Tambo.find_near_hits(
     events,
     detection_modules;
     thresh=thresh
   )
+  events = nothing
   d = Tambo.make_hit_dict(hits)
   n = 0
   for (_, v) in d
@@ -104,10 +128,12 @@ end
 
 thresh = 1units.m # distance from detection module center to consider a hit
 triggered_evts = []
+#for (kdx, neutrino_event) in enumerate(ProgressBar(neutrino_events))
 for (kdx, neutrino_event) in enumerate(neutrino_events)
   # Find all showers for this events
   files = Tambo.find_extant_files(neutrino_event, basedir)
   if did_trigger(files, detection_modules)
+    println(neutrino_event)
     push!(triggered_evts, neutrino_event)
   end
   if kdx % 100==0
