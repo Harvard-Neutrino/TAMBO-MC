@@ -12,7 +12,7 @@ struct Hit
   event::CorsikaEvent
 end
 
-function make_trianglearray(x0, x1, y0, y1, ds::Float64; ϕ::Float64=0.0)
+function make_trianglearray(x0::Number, x1::Number, y0::Number, y1::Number, ds::Number; ϕ::Number=0.0)
   dy = ds * sqrt(3) / 2
   ys = y0:dy:y1
   dx = ds
