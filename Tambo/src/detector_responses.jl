@@ -48,10 +48,10 @@ function inside(mod::CircularDetectionModule, pos::SVector{3})
     if abs(pos.y - mod.y) > mod.r
         return false
     end
+    # TODO account for the slant of the plane
     return (mod.x - pos.x) ^2 + (mod.y - pos.y) ^2 < mod.r^2
 end
 
-#
 #function compute_minimum_distance(xy::SVector{2}, detmods::Vector{DetectionModule})
 #  Δxs = xy.x .- [x.x for x in detmods]
 #  Δys = xy.y .- [x.y for x in detmods]
@@ -64,7 +64,7 @@ end
 #    xy = SVector{2}([event.x, event.y])
 #    return compute_minimum_distance(xy, detmods)
 #end
-#
+
 function plane_z(x::Number, y::Number, plane::Plane)
     z = (
          -plane.n̂.proj.x * (x - plane.x0.x)
