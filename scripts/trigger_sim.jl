@@ -8,8 +8,10 @@ using ArgParse
 using Glob
 using Distributions
 
-ak = pyimport("awkward")
-np = pyimport("numpy")
+const pq = PyNULL()
+const np = PyNULL()
+copy!(pq, pyimport("pyarrow.parquet"))
+copy!(np, pyimport("numpy"))
 
 const zmin = -1100units.m
 const zmax = 1100units.m
@@ -50,35 +52,23 @@ function parse_commandline()
     return parse_args(s)
 end
 
-function loadcorsika(files)
-    events = Tambo.CorsikaEvent[]
-    for file in files
-        x = nothing
-        try
-            x = ak.from_parquet(file)
-        catch
-            continue
-        end
-        xs = x["x"].to_numpy() .* units.m
-        ys = x["y"].to_numpy() .* units.m
-        zs = x["z"].to_numpy() .* units.m
-        new_poss = []
-        for (x, y, z) in zip(xs, ys, zs)
-            push!(new_poss, SVector{3}(xyzcorsika * [x,y,z]))
-        end
-        ts = x["time"].to_numpy() .* units.second
-        ws = x["weight"].to_numpy() .* 1.0
-        ids = x["pdg"].to_numpy()
-        es = x["kinetic_energy"].to_numpy() .* units.GeV
-        for (id, e, pos, t, w) in zip(ids, es, new_poss, ts, ws)
-            push!(events, Tambo.CorsikaEvent(id, e, pos, t, w))
-        end
+function loadcorsika(batch)
+    ids = np.array(batch[2])
+    es = np.array(batch[3]) .* units.GeV
+    xs = np.array(batch[4]) .* units.m # x coord
+    ys = np.array(batch[5]) .* units.m # y coord
+    zs = np.array(batch[6]) .* units.m # z coord
+    poss = []
+    for (x, y, z) in zip(xs, ys, zs)
+        push!(poss, SVector{3}(xyzcorsika * [x,y,z]))
     end
+    ts = np.array(batch[10]) .* units.second # time
+    ws = np.array(batch[11])
+    events = Tambo.CorsikaEvent.(ids, es, poss, ts, ws)
     return events
 end
 
-function make_hits_dict(events, modules)
-    d = Dict{Int, Int}()
+function find_hits!(d::Dict, events, modules)
     for event in events
         a = inside.(modules, Ref(event.pos))
         s = sum(a)
@@ -95,7 +85,6 @@ function make_hits_dict(events, modules)
             d[mod.idx] += weight
         end
     end
-    return d
 end
 
 function did_trigger_fast(events, modules)
@@ -103,26 +92,29 @@ function did_trigger_fast(events, modules)
     for event in events
         a = inside.(modules, Ref(event.pos))
         s = sum(a)
-        @assert s <= 1 "Seems like you're in more than one module.. That doesn't seem right"
-        if s > 0
-            mod = modules[findfirst(a)]
-            if !(mod.idx in keys(d))
-                d[mod.idx] = 0
-            end
-            weight = event.weight
-            if weight != 1
-                weight = rand(Poisson(weight))
-            end
-            d[mod.idx] += weight
-            if trigger_helper(d)
-                return true
-            end
+        @assert s <= 1 "Seems like you're in more than one module. That doesn't seem right"
+        if s == 0
+            continue
+        end
+
+        mod = modules[findfirst(a)]
+        if !(mod.idx in keys(d))
+            d[mod.idx] = 0
+        end
+
+        weight = event.weight
+        if weight != 1
+            weight = rand(Poisson(weight))
+        end
+        d[mod.idx] += weight
+        if has_triggered(d)
+            return true
         end
     end
     return false
 end
 
-function trigger_helper(d)
+function has_triggered(d)
     d_filter = filter(x->x[2] >= 3, d) # Filter out modules below threshhold
     if length(d_filter) < 3
         return false
@@ -132,7 +124,7 @@ end
 
 function did_trigger(events, modules)
     d = make_hits_dict(events, modules)
-    return trigger_helper(d)
+    return has_triggered(d)
 end
 
 function get_event_numbers(basedir)
@@ -152,12 +144,12 @@ function find_extant_files(run_number::Int, basedir::String) Vector{String}
     particle_number = 1
     files = String[]
     while true # iterate until the file doesn't exist
-      path = "$(basedir)/sim_test_$(run_number)_$(particle_number)/particles/particles.parquet"
-      if !ispath(path)
-        break
-      end
-      push!(files, path)
-      particle_number += 1
+        path = "$(basedir)/sim_test_$(run_number)_$(particle_number)/particles/particles.parquet"
+        if !ispath(path)
+          break
+        end
+        push!(files, path)
+        particle_number += 1
     end
     return files
 end
@@ -173,23 +165,50 @@ function main()
         args["deltas"] * units.m,
         ϕ=whitepaper_normal_vec.ϕ
     )
+
+
     modules = filter(
         (m,) -> zmin < Tambo.plane_z(m.x, m.y, plane) < zmax, modules
     )
+    xmax = maximum([m.x for m in modules])
+    xmin = minimum([m.x for m in modules])
+    ymax = maximum([m.y for m in modules])
+    ymin = minimum([m.y for m in modules])
 
-    println(length(modules))
     trigger_events = Int[]
     event_numbers = get_event_numbers(args["basedir"])
     for (idx, event_number) in enumerate(event_numbers)
-        #@show event_number
+        @show event_number
+        d = Dict{Int, Int}()
+        triggered = false
         files = find_extant_files(event_number, args["basedir"])
-        #@show files
-        events = loadcorsika(files)
-        #@show length(events)
-        if did_trigger_fast(events, modules)
-        #if did_trigger(events, modules)
+        while ~triggered && length(files) > 0
+            file = pop!(files)
+            pqf = nothing
+            try
+                pqf = pq.ParquetFile(file)
+            catch
+                continue
+            end
+            for batch in pqf.iter_batches()
+                events = loadcorsika(batch)
+                events = filter(
+                    e -> xmin < e.pos.x && e.pos.x < xmax && ymin < e.pos.y && e.pos.y < ymax,
+                    events
+                )
+                find_hits!(d, events, modules)
+                events = nothing
+                triggered = has_triggered(d)
+                if triggered
+                    break
+                end
+                GC.gc()
+            end
+        end
+        if triggered
             push!(trigger_events, event_number)
-            println(length(trigger_events) / idx)
+            @show trigger_events
+            #@show length(trigger_events) / idx
         end
         if idx % 100 == 0
             @show length(trigger_events) / idx
