@@ -23,7 +23,7 @@ const xyzcorsika = inv([
     ycorsika.x ycorsika.y ycorsika.z;
     zcorsika.x zcorsika.y zcorsika.z;
 ])
-const pavel_sim = jldopen("/n/holylfs05/LABS/arguelles_delgado_lab/Lab/common_software/source/corsika8/corsika-work/WhitePaper_300k.jld2")
+const pavel_sim = jldopen("/n/holylfs05/LABS/arguelles_delgado_lab/Lab/common_software/source/corsika8/corsika-work/Oct16th2023_WhitePaper_300k.jld2")
 const config = SimulationConfig(; pavel_sim["config"]...)
 const injector = Tambo.Injector(config)
 const geo = Tambo.Geometry(config)
