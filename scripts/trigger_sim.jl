@@ -29,6 +29,8 @@ const injector = Tambo.Injector(config)
 const geo = Tambo.Geometry(config)
 const plane = Tambo.Plane(whitepaper_normal_vec, whitepaper_coord, geo)
 
+include("utils.jl")
+
 function parse_commandline()
     s = ArgParseSettings()
     @add_arg_table s begin
@@ -48,27 +50,15 @@ function parse_commandline()
             help = "Length of the full array"
             arg_type = Float64
             required = true
+        "--first_n"
+            help = "Only look at the first n events"
+            arg_type = Int
+            default = 0
     end
     return parse_args(s)
 end
 
-function loadcorsika(batch)
-    ids = np.array(batch[2])
-    es = np.array(batch[3]) .* units.GeV
-    xs = np.array(batch[4]) .* units.m # x coord
-    ys = np.array(batch[5]) .* units.m # y coord
-    zs = np.array(batch[6]) .* units.m # z coord
-    poss = []
-    for (x, y, z) in zip(xs, ys, zs)
-        push!(poss, SVector{3}(xyzcorsika * [x,y,z]))
-    end
-    ts = np.array(batch[10]) .* units.second # time
-    ws = np.array(batch[11])
-    events = Tambo.CorsikaEvent.(ids, es, poss, ts, ws)
-    return events
-end
-
-function find_hits!(d::Dict, events, modules)
+function add_hits!(d::Dict, events, modules)
     for event in events
         a = inside.(modules, Ref(event.pos))
         s = sum(a)
@@ -87,71 +77,67 @@ function find_hits!(d::Dict, events, modules)
     end
 end
 
-function did_trigger_fast(events, modules)
-    d = Dict{Int, Int}()
-    for event in events
-        a = inside.(modules, Ref(event.pos))
-        s = sum(a)
-        @assert s <= 1 "Seems like you're in more than one module. That doesn't seem right"
-        if s == 0
-            continue
-        end
-
-        mod = modules[findfirst(a)]
-        if !(mod.idx in keys(d))
-            d[mod.idx] = 0
-        end
-
-        weight = event.weight
-        if weight != 1
-            weight = rand(Poisson(weight))
-        end
-        d[mod.idx] += weight
-        if has_triggered(d)
-            return true
-        end
-    end
-    return false
-end
-
-function has_triggered(d)
-    d_filter = filter(x->x[2] >= 3, d) # Filter out modules below threshhold
+function has_triggered(hits_dict::Dict)
+    d_filter = filter(x->x[2] >= 3, hits_dict) # Filter out modules below threshhold
     if length(d_filter) < 3
         return false
     end
     return sum(values(d_filter)) > 30
 end
 
-function did_trigger(events, modules)
-    d = make_hits_dict(events, modules)
-    return has_triggered(d)
-end
+function trigger_function(
+    event_number,
+    modules,
+    basedir;
+    xmax=nothing,
+    xmin=nothing,
+    ymin=nothing,
+    ymax=nothing
+)
+    if isnothing(xmin)
+        xmin = minimum([m.x for m in modules])
+    end
+    if isnothing(xmax)
+        xmax = maximum([m.x for m in modules])
+    end
+    if isnothing(ymin)
+        ymin = minimum([m.y for m in modules])
+    end
+    if isnothing(ymax)
+        ymax = maximum([m.y for m in modules])
+    end
 
-function get_event_numbers(basedir)
-    sims = glob("sim_test_*_?", basedir)
-    event_numbers = []
-    for sim in sims
-        event_number = parse(Int, split(sim, "_")[end-1])
-        if event_number in event_numbers
+    d = Dict{Int, Int}()
+    triggered = false
+    files = find_extant_files(event_number, basedir)
+    while ~triggered && length(files) > 0
+        file = pop!(files)
+        # This nastiness needs to be here cuz sometimes the file is empty(?)
+        # and it will error in an annoying way. I think the `pqf = nothing` is superfluous
+        # but I put it there before and I'm worried it will cause issues
+        pqf = nothing
+        try
+            pqf = pq.ParquetFile(file)
+        catch
             continue
         end
-        push!(event_numbers, event_number)
-    end
-    return sort(event_numbers)
-end
-
-function find_extant_files(run_number::Int, basedir::String) Vector{String}
-    particle_number = 1
-    files = String[]
-    while true # iterate until the file doesn't exist
-        path = "$(basedir)/sim_test_$(run_number)_$(particle_number)/particles/particles.parquet"
-        if !ispath(path)
-          break
+        for batch in pqf.iter_batches()
+            events = loadcorsika(batch)
+            events = filter(
+                e -> xmin < e.pos.x && e.pos.x < xmax && ymin < e.pos.y && e.pos.y < ymax,
+                events
+            )
+            add_hits!(d, events, modules)
+            triggered = has_triggered(d)
+            if triggered
+                break
+            end
+            # These two lines avoid runaway RAM usage
+            events = nothing
+            GC.gc()
         end
-        push!(files, path)
-        particle_number += 1
     end
-    return files
+    return triggered
 end
 
 function main()
@@ -166,49 +152,26 @@ function main()
         ϕ=whitepaper_normal_vec.ϕ
     )
 
-
     modules = filter(
         (m,) -> zmin < Tambo.plane_z(m.x, m.y, plane) < zmax, modules
     )
-    xmax = maximum([m.x for m in modules])
-    xmin = minimum([m.x for m in modules])
-    ymax = maximum([m.y for m in modules])
-    ymin = minimum([m.y for m in modules])
+
+    #xmax = maximum([m.x for m in modules])
+    #xmin = minimum([m.x for m in modules])
+    #ymax = maximum([m.y for m in modules])
+    #ymin = minimum([m.y for m in modules])
 
     trigger_events = Int[]
     event_numbers = get_event_numbers(args["basedir"])
+    if args["first_n"] > 0
+        event_numbers = event_numbers[1:args["first_n"]]
+    end
     for (idx, event_number) in enumerate(event_numbers)
         @show event_number
-        d = Dict{Int, Int}()
-        triggered = false
-        files = find_extant_files(event_number, args["basedir"])
-        while ~triggered && length(files) > 0
-            file = pop!(files)
-            pqf = nothing
-            try
-                pqf = pq.ParquetFile(file)
-            catch
-                continue
-            end
-            for batch in pqf.iter_batches()
-                events = loadcorsika(batch)
-                events = filter(
-                    e -> xmin < e.pos.x && e.pos.x < xmax && ymin < e.pos.y && e.pos.y < ymax,
-                    events
-                )
-                find_hits!(d, events, modules)
-                events = nothing
-                triggered = has_triggered(d)
-                if triggered
-                    break
-                end
-                GC.gc()
-            end
-        end
+        triggered = trigger_function(event_number, modules, args["basedir"])
         if triggered
             push!(trigger_events, event_number)
             @show trigger_events
-            #@show length(trigger_events) / idx
         end
         if idx % 100 == 0
             @show length(trigger_events) / idx
@@ -217,4 +180,6 @@ function main()
     np.save(args["outfile"], trigger_events)
 end
 
-main()
+if abspath(PROGRAM_FILE) == @__FILE__
+    main()
+end
