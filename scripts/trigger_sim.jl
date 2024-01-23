@@ -82,7 +82,7 @@ function has_triggered(hits_dict::Dict)
     if length(d_filter) < 3
         return false
     end
-    return sum(values(d_filter)) > 30
+    return sum(values(d_filter)) >= 30
 end
 
 function trigger_function(
