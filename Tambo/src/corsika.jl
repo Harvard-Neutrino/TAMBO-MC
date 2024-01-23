@@ -176,7 +176,7 @@ function check_track_length(event, plane, geo; verbose=false)
     propped_dir = event.propped_state.direction
     #plane = Tambo.Plane(minesite_normal_vec, minesite_coord, geo)      
     distance, _, _ = intersect(decay_pos, propped_dir, plane) 
-    if distance > 20000 * units.km
+    if distance > 20000 * units.m
         if verbose
             println("Distance length greater than 20km") 
         end
