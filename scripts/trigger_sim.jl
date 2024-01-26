@@ -7,17 +7,21 @@ using StaticArrays
 using ArgParse
 using Glob
 using Distributions
+using LinearAlgebra
 
 const pq = PyNULL()
 const np = PyNULL()
 copy!(pq, pyimport("pyarrow.parquet"))
 copy!(np, pyimport("numpy"))
 
-const zmin = -1100units.m
+const zmin = -1300units.m
 const zmax = 1100units.m
-const ycorsika = SVector{3}([0.89192975455881607, 0.18563051261662877, -0.41231374670066206])
-const xcorsika = SVector{3}([0, -0.91184756344828699, -0.41052895273466672])
 const zcorsika = whitepaper_normal_vec.proj
+#how it's calculated in CORSIKA8
+#const xcorsika = SVector{3}([0, -0.91184756344828699, -0.41052895273466672])
+const xcorsika = SVector{3}([0, -zcorsika.z/sqrt(zcorsika.y^2 + zcorsika.z^2), zcorsika.y/sqrt(zcorsika.y^2 + zcorsika.z^2)])
+#const ycorsika = SVector{3}([0.89192975455881607, 0.18563051261662877, -0.41231374670066206])
+const ycorsika = SVector{3}(cross(xcorsika,zcorsika))
 const xyzcorsika = inv([
     xcorsika.x xcorsika.y xcorsika.z;
     ycorsika.x ycorsika.y ycorsika.z;
@@ -78,7 +82,7 @@ function add_hits!(d::Dict, events, modules)
 end
 
 function has_triggered(hits_dict::Dict)
-    d_filter = filter(x->x[2] >= 3, hits_dict) # Filter out modules below threshhold
+    d_filter = filter(x->x[2] >= 3, hits_dict) # Filter out modules below threshold
     if length(d_filter) < 3
         return false
     end
