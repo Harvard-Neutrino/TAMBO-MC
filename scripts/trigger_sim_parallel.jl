@@ -7,27 +7,23 @@ using StaticArrays
 using ArgParse
 using Glob
 using Distributions
-using LinearAlgebra
 
 const pq = PyNULL()
 const np = PyNULL()
 copy!(pq, pyimport("pyarrow.parquet"))
 copy!(np, pyimport("numpy"))
 
-const zmin = -1300units.m
+const zmin = -1100units.m
 const zmax = 1100units.m
+const ycorsika = SVector{3}([0.89192975455881607, 0.18563051261662877, -0.41231374670066206])
+const xcorsika = SVector{3}([0, -0.91184756344828699, -0.41052895273466672])
 const zcorsika = whitepaper_normal_vec.proj
-#how it's calculated in CORSIKA8
-#const xcorsika = SVector{3}([0, -0.91184756344828699, -0.41052895273466672])
-const xcorsika = SVector{3}([0, -zcorsika.z/sqrt(zcorsika.y^2 + zcorsika.z^2), zcorsika.y/sqrt(zcorsika.y^2 + zcorsika.z^2)])
-#const ycorsika = SVector{3}([0.89192975455881607, 0.18563051261662877, -0.41231374670066206])
-const ycorsika = SVector{3}(cross(xcorsika,zcorsika))
 const xyzcorsika = inv([
     xcorsika.x xcorsika.y xcorsika.z;
     ycorsika.x ycorsika.y ycorsika.z;
     zcorsika.x zcorsika.y zcorsika.z;
 ])
-const pavel_sim = jldopen("/n/holylfs05/LABS/arguelles_delgado_lab/Lab/common_software/source/corsika8/corsika-work/Oct16th2023_WhitePaper_300k.jld2")
+const pavel_sim = jldopen("/n/holylfs05/LABS/arguelles_delgado_lab/Lab/common_software/source/corsika8/corsika-work/WhitePaper_300k.jld2")
 const config = SimulationConfig(; pavel_sim["config"]...)
 const injector = Tambo.Injector(config)
 const geo = Tambo.Geometry(config)
@@ -54,10 +50,14 @@ function parse_commandline()
             help = "Length of the full array"
             arg_type = Float64
             required = true
-        "--first_n"
-            help = "Only look at the first n events"
+        "--nparallel"
+            help = "Number of parallel jobs happening"
             arg_type = Int
-            default = 0
+            required = true
+        "--njob"
+            help = "Which parallel job"
+            arg_type = Int
+            required = true
     end
     return parse_args(s)
 end
@@ -82,11 +82,11 @@ function add_hits!(d::Dict, events, modules)
 end
 
 function has_triggered(hits_dict::Dict)
-    d_filter = filter(x->x[2] >= 3, hits_dict) # Filter out modules below threshold
+    d_filter = filter(x->x[2] >= 3, hits_dict) # Filter out modules below threshhold
     if length(d_filter) < 3
         return false
     end
-    return sum(values(d_filter)) >= 30
+    return sum(values(d_filter)) > 30
 end
 
 function trigger_function(
@@ -147,6 +147,7 @@ end
 function main()
     args = parse_commandline()
     
+    @assert args["njob"] <= args["nparallel"]
     modules = Tambo.make_trianglearray(
         -2000units.m,
         3000units.m,
@@ -166,10 +167,7 @@ function main()
     #ymin = minimum([m.y for m in modules])
 
     trigger_events = Int[]
-    event_numbers = get_event_numbers(args["basedir"])
-    if args["first_n"] > 0
-        event_numbers = event_numbers[1:args["first_n"]]
-    end
+    event_numbers = get_event_numbers(args["basedir"])[args["njob"]:args["nparallel"]:end]
     for (idx, event_number) in enumerate(event_numbers)
         @show event_number
         triggered = trigger_function(event_number, modules, args["basedir"])
@@ -181,7 +179,7 @@ function main()
             @show length(trigger_events) / idx
         end
     end
-    np.save(args["outfile"], trigger_events)
+    np.save(replace(args["outfile"], ".npy"=>"_$(args["njob"])_$(args["nparallel"]).npy"), trigger_events)
 end
 
 if abspath(PROGRAM_FILE) == @__FILE__
