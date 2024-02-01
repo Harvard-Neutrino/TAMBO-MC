@@ -168,7 +168,7 @@ function check_z_intercept(event, plane, geo; verbose=false)
     return true 
 end
 
-function check_track_length(event, plane, geo; verbose=false)
+function check_track_length(event, plane, geo; verbose=false, max_distance=20units.km)
     """
     If the distance length is greater than 20km between particle position and intercept with TAMBO plane, cut. 
     """
@@ -176,7 +176,7 @@ function check_track_length(event, plane, geo; verbose=false)
     propped_dir = event.propped_state.direction
     #plane = Tambo.Plane(minesite_normal_vec, minesite_coord, geo)      
     distance, _, _ = intersect(decay_pos, propped_dir, plane) 
-    if distance > 20000 * units.m
+    if distance > max_distance
         if verbose
             println("Distance length greater than 20km") 
         end
@@ -188,7 +188,6 @@ end
 function check_intersections(event, plane, geo; verbose=false)
     decay_pos = event.propped_state.position
     propped_dir = event.propped_state.direction
-    #plane = Tambo.Plane(minesite_normal_vec, minesite_coord, geo)      
     _, point, _ = intersect(decay_pos, propped_dir, plane) 
     t = Track(decay_pos, point)
     intersections = intersect(t, geo)
@@ -204,16 +203,24 @@ function check_intersections(event, plane, geo; verbose=false)
     return true 
 end
 
-#=
-function should_do_corsika(event::ProposalResult, geo::Geometry)
-    # Check if going right direction
-    norm_pos = event.propped_state.position ./ norm(event.propped_state.position)
-    # TODO I made up this Number. We should check if it makes any sense
-    if event.propped_state.direction.proj'norm_pos < -0.1
-        return false
+function check_passed_through_rock(event::ProposalResult, plane, geo; thresh=4units.km)
+    track = Tambo.Track(
+        event.continuous_losses.position,
+        reverse(event.propped_state.direction),
+        geo.box
+    )
+    segments = Tambo.computesegments(track, geo)
+    
+    ℓ_inrock = 0
+    for segment in segments
+        if segment.medium_name=="Air"
+            continue
+        end
+        ℓ_inrock += segment.length
     end
-    return has_unobstructed_path(event.propped_state.position, geo)
-=#
+    return ℓ_inrock >= thresh
+end
+
 function should_do_corsika(event::ProposalResult, plane::Plane, geo::Geometry, criteria::Array{Function}; verbose=false, check_mode=false)
     # Seems like we should do `check_mode` via dependency injection but weeeeeeeeeeee
     if check_mode
@@ -221,7 +228,7 @@ function should_do_corsika(event::ProposalResult, plane::Plane, geo::Geometry, c
     end
 
     for criterion in criteria
-        v = criterion(event,plane, geo; verbose=verbose)
+        v = criterion(event, plane, geo; verbose=verbose)
         if check_mode
             push!(b, v)
         else
@@ -246,7 +253,8 @@ function should_do_corsika(event::ProposalResult, plane::Plane, geo::Geometry; v
         check_near_orthogonal,
         check_z_intercept,
         check_track_length,
-        check_intersections
+        check_intersections,
+        
     ]
     return should_do_corsika(event, plane, geo, checks; verbose=verbose, check_mode=check_mode)
 end
