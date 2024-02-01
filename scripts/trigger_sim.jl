@@ -85,6 +85,27 @@ function has_triggered(hits_dict::Dict)
     return sum(values(d_filter)) >= 30
 end
 
+function has_triggered(
+    hits_dict::Dict{Int, Tambo.CorsikaEvent};
+    local_threshhold=3,
+    global_threshhold=30
+)
+    filter!(x->x[2] >= local_threshhold, hits_dict) # Filter out modules below threshhold
+    n = 0
+    for events in values(hits_dict)
+        for event in events
+            weight = event.weight
+            if weight > 1 # This is a weighted particle and needs to be MCed
+                weight = rand(Poisson(weight))
+            end
+            n += weight
+            if n > global_threshhold
+                return true
+            end
+        end
+    end
+end
+
 function trigger_function(
     event_number,
     modules,
