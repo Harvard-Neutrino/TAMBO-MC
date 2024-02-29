@@ -14,7 +14,8 @@ export SimulationConfig,
        testsite_coord,
        minesite_normal_vec,
        inside,
-       should_do_corsika
+       should_do_corsika,
+       oneweight
 
 using CoordinateTransformations: Translation, AffineMap, LinearMap
 using Dierckx: Spline2D

@@ -1,5 +1,6 @@
 function get_event_numbers(basedir)
-    sims = glob("sim_test_*_?", basedir)
+    sims = glob("particles_*_*.parquet", basedir)
+    #sims = glob("sim_test_*_?", basedir)
     event_numbers = []
     for sim in sims
         event_number = parse(Int, split(sim, "_")[end-1])
@@ -15,7 +16,8 @@ function find_extant_files(run_number::Int, basedir::String) Vector{String}
     particle_number = 1
     files = String[]
     while true # iterate until the file doesn't exist
-        path = "$(basedir)/sim_test_$(run_number)_$(particle_number)/particles/particles.parquet"
+        path = "$(basedir)/particles_$(run_number)_$(particle_number).parquet"
+        #path = "$(basedir)/sim_test_$(run_number)_$(particle_number)/particles/particles.parquet"
         if !ispath(path)
           break
         end
