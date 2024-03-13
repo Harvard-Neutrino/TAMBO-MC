@@ -1,3 +1,48 @@
+Base.@kwdef mutable struct CORSIKAConfig
+    parallelize::Bool = true 
+    thinning::Float64 = 1e-6 
+    hadron_ecut::Float64 = 0.05units.GeV
+    em_ecut::Float64 = 0.01units.GeV
+    photon_ecut::Float64 = 0.002units.GeV
+    mu_ecut::Float64 = 0.05units.GeV 
+    shower_dir::String = "showers/"
+end
+
+function corsika_inject_event(injector::Injector)
+    event = inject_event(
+    )
+    return event
+end
+
+function corsika_run(
+    parallelize::Bool,
+    pdg::Int64,
+    energy::Float64,
+    zenith::Float64, 
+    azimuth::Float64, 
+    inject_pos::Vector{Float64},
+    intercept_pos::Vector{Float64},
+    outdir::String, 
+    plane::Vector{Float64}, 
+    thinning::Float64, 
+    ecuts::Vector{Float64}
+    )
+
+    if parallelize 
+        parallelize_corsika_exec = `sbatch $sbatch_submission`
+    else 
+
+    rawinject_x,rawinject_y,rawinject_z = inject_pos
+    x_intercept,y_intercept,z_intercept = intercept_pos 
+    xdir,ydir,zdir = plane 
+    
+    #convert to CORSIKA internal units of GeV
+    emcut,photoncut,mucut,hadcut = ecuts/units.GeV 
+    
+    corsika_exec = `singularity exec ../corsika-env.simg ./corsika --pdg $pdg --energy $energy --zenith $zenith --azimuth $azimuth --xpos $rawinject_x --ypos $rawinject_y --zpos $rawinject_z -f $outdir/showers/ --xdir $xdir --ydir $ydir --zdir $zdir --observation-height $obs_z --force-interaction --x-intercept $x_intercept --y-intercept $y_intercept --z-intercept $z_intercept --emcut $emcut --photoncut $photoncut --mucut $mucut --hadcut $hadcut --emthin $thinning`
+    end 
+    run(corsika_exec);
+
 struct CorsikaEvent
   pdg::Int
   kinetic_energy::Number
@@ -203,7 +248,7 @@ function check_intersections(event, plane, geo; verbose=false)
     return true 
 end
 
-function check_passed_through_rock(event::ProposalResult, plane, geo; thresh=4units.km)
+function check_passed_through_rock(event::ProposalResult, plane, geo; verbose=false, thresh=4units.km)
     track = Tambo.Track(
         event.continuous_losses.position,
         reverse(event.propped_state.direction),

@@ -79,6 +79,14 @@ include("detector_responses.jl")
         "$(@__DIR__)/../..//resources/proposal_tables/"
     )
 
+    parallelize::Bool = true 
+    thinning::Float64 = 1e-6 
+    hadron_ecut::Float64 = 0.05units.GeV
+    em_ecut::Float64 = 0.01units.GeV
+    photon_ecut::Float64 = 0.002units.GeV
+    mu_ecut::Float64 = 0.05units.GeV 
+    shower_dir::String = "showers/"
+
     injected_events::Vector{InjectionEvent} = InjectionEvent[]
     proposal_events::Vector{ProposalResult} = ProposalResult[]
 end
@@ -167,7 +175,18 @@ function Base.show(io::IO, s::SimulationConfig)
         vcut: $(s.vcut)
         do_interpolate: $(s.do_interpolate)
         do_continuous: $(s.do_continuous)
-        tablespath: $(s.tablespath)"""
+        tablespath: $(s.tablespath)
+
+        CORSIKA configuration 
+        _____________________
+        thinning: $(s.thinning)
+        hadron_ecut: $(s.hadron_ecut/ units.GeV) GeV
+        muon_ecut: $(s.muon_ecut/ units.GeV) GeV
+        em_ecut: $(s.em_ecut/ units.GeV) GeV
+        photon_ecut: $(s.photon_ecut/ units.GeV) GeV
+        parallelize: $(s.parallelize)
+        shower_dir: $(s.shower_dir)
+        """
     )
 end
 
@@ -175,7 +194,7 @@ function Base.getindex(s::SimulationConfig, fieldstring::String)
     getfield(s, Symbol(fieldstring))
 end
 
-function (s::SimulationConfig)(; track_progress=true)
+function (s::SimulationConfig)(; track_progress=true, should_run_corsika=false)
     seed!(s.seed)
     if track_progress
         println("Making geometry")
@@ -201,6 +220,17 @@ function (s::SimulationConfig)(; track_progress=true)
         geo,
         track_progress=track_progress
     )
+    if should_run_corsika
+        if track_progress
+            println("Running CORSIKA showers")
+        end
+        corsika_config = CORSIKAConfig(s)
+        corsika_propagator = CORSIKAPropagator(corsika_config)
+        s.corsika_showers = corsika_propagator(
+            s.proposal_events, 
+            track_progress = track_prograss
+        )
+    end
 
 end
 
