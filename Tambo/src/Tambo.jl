@@ -79,6 +79,7 @@ include("detector_responses.jl")
         "$(@__DIR__)/../..//resources/proposal_tables/"
     )
 
+    # CORSIKA configuration 
     parallelize::Bool = true 
     thinning::Float64 = 1e-6 
     hadron_ecut::Float64 = 0.05units.GeV
@@ -119,6 +120,14 @@ function ProposalConfig(s::SimulationConfig)
         for fn in intersect(fieldnames(SimulationConfig), fieldnames(ProposalConfig))
     )
     return ProposalConfig(; propdict...)
+end
+
+function CORSIKAConfig(s::SimulationConfig)
+    propdict = Dict(
+        fn => getfield(s, fn) 
+        for fn in intersect(fieldnames(SimulationConfig), fieldnames(CORSIKAConfig))
+    )
+    return CORSIKAConfig(; propdict...)
 end
 
 function InjectionConfig(config::SimulationConfig)

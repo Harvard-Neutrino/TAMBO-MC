@@ -198,7 +198,7 @@ end
 
 function check_z_intercept(event, plane, geo; verbose=false)
     """
-    point[3] = z-intercept of particle and TAMBO plane.If the elevation in TAMBO coords is greater than 10km, cut. 
+    point[3] = z-intercept of particle and TAMBO plane. If the elevation in TAMBO coords is greater than 10km, cut. 
     """
     decay_pos = event.propped_state.position
     propped_dir = event.propped_state.direction
