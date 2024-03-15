@@ -203,7 +203,7 @@ function check_intersections(event, plane, geo; verbose=false)
     return true 
 end
 
-function check_passed_through_rock(event::ProposalResult, plane, geo; thresh=4units.km)
+function check_passed_through_rock(event::ProposalResult, plane, geo; verbose=false, thresh=4units.km)
     track = Tambo.Track(
         event.continuous_losses.position,
         reverse(event.propped_state.direction),
