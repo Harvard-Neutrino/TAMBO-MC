@@ -190,7 +190,7 @@ function Base.show(io::IO, s::SimulationConfig)
         _____________________
         thinning: $(s.thinning)
         hadron_ecut: $(s.hadron_ecut/ units.GeV) GeV
-        muon_ecut: $(s.muon_ecut/ units.GeV) GeV
+        mu_ecut: $(s.mu_ecut/ units.GeV) GeV
         em_ecut: $(s.em_ecut/ units.GeV) GeV
         photon_ecut: $(s.photon_ecut/ units.GeV) GeV
         parallelize: $(s.parallelize)
@@ -234,11 +234,12 @@ function (s::SimulationConfig)(; track_progress=true, should_run_corsika=false)
             println("Running CORSIKA showers")
         end
         corsika_config = CORSIKAConfig(s)
-        corsika_propagator = CORSIKAPropagator(corsika_config)
-        s.corsika_showers = corsika_propagator(
-            s.proposal_events, 
-            track_progress = track_prograss
-        )
+        println(corsika_config)
+        # corsika_propagator = CORSIKAPropagator(corsika_config)
+        # s.corsika_showers = corsika_propagator(
+        #     s.proposal_events, 
+        #     track_progress = track_prograss
+        # )
     end
 
 end

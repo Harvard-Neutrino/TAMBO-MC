@@ -6,32 +6,97 @@ Base.@kwdef mutable struct CORSIKAConfig
     photon_ecut::Float64 = 0.002units.GeV
     mu_ecut::Float64 = 0.05units.GeV 
     shower_dir::String = "showers/"
+    proposal_events::Vector{ProposalResult} = [] 
 end
 
-function corsika_inject_event(injector::Injector)
-    event = inject_event(
-    )
-    return event
-end
+struct CORSIKAPropagator
+    config::CORSIKAConfig 
+    geo::Geometry 
+end 
+
+function (propagator::CORSIKAPropagator)(; track_progress=true)
+    n = length(propagator.config.proposal_events)
+    proposal_events = propagator.config.proposal_events
+    iter = 1:n 
+    if track_progress 
+        iter = ProgressBar(iter) 
+    end 
+
+    return [corsika_run(proposal_event,propagator) for proposal_event in proposal_events]
+
+
+# function corsika_inject_event(injector::Injector)
+#     return event
+# end
+
+# function (injector::Injector)(; track_progress=true)
+#     seed!(injector.config.seed)
+#     iter = 1:injector.config.n
+#     if track_progress
+#         iter = ProgressBar(iter)
+#     end
+#     return [corsika_inject_event(injector) for _ in iter]
+# end
+
+# function corsika_parallel()
+#     if parallelize 
+#         parallelize_corsika_exec = `sbatch $sbatch_submission`
+#     else 
+
+#     return 
+# end 
+
+function corsika_run(proposal_event::ProposalResult,propagator::CORSIKAPropagator)
+    geo = propagator.geo
+    thinning = propagator.config.thinning
+    ecuts = propagator.config.ecuts 
+    outdir = propagator.config.outdir 
+    return corsika_run(proposal_event::ProposalResult)
+
+function corsika_run(proposal_event::ProposalResult,geo::Geometry,thinning::Float64,ecuts,outdir::String)
+    decay_state = proposal_event["decay_products"]
+    pdg = decay_state.pdg_mc
+    energy = decay_state.energy/units.GeV
+    corsika_map = CorsikaMap(decay_state,geo)
+    zenith = decay_state.direction.θ
+    azimuth = decay_state.direction.ϕ
+    corsika_map = CorsikaMap(decay_state,geo)
+    obs_z = corsika_map(plane.x0)[3] / units.km
+
+    distance, point, dot = intersect(decay_state.position,decay_state.direction,plane)
+    distance = distance/units.km
+    intercept_pos = point/units.km 
+    inject_pos = decay_state.position/units.km 
+
+    return corsika_run(
+        pdg,
+        energy,
+        zenith,
+        azimuth,
+        inject_pos,
+        intercept_pos,
+        plane.n̂.proj,
+        obs_z, 
+        thinning,
+        ecuts,
+        outdir
+        )
+end 
+
 
 function corsika_run(
-    parallelize::Bool,
     pdg::Int64,
     energy::Float64,
     zenith::Float64, 
     azimuth::Float64, 
     inject_pos::Vector{Float64},
-    intercept_pos::Vector{Float64},
-    outdir::String, 
+    intercept_pos::Vector{Float64}, 
     plane::Vector{Float64}, 
+    obs_z::Float64, 
     thinning::Float64, 
-    ecuts::Vector{Float64}
+    ecuts::Vector{Float64},
+    outdir::String
     )
-
-    if parallelize 
-        parallelize_corsika_exec = `sbatch $sbatch_submission`
-    else 
-
     rawinject_x,rawinject_y,rawinject_z = inject_pos
     x_intercept,y_intercept,z_intercept = intercept_pos 
     xdir,ydir,zdir = plane 
@@ -40,8 +105,8 @@ function corsika_run(
     emcut,photoncut,mucut,hadcut = ecuts/units.GeV 
     
     corsika_exec = `singularity exec ../corsika-env.simg ./corsika --pdg $pdg --energy $energy --zenith $zenith --azimuth $azimuth --xpos $rawinject_x --ypos $rawinject_y --zpos $rawinject_z -f $outdir/showers/ --xdir $xdir --ydir $ydir --zdir $zdir --observation-height $obs_z --force-interaction --x-intercept $x_intercept --y-intercept $y_intercept --z-intercept $z_intercept --emcut $emcut --photoncut $photoncut --mucut $mucut --hadcut $hadcut --emthin $thinning`
-    end 
     run(corsika_exec);
+end 
 
 struct CorsikaEvent
   pdg::Int
