@@ -187,7 +187,6 @@ function (s::SimulationConfig)(; track_progress=true)
     if track_progress
         println("Injecting events")
     end
-
     injection_config = InjectionConfig(s)
     injector = Injector(injection_config, geo)
     s.injected_events = injector(track_progress=track_progress)
