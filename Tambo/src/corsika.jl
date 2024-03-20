@@ -26,6 +26,7 @@ function (propagator::CORSIKAPropagator)(; track_progress=true)
 
     for proposal_event in proposal_events 
         if should_do_corsika(proposal_event,plane,geo)
+            println("Does pass CORSIKA")
             corsika_run(proposal_event,propagator)
         else 
             println("Doesn't pass CORSIKA cuts")
@@ -55,6 +56,30 @@ function (propagator::CORSIKAPropagator)(; track_progress=true)
 
 #     return 
 # end 
+
+function corsika_run(
+    pdg::Int64,
+    energy::Float64,
+    zenith::Float64, 
+    azimuth::Float64, 
+    inject_pos::Vector{Float64},
+    intercept_pos::Vector{Float64}, 
+    plane::Vector{Float64}, 
+    obs_z::Float64, 
+    thinning::Float64, 
+    ecuts::Vector{Float64},
+    outdir::String
+    )
+    rawinject_x,rawinject_y,rawinject_z = inject_pos
+    x_intercept,y_intercept,z_intercept = intercept_pos 
+    xdir,ydir,zdir = plane 
+    
+    #convert to CORSIKA internal units of GeV
+    emcut,photoncut,mucut,hadcut = ecuts/units.GeV 
+    
+    corsika_exec = `singularity exec ../../../corsika8/corsika-env.simg ../../../corsika8/corsika-work/corsika --pdg $pdg --energy $energy --zenith $zenith --azimuth $azimuth --xpos $rawinject_x --ypos $rawinject_y --zpos $rawinject_z -f $outdir/showers/ --xdir $xdir --ydir $ydir --zdir $zdir --observation-height $obs_z --force-interaction --x-intercept $x_intercept --y-intercept $y_intercept --z-intercept $z_intercept --emcut $emcut --photoncut $photoncut --mucut $mucut --hadcut $hadcut --emthin $thinning`
+    run(corsika_exec);
+end 
 
 function corsika_run(proposal_event::ProposalResult,propagator::CORSIKAPropagator)
     geo = propagator.geo
@@ -94,31 +119,6 @@ function corsika_run(proposal_event::ProposalResult,geo::Geometry,thinning::Floa
         ecuts,
         outdir
         )
-end 
-
-
-function corsika_run(
-    pdg::Int64,
-    energy::Float64,
-    zenith::Float64, 
-    azimuth::Float64, 
-    inject_pos::Vector{Float64},
-    intercept_pos::Vector{Float64}, 
-    plane::Vector{Float64}, 
-    obs_z::Float64, 
-    thinning::Float64, 
-    ecuts::Vector{Float64},
-    outdir::String
-    )
-    rawinject_x,rawinject_y,rawinject_z = inject_pos
-    x_intercept,y_intercept,z_intercept = intercept_pos 
-    xdir,ydir,zdir = plane 
-    
-    #convert to CORSIKA internal units of GeV
-    emcut,photoncut,mucut,hadcut = ecuts/units.GeV 
-    
-    corsika_exec = `singularity exec ../../../corsika8/corsika-env.simg ../../../corsika8/corsika-work/corsika --pdg $pdg --energy $energy --zenith $zenith --azimuth $azimuth --xpos $rawinject_x --ypos $rawinject_y --zpos $rawinject_z -f $outdir/showers/ --xdir $xdir --ydir $ydir --zdir $zdir --observation-height $obs_z --force-interaction --x-intercept $x_intercept --y-intercept $y_intercept --z-intercept $z_intercept --emcut $emcut --photoncut $photoncut --mucut $mucut --hadcut $hadcut --emthin $thinning`
-    run(corsika_exec);
 end 
 
 struct CorsikaEvent
