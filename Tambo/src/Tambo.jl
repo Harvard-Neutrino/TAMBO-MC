@@ -234,8 +234,8 @@ function (s::SimulationConfig)(; track_progress=true, should_run_corsika=false)
             println("Running CORSIKA showers")
         end
         corsika_config = CORSIKAConfig(s)
-        println(corsika_config)
-        # corsika_propagator = CORSIKAPropagator(corsika_config)
+        corsika_propagator = CORSIKAPropagator(corsika_config,geo)
+        corsika_propagator()
         # s.corsika_showers = corsika_propagator(
         #     s.proposal_events, 
         #     track_progress = track_prograss

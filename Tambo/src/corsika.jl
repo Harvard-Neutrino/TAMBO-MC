@@ -24,7 +24,15 @@ function (propagator::CORSIKAPropagator)(; track_progress=true)
     geo = propagator.geo 
     plane = Tambo.Plane(whitepaper_normal_vec, whitepaper_coord, geo)
 
-    return [corsika_run(proposal_event,propagator) if should_do_corsika(proposal_event,plane,geo) for proposal_event in proposal_events]
+    for proposal_event in proposal_events 
+        if should_do_corsika(proposal_event,plane,geo)
+            corsika_run(proposal_event,propagator)
+        else 
+            println("Doesn't pass CORSIKA cuts")
+        end 
+    end
+    end
+   
 
 
 # function corsika_inject_event(injector::Injector)
@@ -51,9 +59,10 @@ function (propagator::CORSIKAPropagator)(; track_progress=true)
 function corsika_run(proposal_event::ProposalResult,propagator::CORSIKAPropagator)
     geo = propagator.geo
     thinning = propagator.config.thinning
-    ecuts = propagator.config.ecuts 
+    ecuts = [propagator.config.em_ecut,propagator.config.photon_ecut,propagator.config.mu_ecut,propagator.config.hadron_ecut]
     outdir = propagator.config.outdir 
     return corsika_run(proposal_event::ProposalResult,geo,thinning,ecuts,outdir)
+end
 
 function corsika_run(proposal_event::ProposalResult,geo::Geometry,thinning::Float64,ecuts,outdir::String)
     decay_state = proposal_event["decay_products"]
@@ -108,8 +117,8 @@ function corsika_run(
     #convert to CORSIKA internal units of GeV
     emcut,photoncut,mucut,hadcut = ecuts/units.GeV 
     
-    #corsika_exec = `singularity exec ../corsika-env.simg ./corsika --pdg $pdg --energy $energy --zenith $zenith --azimuth $azimuth --xpos $rawinject_x --ypos $rawinject_y --zpos $rawinject_z -f $outdir/showers/ --xdir $xdir --ydir $ydir --zdir $zdir --observation-height $obs_z --force-interaction --x-intercept $x_intercept --y-intercept $y_intercept --z-intercept $z_intercept --emcut $emcut --photoncut $photoncut --mucut $mucut --hadcut $hadcut --emthin $thinning`
-    #run(corsika_exec);
+    corsika_exec = `singularity exec ../../../corsika8/corsika-env.simg ../../../corsika8/corsika-work/corsika --pdg $pdg --energy $energy --zenith $zenith --azimuth $azimuth --xpos $rawinject_x --ypos $rawinject_y --zpos $rawinject_z -f $outdir/showers/ --xdir $xdir --ydir $ydir --zdir $zdir --observation-height $obs_z --force-interaction --x-intercept $x_intercept --y-intercept $y_intercept --z-intercept $z_intercept --emcut $emcut --photoncut $photoncut --mucut $mucut --hadcut $hadcut --emthin $thinning`
+    run(corsika_exec);
 end 
 
 struct CorsikaEvent
