@@ -237,7 +237,7 @@ function (s::SimulationConfig)(; track_progress=true, should_run_corsika=false)
         end
         corsika_config = CORSIKAConfig(s)
         corsika_propagator = CORSIKAPropagator(corsika_config,geo)
-        s.corsika_events = corsika_propagator(
+        s.corsika_indices = corsika_propagator(
             track_progress=track_progress
         )
     end

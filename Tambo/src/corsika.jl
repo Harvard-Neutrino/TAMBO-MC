@@ -21,19 +21,19 @@ function (propagator::CORSIKAPropagator)(; track_progress=true)
     if track_progress 
         iter = ProgressBar(iter) 
     end 
+
     geo = propagator.geo 
     plane = Tambo.Plane(whitepaper_normal_vec, whitepaper_coord, geo)
-    println(plane)
+
     for (proposal_idx,proposal_event) in enumerate(proposal_events)
+        update(iter)
         if should_do_corsika(proposal_event,plane,geo)
-            println("Does pass CORSIKA")
             for (decay_idx,decay_event) in enumerate(proposal_event.decay_products)
-                corsika_run(decay_event,propagator)
-        else 
-            println("")
-        end 
+                corsika_run(decay_event,propagator,proposal_idx,decay_idx)
+            end
+        end
     end
-    end
+end 
    
 
 
@@ -63,13 +63,15 @@ function corsika_run(
     energy::Float64,
     zenith::Float64, 
     azimuth::Float64, 
-    inject_pos::Vector{Float64},
-    intercept_pos::Vector{Float64}, 
-    plane::Vector{Float64}, 
+    inject_pos::SVector{3},
+    intercept_pos::SVector{3}, 
+    plane::SVector{3}, 
     obs_z::Float64, 
     thinning::Float64, 
-    ecuts::Vector{Float64},
-    outdir::String
+    ecuts::SVector{4},
+    outdir::String,
+    proposal_index::Int64,
+    decay_index::Int64
     )
     rawinject_x,rawinject_y,rawinject_z = inject_pos
     x_intercept,y_intercept,z_intercept = intercept_pos 
@@ -77,38 +79,34 @@ function corsika_run(
     
     #convert to CORSIKA internal units of GeV
     emcut,photoncut,mucut,hadcut = ecuts/units.GeV 
-    println("corsika_run 3")
-    
-    corsika_exec = `singularity exec ../../../corsika8/corsika-env.simg ../../../corsika8/corsika-work/corsika --pdg $pdg --energy $energy --zenith $zenith --azimuth $azimuth --xpos $rawinject_x --ypos $rawinject_y --zpos $rawinject_z -f $outdir --xdir $xdir --ydir $ydir --zdir $zdir --observation-height $obs_z --force-interaction --x-intercept $x_intercept --y-intercept $y_intercept --z-intercept $z_intercept --emcut $emcut --photoncut $photoncut --mucut $mucut --hadcut $hadcut --emthin $thinning`
+    total_index = string(proposal_index) *"_"* string(decay_index)
+    corsika_exec = `singularity exec ../../corsika8/corsika-env.simg ../../corsika8/corsika-work/corsika --pdg $pdg --energy $energy --zenith $zenith --azimuth $azimuth --xpos $rawinject_x --ypos $rawinject_y --zpos $rawinject_z -f $outdir/shower_$total_index --xdir $xdir --ydir $ydir --zdir $zdir --observation-height $obs_z --force-interaction --x-intercept $x_intercept --y-intercept $y_intercept --z-intercept $z_intercept --emcut $emcut --photoncut $photoncut --mucut $mucut --hadcut $hadcut --emthin $thinning`
     run(corsika_exec);
 end 
 
-function corsika_run(decay_event::ProposalResult,propagator::CORSIKAPropagator)
+function corsika_run(decay_event::Particle,propagator::CORSIKAPropagator,proposal_idx::Int64,decay_idx::Int64)
     geo = propagator.geo
     thinning = propagator.config.thinning
-    ecuts = [propagator.config.em_ecut,propagator.config.photon_ecut,propagator.config.mu_ecut,propagator.config.hadron_ecut]
+    ecuts = SVector{4}([propagator.config.em_ecut,propagator.config.photon_ecut,propagator.config.mu_ecut,propagator.config.hadron_ecut])
     outdir = propagator.config.shower_dir 
-    return corsika_run(decay_event::ProposalResult,geo,thinning,ecuts,outdir)
+    return corsika_run(decay_event::Particle,geo,thinning,ecuts,outdir,proposal_idx::Int64,decay_idx::Int64)
 end
 
-function corsika_run(decay_event::ProposalResult,geo::Geometry,thinning::Float64,ecuts,outdir::String)
-    #println(proposal_event)
-    println(proposal_event.decay_products)
-    decay_state = proposal_event.decay_products
+function corsika_run(decay_event::Particle,geo::Geometry,thinning::Float64,ecuts,outdir::String,proposal_idx::Int64,decay_idx::Int64)
     plane = Plane(whitepaper_normal_vec, whitepaper_coord, geo)
 
-    pdg = decay_state.pdg_mc
-    energy = decay_state.energy/units.GeV
-    corsika_map = CorsikaMap(decay_state,geo)
-    zenith = decay_state.direction.θ
-    azimuth = decay_state.direction.ϕ
-    corsika_map = CorsikaMap(decay_state,geo)
+    pdg = decay_event.pdg_mc
+    energy = decay_event.energy/units.GeV
+    corsika_map = CorsikaMap(decay_event,geo)
+    zenith = decay_event.direction.θ
+    azimuth = decay_event.direction.ϕ
+    corsika_map = CorsikaMap(decay_event,geo)
     obs_z = corsika_map(plane.x0)[3] / units.km
 
-    distance, point, dot = intersect(decay_state.position,decay_state.direction,plane)
+    distance, point, dot = intersect(decay_event.position,decay_event.direction,plane)
     distance = distance/units.km
     intercept_pos = point/units.km 
-    inject_pos = decay_state.position/units.km 
+    inject_pos = decay_event.position/units.km 
 
     return corsika_run(
         pdg,
@@ -121,7 +119,9 @@ function corsika_run(decay_event::ProposalResult,geo::Geometry,thinning::Float64
         obs_z, 
         thinning,
         ecuts,
-        outdir
+        outdir,
+        proposal_idx,
+        decay_idx
         )
 end 
 
