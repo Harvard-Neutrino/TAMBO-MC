@@ -76,6 +76,7 @@ function corsika_run(
     
     #convert to CORSIKA internal units of GeV
     emcut,photoncut,mucut,hadcut = ecuts/units.GeV 
+    println("corsika_run 3")
     
     corsika_exec = `singularity exec ../../../corsika8/corsika-env.simg ../../../corsika8/corsika-work/corsika --pdg $pdg --energy $energy --zenith $zenith --azimuth $azimuth --xpos $rawinject_x --ypos $rawinject_y --zpos $rawinject_z -f $outdir/showers/ --xdir $xdir --ydir $ydir --zdir $zdir --observation-height $obs_z --force-interaction --x-intercept $x_intercept --y-intercept $y_intercept --z-intercept $z_intercept --emcut $emcut --photoncut $photoncut --mucut $mucut --hadcut $hadcut --emthin $thinning`
     run(corsika_exec);
@@ -86,10 +87,12 @@ function corsika_run(proposal_event::ProposalResult,propagator::CORSIKAPropagato
     thinning = propagator.config.thinning
     ecuts = [propagator.config.em_ecut,propagator.config.photon_ecut,propagator.config.mu_ecut,propagator.config.hadron_ecut]
     outdir = propagator.config.outdir 
+    println("corsika_run 1")
     return corsika_run(proposal_event::ProposalResult,geo,thinning,ecuts,outdir)
 end
 
 function corsika_run(proposal_event::ProposalResult,geo::Geometry,thinning::Float64,ecuts,outdir::String)
+    println("corsika_run 2")
     decay_state = proposal_event["decay_products"]
     plane = Plane(whitepaper_normal_vec, whitepaper_coord, geo)
 
