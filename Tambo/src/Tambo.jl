@@ -90,6 +90,7 @@ include("detector_responses.jl")
 
     injected_events::Vector{InjectionEvent} = InjectionEvent[]
     proposal_events::Vector{ProposalResult} = ProposalResult[]
+    corsika_indices::Vector{Int64} = []
 end
 
 function SimulationConfig(fname::String)
@@ -98,6 +99,7 @@ function SimulationConfig(fname::String)
         s = SimulationConfig(; f["config"]...)
         s.injected_events = f["injected_events"]
         s.proposal_events = f["proposal_events"]
+        s.corsika_indices = f["corsika_indices"]
     end
     return s
 end
@@ -235,19 +237,18 @@ function (s::SimulationConfig)(; track_progress=true, should_run_corsika=false)
         end
         corsika_config = CORSIKAConfig(s)
         corsika_propagator = CORSIKAPropagator(corsika_config,geo)
-        corsika_propagator()
-        # s.corsika_showers = corsika_propagator(
-        #     s.proposal_events, 
-        #     track_progress = track_prograss
-        # )
+        s.corsika_events = corsika_propagator(
+            track_progress=track_progress
+        )
     end
 
 end
 
 function dump_to_file(s::SimulationConfig, f::JLDFile)
-    resultfields = [:injected_events, :proposal_events]
+    resultfields = [:injected_events, :proposal_events, :corsika_indices]
     f["injected_events"] = s.injected_events
     f["proposal_events"] = s.proposal_events
+    f["corsika_indices"] = s.corsika_indices
     f["config"] = Dict(
         Dict(
             fn => getfield(s, fn) for fn in fieldnames(SimulationConfig)

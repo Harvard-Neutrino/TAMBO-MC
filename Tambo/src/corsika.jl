@@ -5,7 +5,7 @@ Base.@kwdef mutable struct CORSIKAConfig
     em_ecut::Float64 = 0.01units.GeV
     photon_ecut::Float64 = 0.002units.GeV
     mu_ecut::Float64 = 0.05units.GeV 
-    shower_dir::String = "showers/"
+    shower_dir::String = "showers"
     proposal_events::Vector{ProposalResult} = [] 
 end
 
@@ -23,13 +23,14 @@ function (propagator::CORSIKAPropagator)(; track_progress=true)
     end 
     geo = propagator.geo 
     plane = Tambo.Plane(whitepaper_normal_vec, whitepaper_coord, geo)
-
-    for proposal_event in proposal_events 
+    println(plane)
+    for (proposal_idx,proposal_event) in enumerate(proposal_events)
         if should_do_corsika(proposal_event,plane,geo)
             println("Does pass CORSIKA")
-            corsika_run(proposal_event,propagator)
+            for (decay_idx,decay_event) in enumerate(proposal_event.decay_products)
+                corsika_run(decay_event,propagator)
         else 
-            println("Doesn't pass CORSIKA cuts")
+            println("")
         end 
     end
     end
@@ -78,22 +79,22 @@ function corsika_run(
     emcut,photoncut,mucut,hadcut = ecuts/units.GeV 
     println("corsika_run 3")
     
-    corsika_exec = `singularity exec ../../../corsika8/corsika-env.simg ../../../corsika8/corsika-work/corsika --pdg $pdg --energy $energy --zenith $zenith --azimuth $azimuth --xpos $rawinject_x --ypos $rawinject_y --zpos $rawinject_z -f $outdir/showers/ --xdir $xdir --ydir $ydir --zdir $zdir --observation-height $obs_z --force-interaction --x-intercept $x_intercept --y-intercept $y_intercept --z-intercept $z_intercept --emcut $emcut --photoncut $photoncut --mucut $mucut --hadcut $hadcut --emthin $thinning`
+    corsika_exec = `singularity exec ../../../corsika8/corsika-env.simg ../../../corsika8/corsika-work/corsika --pdg $pdg --energy $energy --zenith $zenith --azimuth $azimuth --xpos $rawinject_x --ypos $rawinject_y --zpos $rawinject_z -f $outdir --xdir $xdir --ydir $ydir --zdir $zdir --observation-height $obs_z --force-interaction --x-intercept $x_intercept --y-intercept $y_intercept --z-intercept $z_intercept --emcut $emcut --photoncut $photoncut --mucut $mucut --hadcut $hadcut --emthin $thinning`
     run(corsika_exec);
 end 
 
-function corsika_run(proposal_event::ProposalResult,propagator::CORSIKAPropagator)
+function corsika_run(decay_event::ProposalResult,propagator::CORSIKAPropagator)
     geo = propagator.geo
     thinning = propagator.config.thinning
     ecuts = [propagator.config.em_ecut,propagator.config.photon_ecut,propagator.config.mu_ecut,propagator.config.hadron_ecut]
-    outdir = propagator.config.outdir 
-    println("corsika_run 1")
-    return corsika_run(proposal_event::ProposalResult,geo,thinning,ecuts,outdir)
+    outdir = propagator.config.shower_dir 
+    return corsika_run(decay_event::ProposalResult,geo,thinning,ecuts,outdir)
 end
 
-function corsika_run(proposal_event::ProposalResult,geo::Geometry,thinning::Float64,ecuts,outdir::String)
-    println("corsika_run 2")
-    decay_state = proposal_event["decay_products"]
+function corsika_run(decay_event::ProposalResult,geo::Geometry,thinning::Float64,ecuts,outdir::String)
+    #println(proposal_event)
+    println(proposal_event.decay_products)
+    decay_state = proposal_event.decay_products
     plane = Plane(whitepaper_normal_vec, whitepaper_coord, geo)
 
     pdg = decay_state.pdg_mc
