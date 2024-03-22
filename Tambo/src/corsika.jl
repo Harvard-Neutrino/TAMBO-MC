@@ -1,11 +1,13 @@
 Base.@kwdef mutable struct CORSIKAConfig
-    parallelize::Bool = true 
+    parallelize_corsika::Bool = false
     thinning::Float64 = 1e-6 
     hadron_ecut::Float64 = 0.05units.GeV
     em_ecut::Float64 = 0.01units.GeV
     photon_ecut::Float64 = 0.002units.GeV
     mu_ecut::Float64 = 0.05units.GeV 
     shower_dir::String = "showers"
+    singularity_path::String = " ../../corsika8/corsika-env.simg"
+    corsika_path::String = "../../corsika8/corsika-work/corsika"
     proposal_events::Vector{ProposalResult} = [] 
 end
 
@@ -24,15 +26,26 @@ function (propagator::CORSIKAPropagator)(; track_progress=true)
 
     geo = propagator.geo 
     plane = Tambo.Plane(whitepaper_normal_vec, whitepaper_coord, geo)
-
+    indices = []
     for (proposal_idx,proposal_event) in enumerate(proposal_events)
         update(iter)
         if should_do_corsika(proposal_event,plane,geo)
             for (decay_idx,decay_event) in enumerate(proposal_event.decay_products)
+                if propagator.config.parallelize_corsika == false 
                 corsika_run(decay_event,propagator,proposal_idx,decay_idx)
+                end 
+                push!(indices,[proposal_idx,decay_idx]) 
             end
         end
     end
+
+    if propagator.config.parallelize_corsika == true 
+        if track_progress 
+            n = length(indices)
+            println("Running CORSIKA in parallel for $n showers")
+        end 
+        corsika_parallel(proposal_events,propagator,indices)
+    return indices 
 end 
    
 
@@ -50,13 +63,10 @@ end
 #     return [corsika_inject_event(injector) for _ in iter]
 # end
 
-# function corsika_parallel()
-#     if parallelize 
-#         parallelize_corsika_exec = `sbatch $sbatch_submission`
-#     else 
-
-#     return 
-# end 
+function corsika_parallel(sbatch_dir::String)
+    parallelize_corsika_exec = `sbatch $sbatch_dir`
+    run(corsika_exec);
+end 
 
 function corsika_run(
     pdg::Int64,
@@ -69,6 +79,8 @@ function corsika_run(
     obs_z::Float64, 
     thinning::Float64, 
     ecuts::SVector{4},
+    singularity_path::String,
+    corsika_path::String,
     outdir::String,
     proposal_index::Int64,
     decay_index::Int64
@@ -80,8 +92,8 @@ function corsika_run(
     #convert to CORSIKA internal units of GeV
     emcut,photoncut,mucut,hadcut = ecuts/units.GeV 
     total_index = string(proposal_index) *"_"* string(decay_index)
-    corsika_exec = `singularity exec ../../corsika8/corsika-env.simg ../../corsika8/corsika-work/corsika --pdg $pdg --energy $energy --zenith $zenith --azimuth $azimuth --xpos $rawinject_x --ypos $rawinject_y --zpos $rawinject_z -f $outdir/shower_$total_index --xdir $xdir --ydir $ydir --zdir $zdir --observation-height $obs_z --force-interaction --x-intercept $x_intercept --y-intercept $y_intercept --z-intercept $z_intercept --emcut $emcut --photoncut $photoncut --mucut $mucut --hadcut $hadcut --emthin $thinning`
-    run(corsika_exec);
+    #corsika_exec = `singularity exec $singularity_path $corsika_path --pdg $pdg --energy $energy --zenith $zenith --azimuth $azimuth --xpos $rawinject_x --ypos $rawinject_y --zpos $rawinject_z -f $outdir/shower_$total_index --xdir $xdir --ydir $ydir --zdir $zdir --observation-height $obs_z --force-interaction --x-intercept $x_intercept --y-intercept $y_intercept --z-intercept $z_intercept --emcut $emcut --photoncut $photoncut --mucut $mucut --hadcut $hadcut --emthin $thinning`
+    #run(corsika_exec);
 end 
 
 function corsika_run(decay_event::Particle,propagator::CORSIKAPropagator,proposal_idx::Int64,decay_idx::Int64)
@@ -89,10 +101,12 @@ function corsika_run(decay_event::Particle,propagator::CORSIKAPropagator,proposa
     thinning = propagator.config.thinning
     ecuts = SVector{4}([propagator.config.em_ecut,propagator.config.photon_ecut,propagator.config.mu_ecut,propagator.config.hadron_ecut])
     outdir = propagator.config.shower_dir 
-    return corsika_run(decay_event::Particle,geo,thinning,ecuts,outdir,proposal_idx::Int64,decay_idx::Int64)
+    singularity_path = propagator.config.singularity_path
+    corsika_path = propagator.config.corsika_path
+    return corsika_run(decay_event::Particle,geo,thinning,ecuts,singularity_path,corsika_path,outdir,proposal_idx::Int64,decay_idx::Int64)
 end
 
-function corsika_run(decay_event::Particle,geo::Geometry,thinning::Float64,ecuts,outdir::String,proposal_idx::Int64,decay_idx::Int64)
+function corsika_run(decay_event::Particle,geo::Geometry,thinning::Float64,ecuts,singularity_path::String,corsika_path::String,outdir::String,proposal_idx::Int64,decay_idx::Int64)
     plane = Plane(whitepaper_normal_vec, whitepaper_coord, geo)
 
     pdg = decay_event.pdg_mc
@@ -119,6 +133,8 @@ function corsika_run(decay_event::Particle,geo::Geometry,thinning::Float64,ecuts
         obs_z, 
         thinning,
         ecuts,
+        singularity_path,
+        corsika_path,
         outdir,
         proposal_idx,
         decay_idx

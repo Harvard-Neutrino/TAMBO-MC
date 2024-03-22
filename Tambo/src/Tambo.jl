@@ -80,17 +80,21 @@ include("detector_responses.jl")
     )
 
     # CORSIKA configuration 
-    parallelize::Bool = true 
+    parallelize_corsika::Bool = false 
+    batch_submit_corsika::Bool = true 
     thinning::Float64 = 1e-6 
     hadron_ecut::Float64 = 0.05units.GeV
     em_ecut::Float64 = 0.01units.GeV
     photon_ecut::Float64 = 0.002units.GeV
     mu_ecut::Float64 = 0.05units.GeV 
     shower_dir::String = "showers/"
+    singularity_path::String = " ../../corsika8/corsika-env.simg"
+    corsika_path::String = "../../corsika8/corsika-work/corsika"
+    sbatch_path::String = ""
 
     injected_events::Vector{InjectionEvent} = InjectionEvent[]
     proposal_events::Vector{ProposalResult} = ProposalResult[]
-    corsika_indices::Vector{Int64} = []
+    corsika_indices::Vector{Vector{Int64}} = []
 end
 
 function SimulationConfig(fname::String)
@@ -195,8 +199,11 @@ function Base.show(io::IO, s::SimulationConfig)
         mu_ecut: $(s.mu_ecut/ units.GeV) GeV
         em_ecut: $(s.em_ecut/ units.GeV) GeV
         photon_ecut: $(s.photon_ecut/ units.GeV) GeV
-        parallelize: $(s.parallelize)
+        parallelize_corsika: $(s.parallelize_corsika)
         shower_dir: $(s.shower_dir)
+        singularity_path: $(s.singularity_path)
+        corsika_path: $(s.corsika_path)
+        sbatch_path: $(s.sbatch_path)
         """
     )
 end
@@ -238,7 +245,7 @@ function (s::SimulationConfig)(; track_progress=true, should_run_corsika=false)
         corsika_config = CORSIKAConfig(s)
         corsika_propagator = CORSIKAPropagator(corsika_config,geo)
         s.corsika_indices = corsika_propagator(
-            track_progress=track_progress
+            track_progress=track_progress,
         )
     end
 
