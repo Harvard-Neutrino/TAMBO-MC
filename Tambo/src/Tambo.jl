@@ -88,9 +88,9 @@ include("detector_responses.jl")
     photon_ecut::Float64 = 0.002units.GeV
     mu_ecut::Float64 = 0.05units.GeV 
     shower_dir::String = "showers/"
-    singularity_path::String = " ../../corsika8/corsika-env.simg"
-    corsika_path::String = "../../corsika8/corsika-work/corsika"
-    sbatch_path::String = ""
+    singularity_path::String = "/n/holylfs05/LABS/arguelles_delgado_lab/Lab/common_software/source/corsika8/corsika-env.simg"
+    corsika_path::String = "/n/holylfs05/LABS/arguelles_delgado_lab/Lab/common_software/source/corsika8/corsika-work/corsika"
+    corsika_sbatch_path::String = "/n/holylfs05/LABS/arguelles_delgado_lab/Lab/common_software/source/TAMBO-MC/scripts/corsika_parallel.sbatch"
 
     injected_events::Vector{InjectionEvent} = InjectionEvent[]
     proposal_events::Vector{ProposalResult} = ProposalResult[]

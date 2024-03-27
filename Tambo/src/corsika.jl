@@ -8,6 +8,8 @@ Base.@kwdef mutable struct CORSIKAConfig
     shower_dir::String = "showers"
     singularity_path::String = "/n/holylfs05/LABS/arguelles_delgado_lab/Lab/common_software/source/corsika8/corsika-env.simg"
     corsika_path::String = "/n/holylfs05/LABS/arguelles_delgado_lab/Lab/common_software/source/corsika8/corsika-work/corsika"
+    corsika_sbatch_path::String = "/n/holylfs05/LABS/arguelles_delgado_lab/Lab/common_software/source/TAMBO-MC/scripts/corsika_parallel.sbatch"
+
     proposal_events::Vector{ProposalResult} = [] 
 end
 
@@ -76,6 +78,12 @@ end
 # end
 
 function corsika_parallel(proposal_events,propagator,indices)
+
+    if length(indices) > 10000
+        println("Slow down there partner...")
+        println("FASRC forbids more than 10k concurrent jobs!!")
+    end 
+
     for i in indices
         
         proposal_idx = i[1]
@@ -105,6 +113,7 @@ function corsika_run(
     ecuts::SVector{4},
     singularity_path::String,
     corsika_path::String,
+    corsika_sbatch_path::String,
     outdir::String,
     proposal_index::Int64,
     decay_index::Int64; 
@@ -117,12 +126,10 @@ function corsika_run(
     #convert to CORSIKA internal units of GeV
     emcut,photoncut,mucut,hadcut = ecuts/units.GeV 
     total_index = string(proposal_index) *"_"* string(decay_index)
-    output_files = "/n/holyscratch01/arguelles_delgado_lab/Everyone/pzhelnin/corsika_tambo/March20th_GraphNet/output/output_%A_%a.out"
-    error_files = "/n/holyscratch01/arguelles_delgado_lab/Everyone/pzhelnin/corsika_tambo/March20th_GraphNet/error/error_%A_%a.err"
-    
+
     if parallelize_corsika 
         corsika_parallel_exec = "singularity exec $singularity_path $corsika_path --pdg $pdg --energy $energy --zenith $zenith --azimuth $azimuth --xpos $rawinject_x --ypos $rawinject_y --zpos $rawinject_z -f $outdir/shower_$total_index --xdir $xdir --ydir $ydir --zdir $zdir --observation-height $obs_z --force-interaction --x-intercept $x_intercept --y-intercept $y_intercept --z-intercept $z_intercept --emcut $emcut --photoncut $photoncut --mucut $mucut --hadcut $hadcut --emthin $thinning"
-        run(`sbatch /n/holylfs05/LABS/arguelles_delgado_lab/Lab/common_software/source/TAMBO-MC/scripts/corsika_parallel.sbatch $corsika_parallel_exec`)
+        run(`sbatch $corsika_sbatch_path $corsika_parallel_exec`)
     else 
         corsika_exec = `singularity exec $singularity_path $corsika_path --pdg $pdg --energy $energy --zenith $zenith --azimuth $azimuth --xpos $rawinject_x --ypos $rawinject_y --zpos $rawinject_z -f $outdir/shower_$total_index --xdir $xdir --ydir $ydir --zdir $zdir --observation-height $obs_z --force-interaction --x-intercept $x_intercept --y-intercept $y_intercept --z-intercept $z_intercept --emcut $emcut --photoncut $photoncut --mucut $mucut --hadcut $hadcut --emthin $thinning`
         run(corsika_exec)
@@ -136,10 +143,11 @@ function corsika_run(decay_event::Particle,propagator::CORSIKAPropagator,proposa
     outdir = propagator.config.shower_dir 
     singularity_path = propagator.config.singularity_path
     corsika_path = propagator.config.corsika_path
-    return corsika_run(decay_event::Particle,geo,thinning,ecuts,singularity_path,corsika_path,outdir,proposal_idx::Int64,decay_idx::Int64; parallelize_corsika=parallelize_corsika)
+    corsika_sbatch_path = propagator.config.corsika_sbatch_path
+    return corsika_run(decay_event::Particle,geo,thinning,ecuts,singularity_path,corsika_path,corsika_sbatch_path,outdir,proposal_idx::Int64,decay_idx::Int64; parallelize_corsika=parallelize_corsika)
 end
 
-function corsika_run(decay_event::Particle,geo::Geometry,thinning::Float64,ecuts,singularity_path::String,corsika_path::String,outdir::String,proposal_idx::Int64,decay_idx::Int64; parallelize_corsika=parallelize_corsika)
+function corsika_run(decay_event::Particle,geo::Geometry,thinning::Float64,ecuts,singularity_path::String,corsika_path::String,corsika_sbatch_path::String,outdir::String,proposal_idx::Int64,decay_idx::Int64; parallelize_corsika=parallelize_corsika)
     plane = Plane(whitepaper_normal_vec, whitepaper_coord, geo)
 
     pdg = decay_event.pdg_mc
@@ -168,6 +176,7 @@ function corsika_run(decay_event::Particle,geo::Geometry,thinning::Float64,ecuts
         ecuts,
         singularity_path,
         corsika_path,
+        corsika_sbatch_path,
         outdir,
         proposal_idx,
         decay_idx;
