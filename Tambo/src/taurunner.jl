@@ -7,6 +7,7 @@ const xs = PyNULL()
 const chord = PyNULL()
 
 function tr_startup()
+
     copy!(tr, pyimport("taurunner"))
     x = x = tr.body.earth
     copy!(earth, x.construct_earth())

@@ -216,6 +216,7 @@ function (s::SimulationConfig)(; track_progress=true, should_run_corsika=false)
     seed!(s.seed)
     if track_progress
         println("Making geometry")
+        
     end
     geo = Geometry(
         s.geo_spline_path,
