@@ -43,10 +43,10 @@ include("geometries.jl")
 include("tracks.jl")
 include("inject.jl")
 include("proposal.jl")
-include("corsika.jl")
 include("weightings.jl")
 include("taurunner.jl")
-include("detector_responses.jl")
+include("detector.jl")
+include("corsika.jl")
 
 @Base.kwdef mutable struct SimulationConfig
     # General configuration
