@@ -101,6 +101,15 @@ function Plane(n̂::Direction, coord::Coord, geo::Geometry)
     return Plane(n̂.proj, x0)
 end
 
+function plane_z(x::Real, y::Real, plane::Plane)
+    z = (
+         -plane.n̂.proj.x * (x - plane.x0.x)
+         -plane.n̂.proj.y * (y - plane.x0.y)
+    )
+    z /= plane.n̂.proj.z
+    return z
+end
+
 function (geo::Geometry)(x, y)
     return valley_helper(x, y, geo.tambo_offset, geo.valley.spline)
 end
