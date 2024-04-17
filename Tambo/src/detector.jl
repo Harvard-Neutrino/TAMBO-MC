@@ -1,106 +1,72 @@
-struct DetectionModule
-  x::Float64
-  y::Float64
-  Δx::Float64
-  Δy::Float64
+struct SquareDetectionModule
+  pos::SVector{3, Float64}
+  rot::Rotation
+  extent::SVector{3, Float64}
   idx::Int
 end
 
 struct CircularDetectionModule
-  x::Float64
-  y::Float64
-  r::Float64
+  pos::SVector{3, Float64}
+  rot::Rotation
+  extent::SVector{2, Float64}
   idx::Int
 end
 
-# This is not really true... Fix this to include events and not just indices
-struct Hit
-  mod::DetectionModule
-  event::CorsikaEvent
+DetectionModule = Union{SquareDetectionModule, CircularDetectionModule}
+
+# TODO add option for bounding box
+function inside(pt::SVector{3}, m::Tambo.SquareDetectionModule)
+  offset = m.rot * (m.pos - pt)
+  return all(abs.(offset) .< m.extent / 2)
 end
 
-function make_trianglearray(x0, x1, y0, y1, ds::Float64; ϕ::Float64=0.0, radius=1.0*units.m)
+struct Detector
+end
+
+
+function make_triangle_grid(x0::Real, x1::Real, y0::Real, y1::Real, ds::Real)
   dy = ds * sqrt(3) / 2
   ys = y0:dy:y1
   dx = ds
   xs = x0:dx:x1
-  m = [cos(ϕ) -sin(ϕ) 0 ; sin(ϕ) cos(ϕ) 0; 0 0 1]
-  detection_modules = CircularDetectionModule[]
-  mod_idx = 1
+  gridpoints = SVector{3, Float64}[]
   for x in xs for (idx, y) in enumerate(ys)
     offset = ds / 2
     if idx %2==0
        offset = 0
     end
-    v = m * SVector{3}(x+offset, y, 0)
-    mod = CircularDetectionModule(v[1], v[2], radius, mod_idx)
-    #mod = DetectionModule(v[1], v[2], 1, 1, mod_idx)
-    push!(detection_modules, mod)
-    mod_idx += 1
+    v = SVector{3}(x+offset, y, 0)
+    push!(gridpoints, v)
   end end
-  return detection_modules
+  return gridpoints
 end
 
-function inside(mod::CircularDetectionModule, pos::SVector{3})
-    if abs(pos.x - mod.x) > mod.r
-        return false
+function make_detector_array(
+    center::Tambo.Coord,
+    length::Real,
+    ds::Real,
+    altmin::Real,
+    altmax::Real,
+    plane::Tambo.Plane,
+    geo::Geometry
+)
+
+    # Make a triangular grid in xy-plane
+    xys = Tambo.make_triangle_grid(-2units.km, 2units.km, -length/2, length/2, ds)
+    # Rotate it to align with the mountain plain
+    r = RotZ(plane.n̂.ϕ) * RotY(plane.n̂.θ)
+    RotY(-minesite_normal_vec.θ) * RotZ(-minesite_normal_vec.ϕ)
+    xyzs = [r * xy for xy in xys]
+    # Remove points that are too high in z
+    zmin = altmin - geo.tambo_offset[3]
+    zmax = altmax - geo.tambo_offset[3]
+    xyzs = filter(xyz -> zmin < xyz[3] && xyz[3] < zmax, xyzs)
+    # Make the module list
+    modules = SquareDetectionModule[]
+    rot = RotY(-plane.n̂.θ) * RotZ(-plane.n̂.ϕ) # This makes the
+    ext = SVector{3}([1.875, 0.8, 0.03])
+    for (idx, xyz) in enumerate(xyzs)
+        push!(modules, SquareDetectionModule(xyz, rot, ext, idx))
     end
-    if abs(pos.y - mod.y) > mod.r
-        return false
-    end
-    # TODO account for the slant of the plane
-    return (mod.x - pos.x) ^2 + (mod.y - pos.y) ^2 < mod.r^2
+    return modules
 end
-
-#function compute_minimum_distance(xy::SVector{2}, detmods::Vector{DetectionModule})
-#  Δxs = xy.x .- [x.x for x in detmods]
-#  Δys = xy.y .- [x.y for x in detmods]
-#  x = sqrt.(Δxs .^2 .+ Δys .^2)
-#  idx = argmin(x)
-#  return idx, x[idx]
-#end
-#
-#function compute_minimum_distance(event::CorsikaEvent, detmods::Vector{DetectionModule})
-#    xy = SVector{2}([event.x, event.y])
-#    return compute_minimum_distance(xy, detmods)
-#end
-
-function plane_z(x::Number, y::Number, plane::Plane)
-    z = (
-         -plane.n̂.proj.x * (x - plane.x0.x)
-         -plane.n̂.proj.y * (y - plane.x0.y)
-    )
-    z /= plane.n̂.proj.z
-    return z
-end
-#
-#function find_near_hits(
-#  events::Vector{CorsikaEvent},
-#  detmods::Vector{DetectionModule};
-#  thresh=1units.m
-#)
-#  hits = Hit[]
-#  for (jdx, event) in enumerate(events)
-#    module_idx, dist = compute_minimum_distance(event, detmods)
-#    if dist > thresh
-#      continue
-#    end
-#    push!(
-#      hits,
-#      Hit(detmods[module_idx], event)
-#    )
-#  end
-#  return hits
-#end
-#
-#function make_hit_dict(hits::Vector{Hit})
-#  d = Dict(hit.mod.idx => 0 for hit in hits)
-#  for hit in hits
-#    if hit.event.weight==1 # these events do not have thinning
-#      d[hit.mod.idx] += 1
-#    else # These do have thinning and thus we choose Poisson nunber
-#      d[hit.mod.idx] += rand(Poisson(hit.event.weight))
-#    end
-#  end
-#  return d
-#end
