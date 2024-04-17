@@ -1,3 +1,5 @@
+using Glob
+
 function get_event_numbers(basedir)
     sims = glob("particles_*_*.parquet", basedir)
     #sims = glob("sim_test_*_?", basedir)

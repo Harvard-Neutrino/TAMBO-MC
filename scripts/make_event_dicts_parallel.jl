@@ -13,8 +13,6 @@ const np = PyNULL()
 copy!(pq, pyimport("pyarrow.parquet"))
 copy!(np, pyimport("numpy"))
 
-const zmin = -1100units.m
-const zmax = 1100units.m
 const ycorsika = SVector{3}([0.89192975455881607, 0.18563051261662877, -0.41231374670066206])
 const xcorsika = SVector{3}([0, -0.91184756344828699, -0.41052895273466672])
 const zcorsika = whitepaper_normal_vec.proj
@@ -28,6 +26,9 @@ const config = SimulationConfig(; pavel_sim["config"]...)
 const injector = Tambo.Injector(config)
 const geo = Tambo.Geometry(config)
 const plane = Tambo.Plane(whitepaper_normal_vec, whitepaper_coord, geo)
+
+const altmin = 1.8925255158436627units.km
+const altmax = 4.092525515843662units.km
 
 include("utils.jl")
 
@@ -68,7 +69,7 @@ end
 
 function add_hits!(d::Dict, events, modules)
     for event in events
-        a = inside.(modules, Ref(event.pos))
+        a = inside.(Ref(event.pos), modules)
         s = sum(a)
         @assert s <= 1 "Seems like you're in more than one module.. That doesn't seem right"
         if s > 0
@@ -91,16 +92,16 @@ function make_event_dict(
     ymax=nothing
 )
     if isnothing(xmin)
-        xmin = minimum([m.x for m in modules])
+        xmin = minimum([m.pos.x for m in modules])
     end
     if isnothing(xmax)
-        xmax = maximum([m.x for m in modules])
+        xmax = maximum([m.pos.x for m in modules])
     end
     if isnothing(ymin)
-        ymin = minimum([m.y for m in modules])
+        ymin = minimum([m.pos.y for m in modules])
     end
     if isnothing(ymax)
-        ymax = maximum([m.y for m in modules])
+        ymax = maximum([m.pos.y for m in modules])
     end
 
     d = Dict{Int, Vector{Tambo.CorsikaEvent}}()
@@ -115,8 +116,11 @@ function make_event_dict(
         catch
             continue
         end
+        jdx = 1
         for batch in pqf.iter_batches()
             events = loadcorsika(batch)
+            println(jdx)
+            jdx += 1
             events = filter(
                 e -> xmin < e.pos.x && e.pos.x < xmax && ymin < e.pos.y && e.pos.y < ymax,
                 events
@@ -126,6 +130,7 @@ function make_event_dict(
             events = nothing
             GC.gc()
         end
+        pqf.close()
     end
     return d
 end
@@ -146,16 +151,14 @@ function main()
     args = parse_commandline()
     
     @assert args["njob"] <= args["nparallel"]
-    modules = Tambo.make_trianglearray(
-        -2000units.m,
-        3000units.m,
-        -args["length"] * units.m/2,
-        args["length"] * units.m/2,
-        args["deltas"] * units.m,
-        ϕ=whitepaper_normal_vec.ϕ
-    )
-    modules = filter(
-        (m,) -> zmin < Tambo.plane_z(m.x, m.y, plane) < zmax, modules
+    modules = Tambo.make_detector_array(
+        whitepaper_coord,
+        args["length"]units.km,
+        args["deltas"]units.m,
+        altmin,
+        altmax,
+        plane,
+        geo
     )
     outfile = replace(args["outfile"], ".jld2"=>"_$(args["njob"])_$(args["nparallel"]).jld2")
     if ~ispath(outfile)
