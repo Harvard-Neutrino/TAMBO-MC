@@ -21,8 +21,10 @@ const xyzcorsika = inv([
     ycorsika.x ycorsika.y ycorsika.z;
     zcorsika.x zcorsika.y zcorsika.z;
 ])
-const pavel_sim = jldopen("/n/holylfs05/LABS/arguelles_delgado_lab/Lab/common_software/source/corsika8/corsika-work/WhitePaper_300k.jld2")
-const config = SimulationConfig(; pavel_sim["config"]...)
+const sim = jldopen("/Users/jlazar/Downloads//WhitePaper_300k.jld2")
+#const pavel_sim = jldopen("/n/holylfs05/LABS/arguelles_delgado_lab/Lab/common_software/source/corsika8/corsika-work/WhitePaper_300k.jld2")
+#const config = SimulationConfig(; pavel_sim["config"]...)
+const config = SimulationConfig(; Dict(k=>v for (k, v) in sim["config"] if k != :geo_spline_path)...)
 const injector = Tambo.Injector(config)
 const geo = Tambo.Geometry(config)
 const plane = Tambo.Plane(whitepaper_normal_vec, whitepaper_coord, geo)
@@ -68,7 +70,10 @@ function parse_commandline()
 end
 
 function add_hits!(d::Dict, events, modules)
-    for event in events
+    for (idx, event) in enumerate(events)
+        if idx % 50==0
+            @show "Hi"
+        end
         a = inside.(Ref(event.pos), modules)
         s = sum(a)
         @assert s <= 1 "Seems like you're in more than one module.. That doesn't seem right"
@@ -121,10 +126,12 @@ function make_event_dict(
             events = loadcorsika(batch)
             println(jdx)
             jdx += 1
+            @show length(events)
             events = filter(
                 e -> xmin < e.pos.x && e.pos.x < xmax && ymin < e.pos.y && e.pos.y < ymax,
                 events
             )
+            @show length(events)
             add_hits!(d, events, modules)
             # These two lines avoid runaway RAM usage
             events = nothing
@@ -152,7 +159,7 @@ function main()
     @assert args["njob"] <= args["nparallel"]
     modules = Tambo.make_detector_array(
         whitepaper_coord,
-        args["length"]units.km,
+        args["length"]units.m,
         args["deltas"]units.m,
         altmin,
         altmax,
