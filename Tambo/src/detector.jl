@@ -15,9 +15,17 @@ end
 DetectionModule = Union{SquareDetectionModule, CircularDetectionModule}
 
 # TODO add option for bounding box
-function inside(pt::SVector{3}, m::Tambo.SquareDetectionModule)
+function inside(pt::SVector{3}, m::SquareDetectionModule)
   offset = m.rot * (m.pos - pt)
   return all(abs.(offset) .< m.extent / 2)
+end
+
+function inside(pt::SVector{3}, m::SquareDetectionModule, rmax::Real)
+    if any(abs.(pt .- m.pos) .> rmax)
+        return false
+    end
+    #@show "Phase 2"
+    return inside(pt, m)
 end
 
 struct Detector
