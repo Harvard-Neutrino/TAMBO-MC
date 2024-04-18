@@ -130,7 +130,6 @@ function make_event_dict(
             events = nothing
             GC.gc()
         end
-        pqf.close()
     end
     return d
 end
