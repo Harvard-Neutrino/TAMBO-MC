@@ -64,7 +64,7 @@ function make_detector_array(
     # Make the module list
     modules = SquareDetectionModule[]
     rot = RotY(-plane.n̂.θ) * RotZ(-plane.n̂.ϕ) # This makes the
-    ext = SVector{3}([1.875, 0.8, 0.03])
+    ext = SVector{3}([1.875, 0.8, 0.03]) * units.m
     for (idx, xyz) in enumerate(xyzs)
         push!(modules, SquareDetectionModule(xyz, rot, ext, idx))
     end
