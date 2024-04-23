@@ -7,6 +7,7 @@ using StaticArrays
 using ArgParse
 using Glob
 using Distributions
+using LinearAlgebra
 
 const pq = PyNULL()
 const np = PyNULL()
@@ -21,11 +22,8 @@ const xyzcorsika = inv([
     ycorsika.x ycorsika.y ycorsika.z;
     zcorsika.x zcorsika.y zcorsika.z;
 ])
-const sim = jldopen("/Users/jlazar/Downloads//WhitePaper_300k.jld2")
-#const pavel_sim = jldopen("/n/holylfs05/LABS/arguelles_delgado_lab/Lab/common_software/source/corsika8/corsika-work/WhitePaper_300k.jld2")
-#const config = SimulationConfig(; pavel_sim["config"]...)
+const sim = jldopen("/n/holylfs05/LABS/arguelles_delgado_lab/Lab/common_software/source/corsika8/corsika-work/WhitePaper_300k.jld2")
 const config = SimulationConfig(; Dict(k=>v for (k, v) in sim["config"] if k != :geo_spline_path)...)
-const injector = Tambo.Injector(config)
 const geo = Tambo.Geometry(config)
 const plane = Tambo.Plane(whitepaper_normal_vec, whitepaper_coord, geo)
 
@@ -56,11 +54,11 @@ function parse_commandline()
         "--nparallel"
             help = "Number of parallel jobs happening"
             arg_type = Int
-            required = true
+            default=1
         "--njob"
             help = "Which parallel job"
             arg_type = Int
-            required = true
+            default=1
         "--run_desc"
             help = "A description that will become the group name for the file"
             arg_type = String
@@ -70,11 +68,9 @@ function parse_commandline()
 end
 
 function add_hits!(d::Dict, events, modules)
+    rmax = maximum([norm(m.extent) for m in modules])
     for (idx, event) in enumerate(events)
-        if idx % 50==0
-            @show "Hi"
-        end
-        a = inside.(Ref(event.pos), modules)
+        a = inside.(Ref(event.pos), modules, rmax)
         s = sum(a)
         @assert s <= 1 "Seems like you're in more than one module.. That doesn't seem right"
         if s > 0
@@ -87,7 +83,7 @@ function add_hits!(d::Dict, events, modules)
     end
 end
 
-function make_event_dict(
+function make_hit_map(
     event_number,
     modules,
     basedir;
@@ -116,22 +112,19 @@ function make_event_dict(
         # and it will error in an annoying way. I think the `pqf = nothing` is superfluous
         # but I put it there before and I'm worried it will cause issues
         pqf = nothing
-        try
+        #try
             pqf = pq.ParquetFile(file)
-        catch
-            continue
-        end
+        #catch
+        #    continue
+        #end
         jdx = 1
         for batch in pqf.iter_batches()
             events = loadcorsika(batch)
-            println(jdx)
             jdx += 1
-            @show length(events)
             events = filter(
                 e -> xmin < e.pos.x && e.pos.x < xmax && ymin < e.pos.y && e.pos.y < ymax,
                 events
             )
-            @show length(events)
             add_hits!(d, events, modules)
             # These two lines avoid runaway RAM usage
             events = nothing
@@ -142,15 +135,15 @@ function make_event_dict(
 end
 
 function can_skip_event(event_number, outfile, run_desc)
+    can_skip = false
     jldopen(outfile, "r") do jldf
         if ~(run_desc in keys(jldf))
-            return false
-        end
-        if string(event_number) in keys(jldf[run_desc])
-            return true
+            can_skip = false
+        elseif string(event_number) in keys(jldf[run_desc])
+            can_skip = true
         end
     end
-    return false
+    return can_skip
 end
 
 function main()
@@ -166,7 +159,11 @@ function main()
         plane,
         geo
     )
-    outfile = replace(args["outfile"], ".jld2"=>"_$(args["njob"])_$(args["nparallel"]).jld2")
+    outfile = args["outfile"]
+    if args["nparallel"] > 1
+        outfile = replace(outfile, ".jld2"=>"_$(args["njob"])_$(args["nparallel"]).jld2")
+    end
+
     if ~ispath(outfile)
         jldopen(outfile, "w") do _
         end
@@ -184,10 +181,12 @@ function main()
         if can_skip_event(event_number, outfile, run_desc)
             continue
         end
-
-        event_dict = make_event_dict(event_number, modules, args["basedir"])
+        hit_map = make_hit_map(event_number, modules, args["basedir"])
+        if length(hit_map)==0
+            continue
+        end
         jldopen(outfile, "r+") do jldf
-            jldf["$(run_desc)/$(event_number)"] = event_dict
+            jldf["$(run_desc)/$(event_number)"] = hit_map
         end
     end
 end
