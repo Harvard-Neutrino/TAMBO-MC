@@ -18,7 +18,6 @@ function did_trigger(hit_map, module_trigger_thresh=3, event_trigger_thresh=30)
 end
 
 function corsika_int_weight(event::Tambo.CorsikaEvent) :: Int
-    Random.seed!(4)
     weight = event.weight
     if weight > 1
         weight = rand(Poisson(weight))
