@@ -9,10 +9,10 @@ function get_nhit(hit_map)
 end
 
 function did_trigger(hit_map, module_trigger_thresh=3, event_trigger_thresh=30)
+    hit_map = filter(kv->sum(corsika_int_weight(kv[2])) >= module_trigger_thresh, hit_map)
     if length(hit_map) < 3
         return false
     end
-    hit_map = filter(kv->sum(corsika_int_weight(kv[2])) >= module_trigger_thresh, hit_map)
     nhit = get_nhit(hit_map)
     return nhit >= event_trigger_thresh
 end
