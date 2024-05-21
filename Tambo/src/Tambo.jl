@@ -103,7 +103,10 @@ function SimulationConfig(fname::String)
         s = SimulationConfig(; f["config"]...)
         s.injected_events = f["injected_events"]
         s.proposal_events = f["proposal_events"]
-        s.corsika_indices = f["corsika_indices"]
+        
+        if haskey(f, "corsika_indices")
+            s.corsika_indices = f["corsika_indices"]
+        end
     end
     return s
 end
