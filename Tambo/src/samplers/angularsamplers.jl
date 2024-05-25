@@ -36,7 +36,13 @@ function Base.rand(sampler::UniformAngularSampler)
     return θ, ϕ
 end
 
-function probability(sampler::UniformAngularSampler)
+function probability(sampler::UniformAngularSampler, θ::Number, ϕ::Number)
+    @assert sampler.θmin <= θ && θ <= sampler.θmax "Zenith angle out of phase space"
+    @assert sampler.ϕmin <= ϕ && ϕ <= sampler.ϕmax "Azimuth angle out of phase space"
     Ω = (sampler.ϕmax - sampler.ϕmin) * (cos(sampler.θmin) - cos(sampler.θmax))
     return 1 / Ω
+end
+
+function probability(sampler::UniformAngularSampler, event::InjectionEvent)
+    return probability(sample, event.initial_state.direction.θ, event.initial_state.direction.ϕ)
 end

@@ -61,13 +61,15 @@ function Base.rand(n::Int, pl::PowerLaw)
     return val
 end
 
+function probability(pl::PowerLaw, event::InjectionEvent)
+    return probability(pl, event.initial_state.energy)
+end
+
 function probability(pl::PowerLaw, e::Float64)
+    @assert pl.emin < e && e < pl.emax
     if pl.γ==1
         return pl(e) / (pl.norm * log(pl.emax / pl.emin))
     end
     p = pl(e) / (pl.norm * (pl.emin^(1-pl.γ) - pl.emax^(1-pl.γ)))
-    if pl.γ < 1
-        p *= -1
-    end
     return p
 end

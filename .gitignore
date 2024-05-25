@@ -3,3 +3,5 @@
 
 scratch_figures/*
 notebooks/.ipynb_checkpoints
+notebooks/Untitled*.ipynb
+notebooks/output/*

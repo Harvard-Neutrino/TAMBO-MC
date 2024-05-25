@@ -1,18 +1,18 @@
-module Samplers
-
+#module Samplers
+#
 using Distributions: Uniform
+#
+#export UniformAngularSampler
+#export SymmetricInjectionCylinder, AsymmetricInjectionCylinder
+#export PowerLaw
+#export OutgoingEnergy
+#export Interaction
+#export CrossSection
 
-export UniformAngularSampler
-export SymmetricInjectionCylinder, AsymmetricInjectionCylinder
-export PowerLaw
-export OutgoingEnergy
-export Interaction
-export CrossSection
-
-include("../units.jl")
+#include("../units.jl")
 include("crosssections.jl")
 include("angularsamplers.jl")
 include("injectionvolumes.jl")
 include("powerlaws.jl")
 
-end # module
+#end # module
