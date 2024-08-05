@@ -8,7 +8,7 @@ const chord = PyNULL()
 
 function tr_startup()
     copy!(tr, pyimport("taurunner"))
-    x = x = tr.body.earth
+    x = tr.body.earth
     copy!(earth, x.construct_earth())
     copy!(xs, tr.cross_sections.CrossSections(tr.cross_sections.XSModel.CSMS))
     copy!(clp, tr.proposal_interface.ChargedLeptonPropagator(earth, xs))
