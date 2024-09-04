@@ -176,15 +176,12 @@ function main()
 
     event_numbers = get_event_numbers(args["basedir"])[args["njob"]:args["nparallel"]:end]
     for event_number in event_numbers
-        @show event_number
 
         if can_skip_event(event_number, outfile, run_desc)
             continue
         end
         hit_map = make_hit_map(event_number, modules, args["basedir"])
-        if length(hit_map)==0
-            continue
-        end
+
         jldopen(outfile, "r+") do jldf
             jldf["$(run_desc)/$(event_number)"] = hit_map
         end
