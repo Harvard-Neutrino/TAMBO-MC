@@ -43,6 +43,6 @@ function probability(sampler::UniformAngularSampler, θ::Number, ϕ::Number)
     return 1 / Ω
 end
 
-function probability(sampler::UniformAngularSampler, event::InjectionEvent)
-    return probability(sample, event.initial_state.direction.θ, event.initial_state.direction.ϕ)
+function probability(sampler::UniformAngularSampler, event)
+    return probability(sampler, event.initial_state.direction.θ, event.initial_state.direction.ϕ)
 end

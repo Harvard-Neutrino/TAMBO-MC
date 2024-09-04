@@ -61,7 +61,8 @@ function Base.rand(n::Int, pl::PowerLaw)
     return val
 end
 
-function probability(pl::PowerLaw, event::InjectionEvent)
+function probability(pl::PowerLaw, event)
+#function probability(pl::PowerLaw, event::InjectionEvent)
     return probability(pl, event.initial_state.energy)
 end
 

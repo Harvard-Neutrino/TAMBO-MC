@@ -92,7 +92,7 @@ end
 
 TBW
 """
-function probability(cylinder::SymmetricInjectionCylinder, event::InjectionEvent)
+function probability(cylinder::SymmetricInjectionCylinder, event)
     
     b = impact_parameter(event)
     @assert b <= cylinder.r_injection
