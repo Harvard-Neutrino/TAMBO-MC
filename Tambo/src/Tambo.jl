@@ -79,8 +79,22 @@ include("corsika.jl")
         "$(@__DIR__)/../..//resources/proposal_tables/"
     )
 
+    # CORSIKA configuration 
+    parallelize_corsika::Bool = false 
+    batch_submit_corsika::Bool = true 
+    thinning::Float64 = 1e-6 
+    hadron_ecut::Float64 = 0.05units.GeV
+    em_ecut::Float64 = 0.01units.GeV
+    photon_ecut::Float64 = 0.002units.GeV
+    mu_ecut::Float64 = 0.05units.GeV 
+    shower_dir::String = "showers/"
+    singularity_path::String = "/n/holylfs05/LABS/arguelles_delgado_lab/Lab/common_software/source/corsika8/corsika-env.simg"
+    corsika_path::String = "/n/holylfs05/LABS/arguelles_delgado_lab/Lab/common_software/source/corsika8/corsika-work/corsika"
+    corsika_sbatch_path::String = "/n/holylfs05/LABS/arguelles_delgado_lab/Lab/common_software/source/TAMBO-MC/scripts/corsika_parallel.sbatch"
+
     injected_events::Vector{InjectionEvent} = InjectionEvent[]
     proposal_events::Vector{ProposalResult} = ProposalResult[]
+    corsika_indices::Vector{Vector{Int64}} = []
 end
 
 function SimulationConfig(fname::String)
@@ -89,6 +103,10 @@ function SimulationConfig(fname::String)
         s = SimulationConfig(; f["config"]...)
         s.injected_events = f["injected_events"]
         s.proposal_events = f["proposal_events"]
+        
+        if haskey(f, "corsika_indices")
+            s.corsika_indices = f["corsika_indices"]
+        end
     end
     return s
 end
@@ -111,6 +129,14 @@ function ProposalConfig(s::SimulationConfig)
         for fn in intersect(fieldnames(SimulationConfig), fieldnames(ProposalConfig))
     )
     return ProposalConfig(; propdict...)
+end
+
+function CORSIKAConfig(s::SimulationConfig)
+    propdict = Dict(
+        fn => getfield(s, fn) 
+        for fn in intersect(fieldnames(SimulationConfig), fieldnames(CORSIKAConfig))
+    )
+    return CORSIKAConfig(; propdict...)
 end
 
 function InjectionConfig(config::SimulationConfig)
@@ -167,7 +193,21 @@ function Base.show(io::IO, s::SimulationConfig)
         vcut: $(s.vcut)
         do_interpolate: $(s.do_interpolate)
         do_continuous: $(s.do_continuous)
-        tablespath: $(s.tablespath)"""
+        tablespath: $(s.tablespath)
+
+        CORSIKA configuration 
+        _____________________
+        thinning: $(s.thinning)
+        hadron_ecut: $(s.hadron_ecut/ units.GeV) GeV
+        mu_ecut: $(s.mu_ecut/ units.GeV) GeV
+        em_ecut: $(s.em_ecut/ units.GeV) GeV
+        photon_ecut: $(s.photon_ecut/ units.GeV) GeV
+        parallelize_corsika: $(s.parallelize_corsika)
+        shower_dir: $(s.shower_dir)
+        singularity_path: $(s.singularity_path)
+        corsika_path: $(s.corsika_path)
+        sbatch_path: $(s.sbatch_path)
+        """
     )
 end
 
@@ -175,10 +215,11 @@ function Base.getindex(s::SimulationConfig, fieldstring::String)
     getfield(s, Symbol(fieldstring))
 end
 
-function (s::SimulationConfig)(; track_progress=true)
+function (s::SimulationConfig)(; track_progress=true, should_run_corsika=false)
     seed!(s.seed)
     if track_progress
         println("Making geometry")
+        
     end
     geo = Geometry(
         s.geo_spline_path,
@@ -200,13 +241,24 @@ function (s::SimulationConfig)(; track_progress=true)
         geo,
         track_progress=track_progress
     )
+    if should_run_corsika
+        if track_progress
+            println("Running CORSIKA showers")
+        end
+        corsika_config = CORSIKAConfig(s)
+        corsika_propagator = CORSIKAPropagator(corsika_config,geo)
+        s.corsika_indices = corsika_propagator(
+            track_progress=track_progress,
+        )
+    end
 
 end
 
 function dump_to_file(s::SimulationConfig, f::JLDFile)
-    resultfields = [:injected_events, :proposal_events]
+    resultfields = [:injected_events, :proposal_events, :corsika_indices]
     f["injected_events"] = s.injected_events
     f["proposal_events"] = s.proposal_events
+    f["corsika_indices"] = s.corsika_indices
     f["config"] = Dict(
         Dict(
             fn => getfield(s, fn) for fn in fieldnames(SimulationConfig)

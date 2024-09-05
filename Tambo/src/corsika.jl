@@ -1,3 +1,189 @@
+Base.@kwdef mutable struct CORSIKAConfig
+    parallelize_corsika::Bool = false
+    thinning::Float64 = 1e-6 
+    hadron_ecut::Float64 = 0.05units.GeV
+    em_ecut::Float64 = 0.01units.GeV
+    photon_ecut::Float64 = 0.002units.GeV
+    mu_ecut::Float64 = 0.05units.GeV 
+    shower_dir::String = "showers"
+    singularity_path::String = "/n/holylfs05/LABS/arguelles_delgado_lab/Lab/common_software/source/corsika8/corsika-env.simg"
+    corsika_path::String = "/n/holylfs05/LABS/arguelles_delgado_lab/Lab/common_software/source/corsika8/corsika-work/corsika"
+    corsika_sbatch_path::String = "/n/holylfs05/LABS/arguelles_delgado_lab/Lab/common_software/source/TAMBO-MC/scripts/corsika_parallel.sbatch"
+
+    proposal_events::Vector{ProposalResult} = [] 
+end
+
+struct CORSIKAPropagator
+    config::CORSIKAConfig 
+    geo::Geometry 
+end 
+
+function (propagator::CORSIKAPropagator)(; track_progress=true)
+    n = length(propagator.config.proposal_events)
+    proposal_events = propagator.config.proposal_events
+    iter = 1:n 
+    if track_progress 
+        iter = ProgressBar(iter) 
+    end 
+
+    geo = propagator.geo 
+    plane = Tambo.Plane(whitepaper_normal_vec, whitepaper_coord, geo)
+    indices = []
+    for (proposal_idx,proposal_event) in enumerate(proposal_events)
+        update(iter)
+        if should_do_corsika(proposal_event,plane,geo)
+            for (decay_idx,decay_event) in enumerate(proposal_event.decay_products)
+
+                #checks if decay product is a neutrino 
+                #skips if is 
+                #wanted to keep indices lined up so checking one at at ime
+                if check_neutrino(decay_event)
+                    push!(indices,[proposal_idx,decay_idx])
+                else 
+                    continue 
+                end 
+
+                if propagator.config.parallelize_corsika 
+                    continue 
+                else 
+                    corsika_run(decay_event,propagator,proposal_idx,decay_idx; parallelize_corsika=false)
+                end 
+            end
+        end
+    end
+    
+    if propagator.config.parallelize_corsika 
+        if track_progress 
+            n = length(indices)
+            println("Running CORSIKA in parallel for $n showers")
+        end 
+        corsika_parallel(proposal_events,propagator,indices)
+    end 
+    return indices 
+end 
+   
+
+
+# function corsika_inject_event(injector::Injector)
+#     return event
+# end
+
+# function (injector::Injector)(; track_progress=true)
+#     seed!(injector.config.seed)
+#     iter = 1:injector.config.n
+#     if track_progress
+#         iter = ProgressBar(iter)
+#     end
+#     return [corsika_inject_event(injector) for _ in iter]
+# end
+
+function corsika_parallel(proposal_events,propagator,indices)
+
+    if length(indices) > 10000
+        println("Slow down there partner...")
+        println("FASRC forbids more than 10k concurrent jobs!!")
+    end 
+
+    for i in indices
+        
+        proposal_idx = i[1]
+        decay_idx = i[2]
+        
+        corsika_run(proposal_events[proposal_idx].decay_products[decay_idx],
+        propagator, 
+        proposal_idx,
+        decay_idx; 
+        parallelize_corsika=true)
+        
+    end 
+    #parallelize_corsika_exec = `sbatch $sbatch_dir`
+    #run(corsika_exec);
+end 
+
+function corsika_run(
+    pdg::Int64,
+    energy::Float64,
+    zenith::Float64, 
+    azimuth::Float64, 
+    inject_pos::SVector{3},
+    intercept_pos::SVector{3}, 
+    plane::SVector{3}, 
+    obs_z::Float64, 
+    thinning::Float64, 
+    ecuts::SVector{4},
+    singularity_path::String,
+    corsika_path::String,
+    corsika_sbatch_path::String,
+    outdir::String,
+    proposal_index::Int64,
+    decay_index::Int64; 
+    parallelize_corsika=parallelize_corsika
+    )
+    rawinject_x,rawinject_y,rawinject_z = inject_pos
+    x_intercept,y_intercept,z_intercept = intercept_pos 
+    xdir,ydir,zdir = plane 
+    
+    #convert to CORSIKA internal units of GeV
+    emcut,photoncut,mucut,hadcut = ecuts/units.GeV 
+    total_index = string(proposal_index) *"_"* string(decay_index)
+
+    if parallelize_corsika 
+        corsika_parallel_exec = "singularity exec $singularity_path $corsika_path --pdg $pdg --energy $energy --zenith $zenith --azimuth $azimuth --xpos $rawinject_x --ypos $rawinject_y --zpos $rawinject_z -f $outdir/shower_$total_index --xdir $xdir --ydir $ydir --zdir $zdir --observation-height $obs_z --force-interaction --x-intercept $x_intercept --y-intercept $y_intercept --z-intercept $z_intercept --emcut $emcut --photoncut $photoncut --mucut $mucut --hadcut $hadcut --emthin $thinning"
+        run(`sbatch $corsika_sbatch_path $corsika_parallel_exec`)
+    else 
+        corsika_exec = `singularity exec $singularity_path $corsika_path --pdg $pdg --energy $energy --zenith $zenith --azimuth $azimuth --xpos $rawinject_x --ypos $rawinject_y --zpos $rawinject_z -f $outdir/shower_$total_index --xdir $xdir --ydir $ydir --zdir $zdir --observation-height $obs_z --force-interaction --x-intercept $x_intercept --y-intercept $y_intercept --z-intercept $z_intercept --emcut $emcut --photoncut $photoncut --mucut $mucut --hadcut $hadcut --emthin $thinning`
+        run(corsika_exec)
+    end 
+end 
+
+function corsika_run(decay_event::Particle,propagator::CORSIKAPropagator,proposal_idx::Int64,decay_idx::Int64; parallelize_corsika=parallelize_corsika)
+    geo = propagator.geo
+    thinning = propagator.config.thinning
+    ecuts = SVector{4}([propagator.config.em_ecut,propagator.config.photon_ecut,propagator.config.mu_ecut,propagator.config.hadron_ecut])
+    outdir = propagator.config.shower_dir 
+    singularity_path = propagator.config.singularity_path
+    corsika_path = propagator.config.corsika_path
+    corsika_sbatch_path = propagator.config.corsika_sbatch_path
+    return corsika_run(decay_event::Particle,geo,thinning,ecuts,singularity_path,corsika_path,corsika_sbatch_path,outdir,proposal_idx::Int64,decay_idx::Int64; parallelize_corsika=parallelize_corsika)
+end
+
+function corsika_run(decay_event::Particle,geo::Geometry,thinning::Float64,ecuts,singularity_path::String,corsika_path::String,corsika_sbatch_path::String,outdir::String,proposal_idx::Int64,decay_idx::Int64; parallelize_corsika=parallelize_corsika)
+    plane = Plane(whitepaper_normal_vec, whitepaper_coord, geo)
+
+    pdg = decay_event.pdg_mc
+    energy = decay_event.energy/units.GeV
+    corsika_map = CorsikaMap(decay_event,geo)
+    zenith = decay_event.direction.θ
+    azimuth = decay_event.direction.ϕ
+    corsika_map = CorsikaMap(decay_event,geo)
+    obs_z = corsika_map(plane.x0)[3] / units.km
+
+    distance, point, dot = intersect(decay_event.position,decay_event.direction,plane)
+    distance = distance/units.km
+    intercept_pos = point/units.km 
+    inject_pos = decay_event.position/units.km 
+
+    return corsika_run(
+        pdg,
+        energy,
+        zenith,
+        azimuth,
+        inject_pos,
+        intercept_pos,
+        plane.n̂.proj,
+        obs_z, 
+        thinning,
+        ecuts,
+        singularity_path,
+        corsika_path,
+        corsika_sbatch_path,
+        outdir,
+        proposal_idx,
+        decay_idx;
+        parallelize_corsika=parallelize_corsika
+        )
+end 
+
 struct CorsikaEvent
   pdg::Int
   kinetic_energy::Number
@@ -159,7 +345,7 @@ end
 
 function check_z_intercept(event, plane, geo; verbose=false)
     """
-    point[3] = z-intercept of particle and TAMBO plane.If the elevation in TAMBO coords is greater than 10km, cut. 
+    point[3] = z-intercept of particle and TAMBO plane. If the elevation in TAMBO coords is greater than 10km, cut. 
     """
     decay_pos = event.propped_state.position
     propped_dir = event.propped_state.direction
@@ -227,6 +413,21 @@ function check_passed_through_rock(event::ProposalResult, plane, geo; verbose=fa
     return ℓ_inrock >= thresh
 end
 
+function check_neutrino(daughter_particle::Particle; verbose = false)
+    pdg = daughter_particle.pdg_mc
+    if abs(pdg) == 16 || abs(pdg) == 14 || abs(pdg) == 12 
+        if verbose 
+            println("daughter particle is a neutrino")
+        end 
+        return false
+    else 
+        if verbose 
+            println("daughter is not a neutrino")
+        end
+        return true 
+    end 
+end
+
 function should_do_corsika(event::ProposalResult, plane::Plane, geo::Geometry, criteria::Array{Function}; verbose=false, check_mode=false)
     # Seems like we should do `check_mode` via dependency injection but weeeeeeeeeeee
     if check_mode
@@ -260,7 +461,7 @@ function should_do_corsika(event::ProposalResult, plane::Plane, geo::Geometry; v
         check_z_intercept,
         check_track_length,
         check_intersections,
-        check_passed_through_rock
+        check_passed_through_rock,
     ]
     return should_do_corsika(event, plane, geo, checks; verbose=verbose, check_mode=check_mode)
 end
