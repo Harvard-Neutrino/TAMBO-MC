@@ -6,11 +6,11 @@ function p_mc(
     injectionvolume::SymmetricInjectionCylinder,
     geo::Geometry
 )
-    p = probability(anglesampler)
-    p *= probability(injectionvolume)
+    p = probability(anglesampler, event)
+    p *= probability(injectionvolume, event)
     p *= density(event.final_state.position, geo) / event.genX
-    p *= probability(xs, event.entry_state.energy, event.final_state.energy)
-    p *= probability(pl, event.initial_state.energy)
+    p *= probability(xs, event)
+    p *= probability(pl, event)
     return p
 end
 

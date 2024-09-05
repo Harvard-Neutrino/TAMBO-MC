@@ -1,5 +1,6 @@
-.DS_Store
+*.DS_Store
 .vscode/
 
-scratch_figures/*
-notebooks/.ipynb_checkpoints
+*.ipynb_checkpoints
+*Untitled*.ipynb
+notebooks/output/*

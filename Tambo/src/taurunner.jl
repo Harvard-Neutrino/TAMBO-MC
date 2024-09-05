@@ -9,7 +9,7 @@ const chord = PyNULL()
 function tr_startup()
 
     copy!(tr, pyimport("taurunner"))
-    x = x = tr.body.earth
+    x = tr.body.earth
     copy!(earth, x.construct_earth())
     copy!(xs, tr.cross_sections.CrossSections(tr.cross_sections.XSModel.CSMS))
     copy!(clp, tr.proposal_interface.ChargedLeptonPropagator(earth, xs))
@@ -17,6 +17,7 @@ function tr_startup()
 end
 
 function run_taurunner(p:: Particle, θ:: Float64, depth:: Float64)
+
     tr_p = tr.particle.Particle(p.pdg_mc, p.energy*units.eV, 0.0, xs)
     # We need to round here otherwise it will take forever. Sorry
     track = chord(theta=p.direction.θ, depth=round(depth, digits=3))
@@ -26,6 +27,7 @@ end
 
 function tr_propagate(p::Particle, ztambo::Float64)
     # Check that TR variables have been initiailized
+
     if chord == PyNULL()
         tr_startup()
     end

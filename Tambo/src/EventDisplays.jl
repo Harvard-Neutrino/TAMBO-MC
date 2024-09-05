@@ -56,5 +56,4 @@ function split_for_plot(t::Trayectory)
     split_for_plot(t.x, t.y, t.z)
 end
 
-
 end
