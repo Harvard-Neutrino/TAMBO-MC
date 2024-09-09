@@ -55,7 +55,8 @@ include("detector_responses.jl")
     run_n::Int64 = 853
     # Geometry configuration
     geo_spline_path::String = realpath("$(@__DIR__)/../../resources/tambo_spline.jld2")
-    tambo_coordinates::Coord = minesite_coord
+    tambo_coordinates::Coord = whitepaper_coord
+    plane_orientation::Direction = whitepaper_normal_vec 
     # Injection configuration
     ν_pdg::Int = 16
     γ::Float64 = 1
@@ -169,6 +170,7 @@ function Base.show(io::IO, s::SimulationConfig)
         ______________________
         geo_spline_path: $(s.geo_spline_path)
         tambo_coordinates: $(s.tambo_coordinates)
+        plane_orientation: $(s.plane_orientation)
 
         Injection configuration
         _______________________
@@ -203,7 +205,7 @@ function Base.show(io::IO, s::SimulationConfig)
         shower_dir: $(s.shower_dir)
         singularity_path: $(s.singularity_path)
         corsika_path: $(s.corsika_path)
-        sbatch_path: $(s.sbatch_path)
+        sbatch_path: $(s.corsika_sbatch_path)
         """
     )
 end

@@ -10,6 +10,8 @@ Base.@kwdef mutable struct CORSIKAConfig
     corsika_path::String = "/n/holylfs05/LABS/arguelles_delgado_lab/Lab/common_software/source/corsika8/corsika-work/corsika"
     corsika_sbatch_path::String = "/n/holylfs05/LABS/arguelles_delgado_lab/Lab/common_software/source/TAMBO-MC/scripts/corsika_parallel.sbatch"
 
+    tambo_coordinates::Coord = whitepaper_coord
+    plane_orientation::Direction = whitepaper_normal_vec
     proposal_events::Vector{ProposalResult} = [] 
 end
 
@@ -27,7 +29,8 @@ function (propagator::CORSIKAPropagator)(; track_progress=true)
     end 
 
     geo = propagator.geo 
-    plane = Tambo.Plane(whitepaper_normal_vec, whitepaper_coord, geo)
+    #plane = Tambo.Plane(whitepaper_normal_vec, whitepaper_coord, geo)
+    plane = Tambo.Plane(propagator.config.plane_orientation, propagator.config.tambo_coordinates, geo)
     indices = []
     for (proposal_idx,proposal_event) in enumerate(proposal_events)
         update(iter)
@@ -152,17 +155,16 @@ function corsika_run(decay_event::Particle,geo::Geometry,thinning::Float64,ecuts
 
     pdg = decay_event.pdg_mc
     energy = decay_event.energy/units.GeV
-    corsika_map = CorsikaMap(decay_event,geo)
     zenith = decay_event.direction.θ
     azimuth = decay_event.direction.ϕ
     corsika_map = CorsikaMap(decay_event,geo)
     obs_z = corsika_map(plane.x0)[3] / units.km
 
-    distance, point, dot = intersect(decay_event.position,decay_event.direction,plane)
+    distance, point, dot = intersect(decay_event.position, decay_event.direction, plane)
     distance = distance/units.km
     intercept_pos = point/units.km 
     inject_pos = decay_event.position/units.km 
-
+  
     return corsika_run(
         pdg,
         energy,
