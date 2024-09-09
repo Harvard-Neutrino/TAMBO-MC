@@ -76,11 +76,26 @@ function Base.rand(cylinder::AsymmetricInjectionCylinder)
     return p
 end
 
+function impact_parameter(p, d)
+    r = norm(p)
+    return r * sqrt(1 - (sum(p .* d) / r)^2)
+end
+
+function impact_parameter(event)
+    p = event.entry_state.position
+    d = event.entry_state.direction.proj
+    return impact_parameter(p, d)
+end
+
 """
     (cylinder::Injectioncylinder)(p::SVector{3})
 
 TBW
 """
-function probability(cylinder::SymmetricInjectionCylinder)
+function probability(cylinder::SymmetricInjectionCylinder, event)
+    
+    b = impact_parameter(event)
+    @assert b <= cylinder.r_injection
+   
     return 1 / (π * cylinder.r_injection^2)
 end

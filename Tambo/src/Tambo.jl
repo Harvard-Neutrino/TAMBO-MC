@@ -43,10 +43,10 @@ include("geometries.jl")
 include("tracks.jl")
 include("inject.jl")
 include("proposal.jl")
-include("corsika.jl")
 include("weightings.jl")
 include("taurunner.jl")
-include("detector_responses.jl")
+include("detector.jl")
+include("corsika.jl")
 
 @Base.kwdef mutable struct SimulationConfig
     # General configuration
@@ -104,7 +104,10 @@ function SimulationConfig(fname::String)
         s = SimulationConfig(; f["config"]...)
         s.injected_events = f["injected_events"]
         s.proposal_events = f["proposal_events"]
-        s.corsika_indices = f["corsika_indices"]
+        
+        if haskey(f, "corsika_indices")
+            s.corsika_indices = f["corsika_indices"]
+        end
     end
     return s
 end
@@ -227,7 +230,6 @@ function (s::SimulationConfig)(; track_progress=true, should_run_corsika=false)
     if track_progress
         println("Injecting events")
     end
-
     injection_config = InjectionConfig(s)
     injector = Injector(injection_config, geo)
     s.injected_events = injector(track_progress=track_progress)

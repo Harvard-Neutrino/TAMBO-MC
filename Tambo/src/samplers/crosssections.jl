@@ -156,7 +156,12 @@ function Base.show(io::IO, xs::OutgoingEnergy)
 end
 
 function probability(xs::CrossSection, ein::Float64, eout::Float64)
+    @assert eout <= ein "Energy out of range"
     σ = xs.total_xs(ein)
     diff_σ = xs.differential_xs(ein, eout)
     return diff_σ / σ
+end
+
+function probability(xs::CrossSection, event)
+    return probability(xs, event.entry_state.energy, event.final_state.energy)
 end
