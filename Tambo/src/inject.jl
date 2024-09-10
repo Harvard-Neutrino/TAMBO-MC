@@ -42,14 +42,15 @@ function Injector(config::InjectionConfig, geo::Geometry)
     return Injector(config, pl, xs, anglesampler, injectionvolume, geo)
 end
 
-function inject_event(injector::Injector)
+function inject_event(injector::Injector, tr_seed::Int)
     event = inject_event(
         injector.config.ν_pdg,
         injector.powerlaw,
         injector.xs,
         injector.anglesampler,
         injector.injectionvolume,
-        injector.geo
+        injector.geo,
+        tr_seed
     )
     return event
 end
@@ -60,7 +61,7 @@ function (injector::Injector)(; track_progress=true)
     if track_progress
         iter = ProgressBar(iter)
     end
-    return [inject_event(injector) for _ in iter]
+    return [inject_event(injector, idx+injector.config.seed) for idx in iter]
 end
 
 struct InjectionEvent
@@ -138,6 +139,7 @@ function inject_event(
     anglesampler::UniformAngularSampler,
     injectionvolume::SymmetricInjectionCylinder,
     geo::Geometry,
+    tr_seed::Int
 )
     direction = Direction(rand(anglesampler)...)
     # Rotation to plane perpindicular to direction
@@ -148,7 +150,7 @@ function inject_event(
     proposed_e_init = rand(power_law)
     proposed_particle = Particle(ν_pdg, proposed_e_init, xb, direction, nothing)
     
-    particle_entry, physX = tr_propagate(proposed_particle, geo.tambo_offset.z)
+    particle_entry, physX = tr_propagate(proposed_particle, geo.tambo_offset.z, tr_seed)
     
     e_final = rand(xs, particle_entry.energy)
 

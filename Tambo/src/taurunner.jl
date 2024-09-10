@@ -25,13 +25,32 @@ function run_taurunner(p:: Particle, θ:: Float64, depth:: Float64)
     return tr_p.energy * units.eV, track.x_to_X(earth, tr_p.decay_position)[1]
 end
 
-function tr_propagate(p::Particle, ztambo::Float64)
+function tr_propagate(ps::Vector{Particle}, ztambo::Float64)
+    seed = 925
+    return tr_propagate(ps, ztambo, 925)
+end
+
+function tr_propagate(ps::Vector{Particle}, ztambo::Float64, seed::Int)
+    # Check that TR variables have been initiailized
+
+    if chord == PyNULL()
+        tr_startup()
+        tr.Casino.np.random.seed(seed)
+        tr.Casino.pp.RandomGenerator.get().set_seed(seed)
+    end
+    
+    return tr_propagate.(ps, ztambo)
+end
+
+function tr_propagate(p::Particle, ztambo::Float64, seed::Int)
     # Check that TR variables have been initiailized
 
     if chord == PyNULL()
         tr_startup()
     end
     
+    tr.Casino.pp.RandomGenerator.get().set_seed(seed)
+    tr.Casino.np.random.seed(seed)
     xb′ = p.position + SVector{3}([0, 0, ztambo + units.earthradius])
     depth = (units.earthradius - norm(xb′)) / units.earthradius
     # The neutrino does not pass through the Earth
