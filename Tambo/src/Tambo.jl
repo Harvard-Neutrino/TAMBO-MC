@@ -84,8 +84,8 @@ include("corsika.jl")
     batch_submit_corsika::Bool = true 
     thinning::Float64 = 1e-6 
     hadron_ecut::Float64 = 0.05units.GeV
-    em_ecut::Float64 = 0.01units.GeV
-    photon_ecut::Float64 = 0.002units.GeV
+    em_ecut::Float64 = 0.001units.GeV
+    photon_ecut::Float64 = 0.001units.GeV
     mu_ecut::Float64 = 0.05units.GeV 
     shower_dir::String = "showers/"
     singularity_path::String = "/n/holylfs05/LABS/arguelles_delgado_lab/Lab/common_software/source/corsika8/corsika-env.simg"
@@ -206,7 +206,7 @@ function Base.show(io::IO, s::SimulationConfig)
         shower_dir: $(s.shower_dir)
         singularity_path: $(s.singularity_path)
         corsika_path: $(s.corsika_path)
-        sbatch_path: $(s.sbatch_path)
+        corsika_sbatch_path: $(s.corsika_sbatch_path)
         """
     )
 end
