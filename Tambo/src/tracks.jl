@@ -87,9 +87,8 @@ end
 TBW
 """
 function Base.intersect(p0::SVector{3}, d::Direction, plane::Plane)
-    
     norm = sum(plane.n̂.proj .* (plane.x0 .- p0)) / sum(plane.n̂.proj .* d.proj)
-    pt = norm * d .+ p0
+    pt = norm * d.proj .+ p0
     dot = sum(d.proj.*plane.n̂.proj) 
     return norm,pt,dot
 end
