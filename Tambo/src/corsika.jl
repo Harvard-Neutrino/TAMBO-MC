@@ -157,8 +157,7 @@ function corsika_run(decay_event::Particle,geo::Geometry,thinning::Float64,ecuts
     energy = decay_event.energy/units.GeV
     zenith = decay_event.direction.θ
     azimuth = decay_event.direction.ϕ
-    corsika_map = CorsikaMap(decay_event,geo)
-    obs_z = corsika_map(plane.x0)[3] / units.km
+    obs_z = geo.tambo_offset.z/ units.km
 
     distance, point, dot = intersect(decay_event.position, decay_event.direction, plane)
     distance = distance/units.km
