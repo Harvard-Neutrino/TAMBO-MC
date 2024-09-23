@@ -91,8 +91,10 @@ function xy_to_latlong(xy, coordmin::Coord)
     return xy_to_latlong(xy, coordmin.latitude, coordmin.longitude)
 end
 
+const larger_valley_coord = Coord(deg2rad(-15.622267), deg2rad(-72.279397))
 const whitepaper_coord = Coord(deg2rad(-15.63863),deg2rad(-72.16498))
 const testsite_coord = Coord(deg2rad(-15.58714), deg2rad(-71.9765237))
 const minesite_coord = Coord(deg2rad(-15.664653), deg2rad(-72.1547479))
+const larger_valley_vec = Direction(0.507,0.108,0.855)
 const whitepaper_normal_vec = Direction(0.452174,-0.366163,0.813304)
 const minesite_normal_vec = Direction(-0.732001, 0.59897, 0.324666)

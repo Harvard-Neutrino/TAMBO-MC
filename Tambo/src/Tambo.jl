@@ -5,6 +5,7 @@ export SimulationConfig,
        ProposalConfig,
        Geometry,
        CorsikaMap,
+       Coord,
        save_simulation, 
        simulator_from_file,
        units,
@@ -15,6 +16,8 @@ export SimulationConfig,
        minesite_normal_vec,
        inside,
        should_do_corsika,
+       latlong_to_xy,
+       xy_to_latlong,
        oneweight
 
 using CoordinateTransformations: Translation, AffineMap, LinearMap
@@ -29,7 +32,7 @@ using PyCall: PyCall, PyNULL, PyObject
 using Random: seed!
 using Roots: find_zeros, find_zero
 using Rotations: RotX, RotZ
-using StaticArrays: SVector, SMatrix
+using StaticArrays: SVector, SMatrix 
 
 include("units.jl")
 include("samplers/angularsamplers.jl")
