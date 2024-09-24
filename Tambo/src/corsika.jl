@@ -141,18 +141,20 @@ end
 
 function corsika_run(decay_event::Particle,propagator::CORSIKAPropagator,proposal_idx::Int64,decay_idx::Int64; parallelize_corsika=parallelize_corsika)
     geo = propagator.geo
+    plane_orientation = propagator.config.plane_orientation
+    tambo_origin = propagator.config.tambo_coordinates
+    plane = Plane(plane_orientation,tambo_origin,geo)
     thinning = propagator.config.thinning
     ecuts = SVector{4}([propagator.config.em_ecut,propagator.config.photon_ecut,propagator.config.mu_ecut,propagator.config.hadron_ecut])
     outdir = propagator.config.shower_dir 
     singularity_path = propagator.config.singularity_path
     corsika_path = propagator.config.corsika_path
     corsika_sbatch_path = propagator.config.corsika_sbatch_path
-    return corsika_run(decay_event::Particle,geo,thinning,ecuts,singularity_path,corsika_path,corsika_sbatch_path,outdir,proposal_idx::Int64,decay_idx::Int64; parallelize_corsika=parallelize_corsika)
+    return corsika_run(decay_event::Particle,plane,geo,thinning,ecuts,singularity_path,corsika_path,corsika_sbatch_path,outdir,proposal_idx::Int64,decay_idx::Int64; parallelize_corsika=parallelize_corsika)
 end
 
-function corsika_run(decay_event::Particle,geo::Geometry,thinning::Float64,ecuts,singularity_path::String,corsika_path::String,corsika_sbatch_path::String,outdir::String,proposal_idx::Int64,decay_idx::Int64; parallelize_corsika=parallelize_corsika)
-    plane = Plane(whitepaper_normal_vec, whitepaper_coord, geo)
-
+function corsika_run(decay_event::Particle,plane::Plane, geo::Geometry,thinning::Float64,ecuts,singularity_path::String,corsika_path::String,corsika_sbatch_path::String,outdir::String,proposal_idx::Int64,decay_idx::Int64; parallelize_corsika=parallelize_corsika)
+  
     pdg = decay_event.pdg_mc
     energy = decay_event.energy/units.GeV
     zenith = decay_event.direction.θ
