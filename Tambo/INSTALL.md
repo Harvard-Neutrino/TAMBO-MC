@@ -1,6 +1,6 @@
 # INSTALL Instructions for PROPOSAL, taurunner, and Configuring with PyCall
 
-1. Need to make a Python venv
+1. Need to make a Python venv (python3 -m venv your-env-name, then source your-env-name/activate/bin)
 2. `pip install proposal`
 3. `git clone taurunner`
 4. Run `pip install .` inside taurunner home directory
