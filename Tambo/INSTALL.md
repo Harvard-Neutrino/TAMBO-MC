@@ -5,7 +5,7 @@
 3. `git clone taurunner`
 4. Run `pip install .` inside taurunner home directory
 5. Start Julia
-6. Activate TAMBO env
+6. Activate TAMBO 
 7. Set `env["PYTHON"] = which python` inside Python venv
 8. Set `env["PYTHONHOME"] = ""` (not always necessary)
 9. Build PyCall
