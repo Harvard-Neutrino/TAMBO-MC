@@ -1,4 +1,4 @@
-FROM ubuntu:18.04 as base
+FROM ubuntu:18.04 AS base
 
 # Install a bunch of tools
 RUN apt-get update && \
@@ -19,7 +19,7 @@ RUN wget https://github.com/Kitware/CMake/releases/download/v3.22.2/cmake-3.22.2
     cd cmake-3.22.2 && ./bootstrap && make -j4 && make install
 
 
-FROM base as python
+FROM base AS python
 
 
 ENV PATH="/opt/miniconda3/bin:${PATH}"
@@ -31,7 +31,7 @@ RUN cd /opt &&\
     && mkdir /opt/.conda \
     && bash Miniconda3-latest-Linux-x86_64.sh -b -p /opt/miniconda3\
     && rm -f Miniconda3-latest-Linux-x86_64.sh
-ENV LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:/opt/miniconda3/lib
+ENV LD_LIBRARY_PATH=/opt/miniconda3/lib
 RUN conda install python=3.11
 RUN conda install pip
 RUN conda install poetry
@@ -48,6 +48,8 @@ RUN wget https://github.com/icecube/TauRunner/archive/refs/heads/master.zip
 RUN unzip master.zip 
 WORKDIR /TauRunner-master
 RUN pip install --target /home/myuser/.local/lib .
+
+RUN pip install --target /home/myuser/.local/lib proposal
 
 # Download Julia
 WORKDIR /opt/
