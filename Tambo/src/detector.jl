@@ -28,9 +28,12 @@ function inside(pt::SVector{3}, m::SquareDetectionModule, rmax::Real)
     return inside(pt, m)
 end
 
-struct Detector
+function inside(x_pt, y_pt, z_pt, m::SquareDetectionModule, rmax::Real)
+    if any(abs.(x_pt .- m.pos[1]) .> rmax) || any(abs.(y_pt .- m.pos[2]) .> rmax) || any(abs.(z_pt .- m.pos[3]) .> rmax)
+        return false
+    end
+    return inside(SVector{3}([x_pt,y_pt,z_pt]), m)
 end
-
 
 function make_triangle_grid(x0::Real, x1::Real, y0::Real, y1::Real, ds::Real)
   dy = ds * sqrt(3) / 2
@@ -50,7 +53,6 @@ function make_triangle_grid(x0::Real, x1::Real, y0::Real, y1::Real, ds::Real)
 end
 
 function make_detector_array(
-    center::Tambo.Coord,
     length::Real,
     ds::Real,
     altmin::Real,
@@ -60,10 +62,14 @@ function make_detector_array(
 )
 
     # Make a triangular grid in xy-plane
+
+    #leave this, something with rotation makes the lengths work out such that
+    #the lengths along the x axis 
     xys = Tambo.make_triangle_grid(-2units.km, 2units.km, -length/2, length/2, ds)
+
     # Rotate it to align with the mountain plain
     r = RotZ(plane.n̂.ϕ) * RotY(plane.n̂.θ)
-    RotY(-minesite_normal_vec.θ) * RotZ(-minesite_normal_vec.ϕ)
+    #RotY(-minesite_normal_vec.θ) * RotZ(-minesite_normal_vec.ϕ)
     xyzs = [r * xy for xy in xys]
     # Remove points that are too high in z
     zmin = altmin - geo.tambo_offset[3]
