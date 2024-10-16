@@ -90,7 +90,7 @@ include("corsika.jl")
     batch_submit_corsika::Bool = true 
     thinning::Float64 = 1e-6 
     hadron_ecut::Float64 = 0.05units.GeV
-    em_ecut::Float64 = 0.001units.GeV
+    em_ecut::Float64 = 0.0001units.GeV
     photon_ecut::Float64 = 0.001units.GeV
     mu_ecut::Float64 = 0.05units.GeV 
     shower_dir::String = "showers/"
