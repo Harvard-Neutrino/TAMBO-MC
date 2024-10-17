@@ -1,21 +1,23 @@
 module Tambo
 
-export SimulationConfig,
+export Simulation,
        InjectionConfig,
-       ProposalConfig,
+       #ProposalConfig,
        Geometry,
        CorsikaMap,
        Coord,
        save_simulation, 
        simulator_from_file,
        units,
-       minesite_coord,
-       whitepaper_normal_vec,
-       whitepaper_coord,
-       testsite_coord,
-       minesite_normal_vec,
-       larger_valley_coord,
-       larger_valley_vec,
+       coords,
+       normal_vecs,
+       #minesite_coord,
+       #whitepaper_normal_vec,
+       #whitepaper_coord,
+       #testsite_coord,
+       #minesite_normal_vec,
+       #larger_valley_coord,
+       #larger_valley_vec,
        inside,
        should_do_corsika,
        latlong_to_xy,
@@ -35,6 +37,7 @@ using Random: seed!
 using Roots: find_zeros, find_zero
 using Rotations: RotX, RotZ
 using StaticArrays: SVector, SMatrix 
+using TOML
 
 include("units.jl")
 include("samplers/angularsamplers.jl")
@@ -53,234 +56,130 @@ include("taurunner.jl")
 include("detector.jl")
 include("corsika.jl")
 
-@Base.kwdef mutable struct SimulationConfig
-    # General configuration
-    n::Int = 10
-    seed::Int64 = 925
-    run_n::Int64 = 853
-    # Geometry configuration
-    geo_spline_path::String = realpath("$(@__DIR__)/../../resources/tambo_spline.jld2")
-    tambo_coordinates::Coord = whitepaper_coord
-    plane_orientation::Direction = whitepaper_normal_vec 
-    # Injection configuration
-    ν_pdg::Int = 16
-    γ::Float64 = 1
-    emin::Float64 = 1e6units.GeV
-    emax::Float64 = 1e9units.GeV
-    θmin::Float64 = 0.0
-    θmax::Float64 = π
-    ϕmin::Float64 = 0.0
-    ϕmax::Float64 = 2π
-    r_injection::Float64 = 2000units.m
-    l_endcap::Float64 = 1units.km
-    diff_xs_path::String = realpath(
-        "$(@__DIR__)/../../resources/cross_sections/tables/csms_differential_cdfs.h5"
-    )
-    # PROPOSAL configuration
-    ecut::Float64 = Inf * units.GeV
-    vcut::Float64 = 1e-2
-    do_interpolate::Bool = true
-    do_continuous::Bool = true
-    tablespath::String = realpath(
-        "$(@__DIR__)/../..//resources/proposal_tables/"
-    )
-
-    # CORSIKA configuration 
-    parallelize_corsika::Bool = false 
-    batch_submit_corsika::Bool = true 
-    thinning::Float64 = 1e-6 
-    hadron_ecut::Float64 = 0.05units.GeV
-    em_ecut::Float64 = 0.001units.GeV
-    photon_ecut::Float64 = 0.001units.GeV
-    mu_ecut::Float64 = 0.05units.GeV 
-    shower_dir::String = "showers/"
-    singularity_path::String = "/n/holylfs05/LABS/arguelles_delgado_lab/Lab/common_software/source/corsika8/corsika-env.simg"
-    corsika_path::String = "/n/holylfs05/LABS/arguelles_delgado_lab/Lab/common_software/source/corsika8/corsika-work/corsika"
-    corsika_sbatch_path::String = "/n/holylfs05/LABS/arguelles_delgado_lab/Lab/common_software/source/TAMBO-MC/scripts/corsika_parallel.sbatch"
-
-    injected_events::Vector{InjectionEvent} = InjectionEvent[]
-    proposal_events::Vector{ProposalResult} = ProposalResult[]
-    corsika_indices::Vector{Vector{Int64}} = []
+@Base.kwdef mutable struct Simulation
+    config::Dict{String, Any}
+    results::Dict{String, Any}
 end
 
-function SimulationConfig(fname::String)
-    s = nothing
-    jldopen(fname, "r") do f
-        s = SimulationConfig(; f["config"]...)
-        s.injected_events = f["injected_events"]
-        s.proposal_events = f["proposal_events"]
-        
-        if haskey(f, "corsika_indices")
-            s.corsika_indices = f["corsika_indices"]
+function relativize!(d::Dict)
+    for (k, v) in pairs(d)
+        if isa(v, String)
+            d[k] = replace(v, "_TAMBO_PATH_" => dirname(pathof(Tambo)))
+        elseif isa(v, Dict)
+            relativize!(v)
         end
     end
-    return s
 end
 
-function Injector(config::SimulationConfig)
-    geo = Geometry(config)
-    cfg = InjectionConfig(config)
-    return Injector(cfg, geo)
+function Simulation(config_file::String)
+    config = TOML.parsefile(config_file)
+    relativize!(config)
+    results = Dict{String, Any}()
+    return Simulation(config, results)
 end
 
-function inject(simulator::SimulationConfig; track_progress=true)
-    injector = InjectionConfig(simulator)
-    geo = Geometry(simulator)
-    return inject(injector, geo, track_progress=track_progress)
-end
-
-function ProposalConfig(s::SimulationConfig)
-    propdict = Dict(
-        fn => getfield(s, fn) 
-        for fn in intersect(fieldnames(SimulationConfig), fieldnames(ProposalConfig))
-    )
-    return ProposalConfig(; propdict...)
-end
-
-function CORSIKAConfig(s::SimulationConfig)
-    propdict = Dict(
-        fn => getfield(s, fn) 
-        for fn in intersect(fieldnames(SimulationConfig), fieldnames(CORSIKAConfig))
-    )
-    return CORSIKAConfig(; propdict...)
-end
-
-function InjectionConfig(config::SimulationConfig)
-    d = Dict(f=>getfield(config, f) for f in fieldnames(SimulationConfig) if f in fieldnames(InjectionConfig))
-    return InjectionConfig(;d...)
-end
-
-function Geometry(s::SimulationConfig)
-    geo = Geometry(
-        s.geo_spline_path,
-        s.tambo_coordinates
-    )
-    #f = jldopen(s.geo_spline_path)
-    #spl = f["spline"]
-    #mincoord = f["mincoord"]
-    #close(f)
-    #tambo_xy = latlong_to_xy(s.tambo_coordinates, mincoord)
-    #return Geometry(spl, tambo_xy)
-    return geo
-end
-
-function Base.show(io::IO, s::SimulationConfig)
-    print(
-        io,
-        """
-        General configuration
-        _____________________
-        n: $(s.n)
-        seed: $(s.seed)
-        run_n: $(s.run_n)
-
-        Geometry configuration
-        ______________________
-        geo_spline_path: $(s.geo_spline_path)
-        tambo_coordinates: $(s.tambo_coordinates)
-        plane_orientation: $(s.plane_orientation)
-
-        Injection configuration
-        _______________________
-        ν_pdg: $(s.ν_pdg)
-        γ: $(s.γ)
-        emin: $(s.emin / units.GeV) GeV
-        emax: $(s.emax / units.GeV) GeV
-        θmin: $(round(s.θmin * 180 / π, sigdigits=3))°
-        θmax: $(round(s.θmax * 180 / π, sigdigits=3))°
-        ϕmin: $(round(s.ϕmin * 180 / π, sigdigits=3))°
-        ϕmax: $(round(s.ϕmax * 180 / π, sigdigits=3))°
-        r_injection: $(s.r_injection / units.m) m
-        l_endcap: $(s.l_endcap / units.m) m
-        diff_xs_path: $(s.diff_xs_path)
-
-        PROPOSAL configuration
-        ______________________
-        ecut: $(s.ecut / units.GeV) GeV
-        vcut: $(s.vcut)
-        do_interpolate: $(s.do_interpolate)
-        do_continuous: $(s.do_continuous)
-        tablespath: $(s.tablespath)
-
-        CORSIKA configuration 
-        _____________________
-        thinning: $(s.thinning)
-        hadron_ecut: $(s.hadron_ecut/ units.GeV) GeV
-        mu_ecut: $(s.mu_ecut/ units.GeV) GeV
-        em_ecut: $(s.em_ecut/ units.GeV) GeV
-        photon_ecut: $(s.photon_ecut/ units.GeV) GeV
-        parallelize_corsika: $(s.parallelize_corsika)
-        shower_dir: $(s.shower_dir)
-        singularity_path: $(s.singularity_path)
-        corsika_path: $(s.corsika_path)
-        corsika_sbatch_path: $(s.corsika_sbatch_path)
-        """
-    )
-end
-
-function Base.getindex(s::SimulationConfig, fieldstring::String)
-    getfield(s, Symbol(fieldstring))
-end
-
-function (s::SimulationConfig)(; track_progress=true, should_run_corsika=false)
-    seed!(s.seed)
+function inject_ν!(sim::Simulation; outkey="injection_events", track_progress=true)
+    geo = Geometry(sim.config["geometry"])
+    injector = Injector(sim.config["injection"], geo)
+    events = Vector{InjectionEvent}(undef, sim.config["steering"]["nevent"])
+    itr = 1:sim.config["steering"]["nevent"]
     if track_progress
-        println("Making geometry")
-        
+        itr = ProgressBar(itr)
     end
-    geo = Geometry(
-        s.geo_spline_path,
-        s.tambo_coordinates
-    )
+    for idx in itr
+        tr_seed = sim.config["steering"]["seed"] + idx
+        event = inject_event(injector, tr_seed)
+        events[idx] = event
+    end
+    sim.results[outkey] = events
+end
+
+function propagate_τ!(
+    sim::Simulation;
+    inkey="injection_events",
+    outkey="proposal_events",
+    track_progress=true
+)
+    geo = Geometry(sim.config["geometry"])
+    events = Vector{ProposalResult}(undef, sim.config["steering"]["nevent"])
+    propagator = ProposalPropagator(sim.config["proposal"])
+    injected_events = sim.results[inkey]
     if track_progress
-        println("Injecting events")
+        injected_events = ProgressBar(injected_events)
     end
-    injection_config = InjectionConfig(s)
-    injector = Injector(injection_config, geo)
-    s.injected_events = injector(track_progress=track_progress)
-    if track_progress
-        println("Propagating charged leptons")
+    for (idx, injected_event) in enumerate(injected_events)
+        event = propagator(
+            injected_event.final_state,
+            geo,
+            sim.config["steering"]["seed"] + idx
+        )
+        events[idx] = event
     end
-    proposal_config = ProposalConfig(s)
-    propagator = ProposalPropagator(proposal_config)
-    s.proposal_events = propagator(
-        s.injected_events,
-        geo,
-        track_progress=track_progress
+    sim.results[outkey] = events
+end
+
+#function CORSIKAConfig(s::Simulation)
+#    propdict = Dict(
+#        fn => getfield(s, fn) 
+#        for fn in intersect(fieldnames(Simulation), fieldnames(CORSIKAConfig))
+#    )
+#    return CORSIKAConfig(; propdict...)
+#end
+
+function run_airshower!(sim::Simulation; inkey="proposal_events", track_progress=true)
+    proposal_events = sim.results[inkey]
+
+    geo = Geometry(sim.config["geometry"])
+    # TODO wrap this into a neat little constructor
+    plane = Tambo.Plane(
+        geo.tambo_normal,
+        geo.tambo_coordinates,
+        geo
     )
-    if should_run_corsika
-        if track_progress
-            println("Running CORSIKA showers")
+    indices = []
+    for (proposal_idx, proposal_event) in enumerate(proposal_events)
+        if ~should_do_corsika(proposal_event, plane,geo)
+            continue
         end
-        corsika_config = CORSIKAConfig(s)
-        corsika_propagator = CORSIKAPropagator(corsika_config,geo)
-        s.corsika_indices = corsika_propagator(
-            track_progress=track_progress,
-        )
-    end
+        for (decay_idx,decay_event) in enumerate(proposal_event.decay_products)
+            #wanted to keep indices lined up so checking one at at ime
+            if check_neutrino(decay_event)
+                continue 
+            end 
 
+            push!(indices, [proposal_idx, decay_idx])
+
+            if sim.config["corsika"]["parallelize_corsika"]
+                continue 
+            end
+            corsika_run(
+                decay_event,
+                sim.config["corsika"],
+                geo,
+                proposal_idx,
+                decay_idx;
+                parallelize_corsika=false
+            )
+        end
+    end
+    
+    if sim.config["corsika"]["parallelize_corsika"]
+        corsika_parallel(
+            proposal_events,
+            geo,
+            sim.config["corsika"],
+            indices
+        )
+    end 
+    return indices 
+end 
+
+function (s::Simulation)(; track_progress=true, should_run_corsika=false)
+    throw("Not implemented yet")
 end
 
-function dump_to_file(s::SimulationConfig, f::JLDFile)
-    resultfields = [:injected_events, :proposal_events, :corsika_indices]
-    f["injected_events"] = s.injected_events
-    f["proposal_events"] = s.proposal_events
-    f["corsika_indices"] = s.corsika_indices
-    f["config"] = Dict(
-        Dict(
-            fn => getfield(s, fn) for fn in fieldnames(SimulationConfig)
-            if fn ∉ resultfields
-        )
-    )
-    return
-end
-
-function save_simulation(s::SimulationConfig, path::String)
-    @assert(length(s.injected_events)==s.n)
-    @assert(length(s.proposal_events)==s.n)
-    jldopen(path, "w") do f
-        dump_to_file(s, f)
-    end
+function save_simulation(s::Simulation, path::String)
+    throw("Not implemented yet")
 end
 
 end # module

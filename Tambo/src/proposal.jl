@@ -24,15 +24,15 @@ const MuMinusRockCross = [PyNULL(), PyNULL(), PyNULL(), PyNULL()]
 const TauPlusRockCross = [PyNULL(), PyNULL(), PyNULL(), PyNULL()]
 const TauMinusRockCross = [PyNULL(), PyNULL(), PyNULL(), PyNULL()]
 
-Base.@kwdef mutable struct ProposalConfig
-    ecut::Float64 = Inf
-    vcut::Float64 = 1e-2
-    do_interpolate::Bool = true
-    do_continuous::Bool = true
-    tablespath::String = realpath(
-        "$(@__DIR__)/../..//resources/proposal_tables/"
-    )
-end
+#Base.@kwdef mutable struct ProposalConfig
+#    ecut::Float64 = Inf
+#    vcut::Float64 = 1e-2
+#    do_interpolate::Bool = true
+#    do_continuous::Bool = true
+#    tablespath::String = realpath(
+#        "$(@__DIR__)/../..//resources/proposal_tables/"
+#    )
+#end
 
 struct ProposalPropagator
     particledef_dict::Dict
@@ -53,7 +53,7 @@ struct ProposalResult
     propped_state::Particle
 end
 
-function ProposalPropagator(config::ProposalConfig)
+function ProposalPropagator(config::Dict{String, Any})
     particledef_dict, crosssections_dict = (
         make_proposal_dicts(config)
     )
@@ -65,24 +65,14 @@ function Loss(int_type::Int, e::Float64, pp_position::PyObject)
     return Loss(int_type, e, position)
 end
 
-
-#function (config::ProposalConfig)(event::Particle, geo::Geometry)
-#    # TODO figure out how seeding works in PROPOSAL
-#    pp_particledef_dict, pp_crosssections_dict = (
-#        make_proposal_dicts(config)
-#    )
-#    secondaries = propagate(event, geo, pp_crosssections_dict, pp_particledef_dict)
-#    ProposalResult(secondaries, events)
-#    return result
-#end
-
 function (prop::ProposalPropagator)(
     particle::Particle,
-    geo::Geometry;
+    geo::Geometry,
+    proposal_seed::Int
 )
 
     @assert particle.pdg_mc in [15, 13, 11, -11, -13, -15] "$(particle) is not a charged lepton"
-    
+    pp.RandomGenerator.get().set_seed(proposal_seed)
     t = Track(particle.position, particle.direction, geo.box)
     segments = computesegments(t, geo)
     secondaries = propagate(
@@ -97,16 +87,16 @@ function (prop::ProposalPropagator)(
 end
 
 
-function (prop::ProposalPropagator)(
-    events::Vector{InjectionEvent},
-    geo::Geometry;
-    track_progress::Bool=true
-)
-    if track_progress
-        events = ProgressBar(events)
-    end
-    return [prop(event.final_state, geo) for event in events]
-end
+#function (prop::ProposalPropagator)(
+#    events::Vector{InjectionEvent},
+#    geo::Geometry;
+#    track_progress::Bool=true
+#)
+#    if track_progress
+#        events = ProgressBar(events)
+#    end
+#    return [prop(event.final_state, geo) for event in events]
+#end
 
 function ProposalResult(secondaries, parent_particle)
     if typeof(secondaries)==ProposalResult
@@ -160,28 +150,9 @@ end
 
 ### Functions for showing structs
 
-function Base.show(io::IO, l::Loss)
-    s = "Loss("
-    s *= "int_type=$(l.int_type), "
-    s *= "energy=$(l.energy / units.GeV) GeV, "
-    s *= "position=$(l.position / units.m) m"
-    s *= ")"
-    print(io, s)
-end
-
-function show(io::IO, result::ProposalResult)
-    s = "ProposalResult("
-    s *= "propped_state=$(result.propped_state), "
-    s *= "did_decay=$(result.did_decay), "
-    s *= "decay_products=$(result.decay_products)"
-    s *= ")"
-    print(io, s)
-end
-
 function position_from_pp_vector(pp_vector)
     return SVector{3}([pp_vector.x, pp_vector.y, pp_vector.z]) .* units.cm
 end
-
 
 function make_propagator(
     particle::Particle,
@@ -241,46 +212,6 @@ function propagate(
     secondaries = prop.propagate(lepton)
     return secondaries
 end
-#
-#function propagate(
-#    finalstate::Particle,
-#    geo::Geometry,
-#    pp_crosssections_dict::Dict{Tuple{Int64, String}, Vector{PyObject}},
-#    pp_particle_dict::Dict{Int, PyObject}
-#)
-#    t = Track(finalstate.position, finalstate.direction, geo.box)
-#    segments = computesegments(t, geo)
-#    result = propagate(
-#        finalstate,
-#        getfield.(segments, :medium_name),
-#        getfield.(segments, :density),
-#        getfield.(segments, :length),
-#        pp_crosssections_dict,
-#        pp_particle_dict,
-#    )
-#    return result
-#end
-
-#function propagate(
-#    finalstates::Vector{Particle},
-#    geo::Geometry,
-#    pp_crosssections_dict::Dict{Tuple{Int64, String}, Vector{PyObject}},
-#    pp_particle_dict::Dict{String, PyObject};
-#    track_progress=true
-#)
-#    itr = finalstates
-#    if track_progress
-#        itr = ProgressBar(itr)
-#    end
-#    results = [
-#        propagate(fs, geo, pp_crosssections_dict, pp_particle_dict) for fs in itr
-#    ]
-#    return results
-#end
-
-function Base.getindex(ve::Vector{ProposalResult}, s::String)
-    return getfield.(ve, Symbol(s))
-end
 
 ### Helper functions necessary for PROPOSAL ###
 # These contain very little interesting logic
@@ -330,9 +261,9 @@ function make_pp_density_distribution(density)
     return pp.density_distribution.density_homogeneous(density / (units.gr / units.cm^3))
 end
 
-function make_proposal_dicts(config::ProposalConfig)
+function make_proposal_dicts(config::Dict{String, Any})
     copy!(pp, pyimport("proposal"))
-    pp.InterpolationSettings.tables_path = config.tablespath
+    pp.InterpolationSettings.tables_path = config["tablespath"]
     copy!(TauMinusDef, pp.particle.TauMinusDef())
     copy!(TauPlusDef, pp.particle.TauPlusDef())
     copy!(MuMinusDef, pp.particle.MuMinusDef())
@@ -340,16 +271,17 @@ function make_proposal_dicts(config::ProposalConfig)
     copy!(EMinusDef, pp.particle.EMinusDef())
     copy!(EPlusDef, pp.particle.EPlusDef())
     function make_pp_crosssection(particle_def, name, config=config)
+        ecut = config["ecut"] > 0 ? config["ecut"] * units.GeV / units.MeV : Inf
         cuts = pp.EnergyCutSettings(
-            config.ecut / units.MeV,
-            config.vcut,
-            config.do_continuous
+            ecut,
+            config["vcut"],
+            config["do_continuous"]
         )
         target = getproperty(pp.medium, name)()
         cross = pp.crosssection.make_std_crosssection(;
             particle_def=particle_def,
             target=target,
-            interpolate=config.do_interpolate,
+            interpolate=config["do_interpolate"],
             cuts=cuts
         )
 

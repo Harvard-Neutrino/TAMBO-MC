@@ -10,11 +10,6 @@ struct Plane
     end
 end
 
-function Base.show(io::IO, plane::Plane)
-    s = "Plane(n̂=$(plane.n̂), x0=$(plane.x0 / units.m))"
-    print(io, s)
-end
-
 struct Box
     c1::SVector{3, Float64}
     c2::SVector{3, Float64}
@@ -24,16 +19,16 @@ struct Box
     end
 end
 
-function Box(c)
-    c1 = [0, 0, 0]
-    c2 = c
-    return Box(c1, c2)
-end
-
-function Box(x, y, z)
-    c = [x, y, z]
-    return Box(c)
-end
+#function Box(c)
+#    c1 = [0, 0, 0]
+#    c2 = c
+#    return Box(c1, c2)
+#end
+#
+#function Box(x, y, z)
+#    c = [x, y, z]
+#    return Box(c)
+#end
 
 struct Valley
     spline::Spline2D
@@ -47,14 +42,6 @@ function Valley(splpath::String)
     return Valley(spl, mincoord)
 end    
 
-
-
-#function load_spline(p, key="spline")
-#    f = jldopen(p, "r")
-#    spl = f[key]
-#    return spl
-#end
-
 struct Geometry
     valley::Valley
     box::Box
@@ -62,9 +49,18 @@ struct Geometry
     ρair::Float64
     ρrock::Float64
     tambo_bounds::SMatrix{4, 2, Float64}
+    tambo_normal::Direction
+    tambo_coordinates::Coord
 end
 
-function Geometry(spl_path::String, tambo_coord::Coord)
+function Geometry(config::Dict)
+    spl_path = config["geo_spline_path"]
+    tambo_coordinates = Coord(deg2rad.(config["tambo_coordinates"])...)
+    normal_vec = Direction(config["plane_orientation"]...)
+    return Geometry(spl_path, tambo_coordinates, normal_vec)
+end
+
+function Geometry(spl_path::String, tambo_coord::Coord, normal_vec::Direction)
     spl = nothing
     min_coord = nothing
     jldopen(spl_path) do jldf
@@ -88,7 +84,7 @@ function Geometry(spl_path::String, tambo_coord::Coord)
         -1.0 1.0 -1.0 1.0;
         -0.5 -0.5 0.5 0.5
     ])
-    return Geometry(valley, box, xyzoffset, units.ρair0, units.ρrock0, bounds)
+    return Geometry(valley, box, xyzoffset, units.ρair0, units.ρrock0, bounds, normal_vec, tambo_coord)
 end
 
 function Plane(n̂::Direction, coord::Coord, geo::Geometry)
