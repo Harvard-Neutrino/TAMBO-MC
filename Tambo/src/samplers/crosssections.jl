@@ -43,8 +43,13 @@ struct CrossSection
     differential_xs::DifferentialXS
 end
 
-function CrossSection(dir::String, model_name::String, ν_pdg::Int, interaction::Interaction)
-    
+function CrossSection(
+    dir::String,
+    model_name::String,
+    ν_pdg::Int,
+    interaction_name::String
+)
+    interaction = interaction_name=="CC" ? Interaction(1) : Interaction(2)
     sampling_file = "$(dir)/$(model_name)_differential_cross_section_cdf.h5"
     total_file = "$(dir)/$(model_name)_total_cross_section.h5"
     differential_file = "$(dir)/$(model_name)_differential_cross_section.h5"
