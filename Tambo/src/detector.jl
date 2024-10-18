@@ -50,17 +50,18 @@ function make_triangle_grid(x0::Real, x1::Real, y0::Real, y1::Real, ds::Real)
 end
 
 function make_detector_array(
-    center::Tambo.Coord,
+    center::Coord,
     length::Real,
     ds::Real,
     altmin::Real,
     altmax::Real,
-    plane::Tambo.Plane,
-    geo::Geometry
+    plane::Plane,
+    geo::Geometry,
+    ext::SVector{3}
 )
 
     # Make a triangular grid in xy-plane
-    xys = Tambo.make_triangle_grid(-2units.km, 2units.km, -length/2, length/2, ds)
+    xys = make_triangle_grid(-2units.km, 2units.km, -length/2, length/2, ds)
     # Rotate it to align with the mountain plain
     r = RotZ(plane.n̂.ϕ) * RotY(plane.n̂.θ)
     RotY(-minesite_normal_vec.θ) * RotZ(-minesite_normal_vec.ϕ)
@@ -72,9 +73,23 @@ function make_detector_array(
     # Make the module list
     modules = SquareDetectionModule[]
     rot = RotY(-plane.n̂.θ) * RotZ(-plane.n̂.ϕ) # This makes the
-    ext = SVector{3}([1.875, 0.8, 0.03]) * units.m
+    #ext = SVector{3}([1.875, 0.8, 0.03]) * units.m
     for (idx, xyz) in enumerate(xyzs)
         push!(modules, SquareDetectionModule(xyz, rot, ext, idx))
     end
     return modules
 end
+
+function make_detector_array(
+    center::Coord,
+    length::Real,
+    ds::Real,
+    altmin::Real,
+    altmax::Real,
+    plane::Plane,
+    geo::Geometry,
+)
+    ext = SVector{3}([1.875, 0.8, 0.03]) * units.m
+    return make_triangle_grid(center, length, ds, altmin, altmax, plane, geo, ext)
+end
+    
