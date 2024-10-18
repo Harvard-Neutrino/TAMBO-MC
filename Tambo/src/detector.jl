@@ -53,10 +53,6 @@ function make_triangle_grid(x0::Real, x1::Real, y0::Real, y1::Real, ds::Real)
 end
 
 function make_detector_array(
-<<<<<<< HEAD
-    center::Coord,
-=======
->>>>>>> refs/remotes/origin/main
     length::Real,
     ds::Real,
     altmin::Real,
@@ -91,7 +87,6 @@ function make_detector_array(
 end
 
 function make_detector_array(
-    center::Coord,
     length::Real,
     ds::Real,
     altmin::Real,
@@ -100,6 +95,6 @@ function make_detector_array(
     geo::Geometry,
 )
     ext = SVector{3}([1.875, 0.8, 0.03]) * units.m
-    return make_triangle_grid(center, length, ds, altmin, altmax, plane, geo, ext)
+    return make_triangle_grid(length, ds, altmin, altmax, plane, geo, ext)
 end
     
