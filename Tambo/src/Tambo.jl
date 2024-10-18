@@ -1,29 +1,14 @@
 module Tambo
 
 export Simulation,
-       InjectionConfig,
-       #ProposalConfig,
        Geometry,
        CorsikaMap,
        Coord,
-       save_simulation, 
-       simulator_from_file,
        units,
        coords,
        normal_vecs,
        inject_ν!,
        propagate_τ!,
-       #minesite_coord,
-       #whitepaper_normal_vec,
-       #whitepaper_coord,
-       #testsite_coord,
-       #minesite_normal_vec,
-       #larger_valley_coord,
-       #larger_valley_vec,
-       inside,
-       should_do_corsika,
-       latlong_to_xy,
-       xy_to_latlong,
        oneweight
 
 using CoordinateTransformations: Translation, AffineMap, LinearMap
@@ -61,6 +46,11 @@ include("corsika.jl")
 @Base.kwdef mutable struct Simulation
     config::Dict{String, Any}
     results::Dict{String, Any}
+    function Simulation(config, results)
+        @assert "geometry" in keys(config) "Geometry information must be provided"
+        @assert "steering" in keys(config) "Steering information must be provided"
+        return new(config, results)
+    end
 end
 
 function relativize!(d::Dict)
@@ -80,9 +70,16 @@ function Simulation(config_file::String)
     return Simulation(config, results)
 end
 
-function inject_ν!(sim::Simulation; outkey="injection_events", track_progress=true)
+function inject_ν!(
+    sim::Simulation,
+    config::Dict{String, Any};
+    outkey="injection",
+    track_progress=true
+)
+    relativize!(config)
+    sim.config[outkey] = config
     geo = Geometry(sim.config["geometry"])
-    injector = Injector(sim.config["injection"], geo)
+    injector = Injector(config, geo)
     events = Vector{InjectionEvent}(undef, sim.config["steering"]["nevent"])
     itr = 1:sim.config["steering"]["nevent"]
     if track_progress
@@ -96,15 +93,28 @@ function inject_ν!(sim::Simulation; outkey="injection_events", track_progress=t
     sim.results[outkey] = events
 end
 
-function propagate_τ!(
-    sim::Simulation;
-    inkey="injection_events",
-    outkey="proposal_events",
+function inject_ν!(
+    sim::Simulation,
+    config_file::String;
+    outkey="injection",
     track_progress=true
 )
+    config = relativize!(TOML.parsefile(config_file))
+    inject_ν!(sim, config; outkey=outkey, track_progress=track_progress)
+end
+
+function propagate_τ!(
+    sim::Simulation,
+    config::Dict{String, Any};
+    inkey="injection",
+    outkey="proposal",
+    track_progress=true
+)
+    relativize!(config)
+    sim.config[outkey] = config
     geo = Geometry(sim.config["geometry"])
     events = Vector{ProposalResult}(undef, sim.config["steering"]["nevent"])
-    propagator = ProposalPropagator(sim.config["proposal"])
+    propagator = ProposalPropagator(config)
     injected_events = sim.results[inkey]
     if track_progress
         injected_events = ProgressBar(injected_events)
@@ -120,17 +130,28 @@ function propagate_τ!(
     sim.results[outkey] = events
 end
 
-#function CORSIKAConfig(s::Simulation)
-#    propdict = Dict(
-#        fn => getfield(s, fn) 
-#        for fn in intersect(fieldnames(Simulation), fieldnames(CORSIKAConfig))
-#    )
-#    return CORSIKAConfig(; propdict...)
-#end
+function propagate_τ!(
+    sim::Simulation,
+    config_file::String;
+    inkey::String="injection",
+    outkey::String="proposal",
+    track_progress::Bool=true
+)
+    config = relativize!(TOML.parsefile(config_file))
+    propagate_τ!(sim, config; inkey=inkey, outkey=outkey, track_progress=track_progress)
+end
 
-function run_airshower!(sim::Simulation; inkey="proposal_events", track_progress=true)
+function run_airshower!(
+    sim::Simulation,
+    config::Dict{String, Any};
+    outkey="corsika",
+    inkey="proposal_events",
+    track_progress=true
+)
+    relativize!(config)
     proposal_events = sim.results[inkey]
-
+    
+    sim.config[outkey] = config
     geo = Geometry(sim.config["geometry"])
     # TODO wrap this into a neat little constructor
     plane = Tambo.Plane(
@@ -151,12 +172,12 @@ function run_airshower!(sim::Simulation; inkey="proposal_events", track_progress
 
             push!(indices, [proposal_idx, decay_idx])
 
-            if sim.config["corsika"]["parallelize_corsika"]
+            if sim.config[outkey]["parallelize_corsika"]
                 continue 
             end
             corsika_run(
                 decay_event,
-                sim.config["corsika"],
+                sim.config[outkey],
                 geo,
                 proposal_idx,
                 decay_idx;
@@ -175,6 +196,11 @@ function run_airshower!(sim::Simulation; inkey="proposal_events", track_progress
     end 
     return indices 
 end 
+
+function run_airshower!(sim::Simulation, config_file::String; outkey="corsika", inkey="proposal_events", track_progress=true)
+    config = relativize!(TOML.parsefile(config_file))
+    run_airshower!(sim, config; outkey=outkey, inkey=inkey, track_progress=track_progress)
+end
 
 function (s::Simulation)(; track_progress=true, should_run_corsika=false)
     throw("Not implemented yet")
