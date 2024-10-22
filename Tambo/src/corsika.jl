@@ -2,8 +2,8 @@ Base.@kwdef mutable struct CORSIKAConfig
     parallelize_corsika::Bool = false
     thinning::Float64 = 1e-6 
     hadron_ecut::Float64 = 0.05units.GeV
-    em_ecut::Float64 = 0.01units.GeV
-    photon_ecut::Float64 = 0.002units.GeV
+    em_ecut::Float64 = 0.0001units.GeV
+    photon_ecut::Float64 = 0.001units.GeV
     mu_ecut::Float64 = 0.05units.GeV 
     shower_dir::String = "showers"
     singularity_path::String = "/n/holylfs05/LABS/arguelles_delgado_lab/Lab/common_software/source/corsika8/corsika-env.simg"
