@@ -39,12 +39,12 @@ function parse_commandline()
             help = "Directory with all the simulation directories inside"
             arg_type = String
             #required = true
-            default = "/Users/pavelzhelnin/Documents/physics/TAMBO/resources/airshowers/GraphNet_00000_00001"
+            default = "/Users/pavelzhelnin/Documents/physics/TAMBO/resources/airshowers/big_showers/larger_valley_00000_00020"
         "--simfile"
             help = "Simulation file, if no simulation file produced you need to specify plane coord, vector and spline path"
             arg_type = String
             #required = true 
-            default = "/Users/pavelzhelnin/Documents/physics/TAMBO/resources/example_sim_file.jld2"
+            default = "/Users/pavelzhelnin/Documents/physics/TAMBO/resources/Larger_Valley/sim_files/larger_valley_00000_00020.jld2"
         "--outfile"
             help = "where to store the output"
             arg_type = String
@@ -72,11 +72,11 @@ function parse_commandline()
         "--altmin"
             help = "Minimum altitude in m"
             arg_type = Float64
-            default = 1892.5255158436627
+            default = 2300
         "--altmax"
             help = "Maximum altitude in m"
             arg_type = Float64
-            default = 4092.525515843662 
+            default = 3700
        
     end
     return parse_args(s)
@@ -156,7 +156,7 @@ function make_hit_map(
 
         pqf = Parquet2.Dataset(file)
         df = DataFrame(pqf)
-        df = df = loadcorsika(select(df,Not("shower","nx","ny","nz")),xyzcorsika)
+        df = loadcorsika(select(df,Not("shower","nx","ny","nz")),xyzcorsika)
         df = filter(
                 e -> xmin < e.x && e.x < xmax && ymin < e.y && e.y < ymax,
                 df
@@ -185,6 +185,7 @@ function can_skip_event(event_number, outfile, run_desc)
 end
 
 function main()
+    #julia make_event_dicts_parallel.jl --outfile="1x1_panels_event_dicts_00000_00020.jld2" --delta=150 --length=2000 --altmin=2300 --altmax=3700
     args = parse_commandline()
     @assert args["njob"] <= args["nparallel"]
 
@@ -206,6 +207,7 @@ function main()
     ])
 
     modules = Tambo.make_detector_array(
+        SVector{3}([1.875, 0.8, 0.03]),
         args["length"]units.m,
         args["deltas"]units.m,
         altmin,
@@ -232,6 +234,7 @@ function main()
     event_numbers = get_event_numbers(args["basedir"])[args["njob"]:args["nparallel"]:end]
     println("creating event dicts...")
     println("event numbers: $event_numbers")
+    println(args["basedir"])
 
     for (_,event_number) in tqdm(enumerate(event_numbers))
 

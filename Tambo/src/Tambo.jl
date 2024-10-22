@@ -35,6 +35,7 @@ using Random: seed!
 using Roots: find_zeros, find_zero
 using Rotations: RotX, RotZ
 using StaticArrays: SVector, SMatrix 
+using DataFrames 
 
 include("units.jl")
 include("samplers/angularsamplers.jl")
