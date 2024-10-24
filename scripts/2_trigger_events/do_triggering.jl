@@ -66,14 +66,13 @@ function main()
     sim = jldopen(sim_file)
     
     event_dict_files = glob("*.jld2", event_dicts_path)
-    println("event_dict_files: ", event_dict_files)
     event_dicts = Dict{String, Any}()
 
 
     for event_dict_file in event_dict_files
         merge!(event_dicts, load(event_dict_file))
     end
-    println("event_dicts: ", event_dicts)
+
     triggered_event_ids = []
     for (key, value) in event_dicts
         if did_trigger(value, module_trigger_thresh, event_trigger_thresh, trigger_type)
