@@ -130,9 +130,19 @@ function corsika_run(
     emcut,photoncut,mucut,hadcut = ecuts/units.GeV 
     total_index = string(proposal_index) *"_"* string(decay_index)
 
+    if energy > 1e6
+        time = "8:00:00"
+    elseif energy > 1e7
+        time = "12:00:00"
+    elseif energy > 1e8
+        time =  "16:00:00"
+    else 
+        time = "4:00:00"
+    end 
+
     if parallelize_corsika 
         corsika_parallel_exec = "singularity exec $singularity_path $corsika_path --pdg $pdg --energy $energy --zenith $zenith --azimuth $azimuth --xpos $rawinject_x --ypos $rawinject_y --zpos $rawinject_z -f $outdir/shower_$total_index --xdir $xdir --ydir $ydir --zdir $zdir --observation-height $obs_z --force-interaction --x-intercept $x_intercept --y-intercept $y_intercept --z-intercept $z_intercept --emcut $emcut --photoncut $photoncut --mucut $mucut --hadcut $hadcut --emthin $thinning"
-        run(`sbatch $corsika_sbatch_path $corsika_parallel_exec`)
+        run(`sbatch --time=$time $corsika_sbatch_path $corsika_parallel_exec`)
     else 
         corsika_exec = `singularity exec $singularity_path $corsika_path --pdg $pdg --energy $energy --zenith $zenith --azimuth $azimuth --xpos $rawinject_x --ypos $rawinject_y --zpos $rawinject_z -f $outdir/shower_$total_index --xdir $xdir --ydir $ydir --zdir $zdir --observation-height $obs_z --force-interaction --x-intercept $x_intercept --y-intercept $y_intercept --z-intercept $z_intercept --emcut $emcut --photoncut $photoncut --mucut $mucut --hadcut $hadcut --emthin $thinning`
         run(corsika_exec)
