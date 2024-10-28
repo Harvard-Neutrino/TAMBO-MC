@@ -77,6 +77,10 @@ function parse_commandline()
             help = "Maximum altitude in m"
             arg_type = Float64
             default = 3700
+        "--size"
+            help = "size of modules"
+            arg_type = String 
+            default = "normal"
        
     end
     return parse_args(s)
@@ -206,14 +210,22 @@ function main()
         zcorsika.x zcorsika.y zcorsika.z;
     ])
 
+    if args["size"] == "normal"
+        size = SVector{3}([1.875, 0.8, 0.03])units.m
+    elseif args["size"] == "small"
+        size = SVector{3}([2,2, 0.03])units.m
+    elseif args["size"] == "medium"
+        size = SVector{3}([4,4,0.03])units.m
+    end 
+
     modules = Tambo.make_detector_array(
-        SVector{3}([1.875, 0.8, 0.03]),
         args["length"]units.m,
         args["deltas"]units.m,
         altmin,
         altmax,
         plane,
-        geo
+        geo,
+        size,
     )
 
     outfile = args["outfile"]
