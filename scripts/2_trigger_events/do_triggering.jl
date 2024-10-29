@@ -1,13 +1,15 @@
 using Pkg
-Pkg.activate("../../Tambo")
+Pkg.activate("../Tambo")
 using Tambo
 using JLD2
 using Glob
 using ArgParse
+using TOML
+
 
 include("trigger_defs.jl")
 
-interpolated_effs = load("../../resources/detector_efficiencies/initial_IceTop_panel_interpolations.jld2")
+interpolated_effs = load("../resources/detector_efficiencies/initial_IceTop_panel_interpolations.jld2")
 global interpolated_eff_gamma = interpolated_effs["gamma_interp"]
 global interpolated_eff_muon = interpolated_effs["muon_interp"]
 global interpolated_eff_electron = interpolated_effs["electron_interp"]
@@ -19,32 +21,76 @@ function parse_commandline()
             help = "Main JLD2 simulation file"
             arg_type = String
             #required = true
-            default = "/n/holylfs05/LABS/arguelles_delgado_lab/Lab/common_software/source/corsika8/corsika-work/Oct16th2023_WhitePaper_300k.jld2"
+            #default = "/n/holylfs05/LABS/arguelles_delgado_lab/Lab/common_software/source/corsika8/corsika-work/Oct16th2023_WhitePaper_300k.jld2"
         "--eventdictdir"
             help = "Directory with all the event dicts inside"
             arg_type = String
-            default = "/n/holylfs05/LABS/arguelles_delgado_lab/Lab/TAMBO/will_misc/triggered_events/Jan7th2024_WhitePaper_300k_no_thin/"
+            #default = "/n/holylfs05/LABS/arguelles_delgado_lab/Lab/TAMBO/will_misc/triggered_events/Jan7th2024_WhitePaper_300k_no_thin/"
             #required = true 
         "--outdir"
             help = "where to store the output"
             arg_type = String
-            default = "./"
+            #default = "./"
             #required = true
         "--trigger_type"
             help = "Type of trigger to use"
             arg_type = String
-            default = "whitepaper"
+            #default = "whitepaper"
+        "--config"
+            help = "Config file"
+            arg_type = String
     end
     return parse_args(s)
 end
 
+function load_config(file_path::String)
+    if isfile(file_path)
+        return TOML.parsefile(file_path)
+    else
+        error("Config file not found at: $file_path")
+    end
+end
 
 function main()
+    # Parse config file and command line arguments
+    # Overwrite config file values with command line arguments if provided
+    expected_arguments = ["simfile", "eventdictdir", "outdir", "trigger_type", "config"]
     args = parse_commandline()
+    
+    config_params = Dict()
+
+    # Load from config files if provided
+    if haskey(args, "config") && !ismissing(args["config"])
+        config_params = load_config(args["config"])
+        for (k, v) in config_params
+            if k ∉ expected_arguments
+                error("Unexpected key in config file: $k")
+            end
+            args[k] = v
+        end
+    end
+
+    # Override with command line arguments if provided
+    for (k, v) in args
+        if k ∉ expected_arguments
+            error("Unexpected key in command line arguments: $k")
+        end
+        if k != "config"
+            config_params[k] = v
+        end
+    end
+
     sim_file = args["simfile"]
     event_dicts_path = args["eventdictdir"]
     outdir = args["outdir"]
     trigger_type = args["trigger_type"]
+
+    println("Configuration:")
+    println("sim_file: $sim_file")
+    println("event_dicts_path: $event_dicts_path")
+    println("outdir: $outdir")
+    println("trigger_type: $trigger_type")
+    println()
 
     if trigger_type == "whitepaper"
         module_trigger_thresh = 3

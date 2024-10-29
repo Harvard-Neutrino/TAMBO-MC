@@ -1,0 +1,24 @@
+localrules: do_triggering
+
+import toml
+import glob
+
+rule do_triggering:
+    input:
+        event_dict_files = lambda wildcards: get_event_dict_files(wildcards.config)
+        #event_dicts=[f'/n/holylfs05/LABS/arguelles_delgado_lab/Lab/TAMBO/will_misc/perfect_valley/event_dicts_150m/event_dicts_{i}_100.jld2' for i in range(1, 100)]
+    output:
+        "/n/holylfs05/LABS/arguelles_delgado_lab/Lab/TAMBO/will_misc/perfect_valley/triggered_events_150m/triggered_events_{config}_mod_3_event_30.jld2" # FIXME: update to handle different sim configs
+    shell: 
+        """
+        julia 2_trigger_events/do_triggering.jl \
+        --config {wildcards.config}.toml
+        """
+
+def get_event_dict_files(config):
+    config = config + '.toml'
+    with open(config) as f:
+        config_dict = toml.load(f)
+    event_dicts_dir = config_dict['eventdictdir']
+    event_dicts_files = glob.glob(f'{event_dicts_dir}event_dicts_*.jld2')
+    return event_dicts_files
