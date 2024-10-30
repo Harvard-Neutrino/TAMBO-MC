@@ -39,6 +39,7 @@ function parse_commandline()
         "--config"
             help = "Config file"
             arg_type = String
+            default = nothing
     end
     return parse_args(s)
 end
@@ -60,7 +61,7 @@ function main()
     config_params = Dict()
 
     # Load from config files if provided
-    if haskey(args, "config") && !ismissing(args["config"])
+    if haskey(args, "config") && !isnothing(args["config"])
         config_params = load_config(args["config"])
         for (k, v) in config_params
             if k ∉ expected_arguments

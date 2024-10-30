@@ -5,15 +5,35 @@ import glob
 
 rule do_triggering:
     input:
-        event_dict_files = lambda wildcards: get_event_dict_files(wildcards.config)
-        #event_dicts=[f'/n/holylfs05/LABS/arguelles_delgado_lab/Lab/TAMBO/will_misc/perfect_valley/event_dicts_150m/event_dicts_{i}_100.jld2' for i in range(1, 100)]
+        event_dict_files = lambda wildcards: get_event_dict_files(wildcards.config),
+        trig_config = lambda wildcards: f'{wildcards.trig_config}.toml'
     output:
-        "/n/holylfs05/LABS/arguelles_delgado_lab/Lab/TAMBO/will_misc/perfect_valley/triggered_events_150m/triggered_events_{config}_mod_3_event_30.jld2" # FIXME: update to handle different sim configs
+        "/n/holylfs05/LABS/arguelles_delgado_lab/Lab/TAMBO/will_misc/perfect_valley/triggered_events_150m/triggered_events_{trig_config}_mod_3_event_30.jld2" # FIXME: update to handle different sim configs
     shell: 
         """
         julia 2_trigger_events/do_triggering.jl \
-        --config {wildcards.config}.toml
+        --config {wildcards.trig_config}.toml
         """
+
+rule make_event_dicts:
+    input:
+        shower_files = lambda wildcards: get_shower_files(wildcards.event_dict_config),
+        event_dict_config = lambda wildcards: f'{wildcards.event_dict_config}.toml'
+    output:
+        "/n/holylfs05/LABS/arguelles_delgado_lab/Lab/TAMBO/will_misc/perfect_valley/event_dicts_{event_dict_config}/event_dicts_{event_dict_subset_id}_{event_dict_total_subsets}.jld2"
+    resources:
+        cpus_per_task=1,
+        mem_mb=8000,
+        slurm_partition="arguelles_delgado",
+        runtime=240
+    shell: 
+        """
+        julia 1_make_event_dicts/make_event_dicts_parallel.jl \
+        --config {wildcards.event_dict_config}.toml \
+        --njob {wildcards.event_dict_subset_id} \
+        --nparallel {wildcards.event_dict_total_subsets}
+        """
+
 
 def get_event_dict_files(config):
     config = config + '.toml'
@@ -22,3 +42,11 @@ def get_event_dict_files(config):
     event_dicts_dir = config_dict['eventdictdir']
     event_dicts_files = glob.glob(f'{event_dicts_dir}event_dicts_*.jld2')
     return event_dicts_files
+
+def get_shower_files(config):
+    config = config + '.toml'
+    with open(config) as f:
+        config_dict = toml.load(f)
+    shower_dir = config_dict['basedir']
+    shower_files = glob.glob(f'{shower_dir}shower_*.jld2')
+    return shower_files

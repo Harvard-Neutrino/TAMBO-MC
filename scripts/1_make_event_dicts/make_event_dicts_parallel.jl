@@ -1,5 +1,5 @@
 using Pkg
-Pkg.activate("../../Tambo")
+Pkg.activate("../Tambo")
 using Tambo
 using PyCall
 using JLD2
@@ -11,6 +11,7 @@ using LinearAlgebra
 using Parquet2
 using DataFrames 
 using ProgressBars
+using TOML
 
 #const zcorsika = whitepaper_normal_vec.proj
 #as defined in corsika 
@@ -39,32 +40,32 @@ function parse_commandline()
             help = "Directory with all the simulation directories inside"
             arg_type = String
             #required = true
-            default = "/Users/pavelzhelnin/Documents/physics/TAMBO/resources/airshowers/GraphNet_00000_00001"
+            #default = "/Users/pavelzhelnin/Documents/physics/TAMBO/resources/airshowers/GraphNet_00000_00001"
         "--simfile"
             help = "Simulation file, if no simulation file produced you need to specify plane coord, vector and spline path"
             arg_type = String
             #required = true 
-            default = "/Users/pavelzhelnin/Documents/physics/TAMBO/resources/example_sim_file.jld2"
+            #default = "/Users/pavelzhelnin/Documents/physics/TAMBO/resources/example_sim_file.jld2"
         "--outfile"
             help = "where to store the output"
             arg_type = String
-            required = true
+            #required = true
         "--deltas"
             help = "Distance between modules on hexagonal array"
             arg_type = Float64
-            required = true
+            #required = true
         "--length"
             help = "Length of the full array"
             arg_type = Float64
-            required = true
+            #required = true
         "--nparallel"
             help = "Number of parallel jobs happening"
             arg_type = Int
-            default=1
+            #default=1
         "--njob"
             help = "Which parallel job"
             arg_type = Int
-            default=1
+            #default=1
         "--run_desc"
             help = "A description that will become the group name for the file"
             arg_type = String
@@ -72,14 +73,25 @@ function parse_commandline()
         "--altmin"
             help = "Minimum altitude in m"
             arg_type = Float64
-            default = 1892.5255158436627
+            #default = 1892.5255158436627
         "--altmax"
             help = "Maximum altitude in m"
             arg_type = Float64
-            default = 4092.525515843662 
-       
+            #default = 4092.525515843662 
+        "--config"
+            help = "Path to a TOML config file"
+            arg_type = String
+            default = nothing
     end
     return parse_args(s)
+end
+
+function load_config(file_path::String)
+    if isfile(file_path)
+        return TOML.parsefile(file_path)
+    else
+        error("Config file not found at: $file_path")
+    end
 end
 
 function add_hits!(d::Dict, og_df::DataFrame, modules)
@@ -145,7 +157,8 @@ function make_hit_map(
 
     d = Dict{Int, Vector{Tambo.CorsikaEvent}}()
     files = find_extant_files(event_number, basedir)
-    for file in tqdm(files)
+    #for file in tqdm(files)
+    for file in files
         #CORSIKA8 sometimes doesn't finish b/c job times out 
         try
             Parquet2.Dataset(file)
@@ -185,8 +198,41 @@ function can_skip_event(event_number, outfile, run_desc)
 end
 
 function main()
+    # Parse config file and command line arguments
+    # Overwrite config file values with command line arguments if provided
+    expected_arguments = ["basedir", "simfile", "outfile", "deltas", "length", "nparallel", "njob", "run_desc", "altmin", "altmax", "config"]
     args = parse_commandline()
+    
+    config_params = Dict()
+
+    # Load from config files if provided
+    if haskey(args, "config") && !isnothing(args["config"])
+        println(args)
+        config_params = load_config(args["config"])
+        for (k, v) in config_params
+            if k ∉ expected_arguments
+                error("Unexpected key in config file: $k")
+            end
+            args[k] = v
+        end
+    end
+
+    # Override with command line arguments if provided
+    for (k, v) in args
+        if k ∉ expected_arguments
+            error("Unexpected key in command line arguments: $k")
+        end
+        if k != "config"
+            config_params[k] = v
+        end
+    end
+    
     @assert args["njob"] <= args["nparallel"]
+
+    println("Configuration:")
+    for (k, v) in args
+        println("$k: $v")
+    end
 
     #should fix so that we have a .toml 
     sim = jldopen(args["simfile"])
@@ -233,7 +279,8 @@ function main()
     println("creating event dicts...")
     println("event numbers: $event_numbers")
 
-    for (_,event_number) in tqdm(enumerate(event_numbers))
+    #for (_,event_number) in tqdm(enumerate(event_numbers))
+    for event_number in event_numbers
 
         if can_skip_event(event_number, outfile, run_desc)
             println("skipped event $event_number")
