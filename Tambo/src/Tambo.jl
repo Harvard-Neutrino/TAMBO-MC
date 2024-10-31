@@ -9,6 +9,7 @@ export Simulation,
        normal_vecs,
        inject_ν!,
        propagate_τ!,
+       identify_taus_to_shower!,
        run_airshower!,
        oneweight,
        save_simulation
@@ -88,6 +89,7 @@ function inject_ν!(
     events = Vector{InjectionEvent}(undef, sim.config["steering"]["nevent"])
     itr = 1:sim.config["steering"]["nevent"]
     if track_progress
+        println("Injecting neutrinos")
         itr = ProgressBar(itr)
     end
     for idx in itr
@@ -125,6 +127,7 @@ function propagate_τ!(
     propagator = ProposalPropagator(config)
     injected_events = sim.results[inkey]
     if track_progress
+        println("Propagating taus")
         injected_events = ProgressBar(injected_events)
     end
     for (idx, injected_event) in enumerate(injected_events)
@@ -148,6 +151,103 @@ function propagate_τ!(
     config = relativize!(TOML.parsefile(config_file))
     propagate_τ!(sim, config; inkey=inkey, outkey=outkey, track_progress=track_progress)
 end
+
+function identify_taus_to_shower!(
+    sim::Simulation,
+    config::Dict{String, Any};
+    inkey="proposal",
+    outkey="corsika",
+    track_progress=true
+)
+    relativize!(config)
+    proposal_events = sim.results[inkey]
+
+    seed!(sim.config["steering"]["seed"])
+    
+    sim.config[outkey] = config
+    geo = Geometry(sim.config["geometry"])
+    # TODO wrap this into a neat little constructor
+    plane = Tambo.Plane(
+        geo.tambo_normal,
+        geo.tambo_coordinates,
+        geo
+    )
+
+    indices = Vector{Tuple{Int64, Int64}}()
+
+    if track_progress
+        println("Identifying taus to shower")
+        proposal_events = ProgressBar(proposal_events)
+    end
+    for (proposal_idx, proposal_event) in enumerate(proposal_events)
+        if ~should_do_corsika(proposal_event, plane,geo)
+            continue
+        end
+        for (decay_idx,decay_event) in enumerate(proposal_event.decay_products)
+            #wanted to keep indices lined up so checking one at at ime
+            if check_neutrino(decay_event)
+                continue 
+            end 
+            push!(indices, (proposal_idx, decay_idx))
+        end
+    end
+    sim.results[outkey] = indices
+end
+
+function shower_taus!(
+    sim::Simulation,
+    config::Dict{String, Any};
+    proposal_ids_key="corsika",
+    proposal_events_key="proposal",
+    config_key="corsika",
+    track_progress=true
+)
+    relativize!(config)
+
+    seed!(sim.config["steering"]["seed"])
+
+    # Get proposal events corrosponding to the taus that passed should_do_corsika
+    proposal_ids = sort(unique([t[1] for t in sim.results[tau_ids]]))
+    proposal_events = sim.results[proposal_events][proposal_ids]
+    
+    sim.config[config_key] = config
+    geo = Geometry(sim.config["geometry"])
+    # TODO wrap this into a neat little constructor
+    plane = Tambo.Plane(
+        geo.tambo_normal,
+        geo.tambo_coordinates,
+        geo
+    )
+    indices = Vector{Tuple{Int64, Int64}}()
+    for (proposal_idx, proposal_event) in enumerate(proposal_events)
+        for (decay_idx,decay_event) in enumerate(proposal_event.decay_products)
+            #wanted to keep indices lined up so checking one at at ime
+            push!(indices, (proposal_idx, decay_idx))
+
+            if sim.config[outkey]["parallelize_corsika"]
+                continue 
+            end
+            corsika_run(
+                decay_event,
+                sim.config[config_key],
+                geo,
+                proposal_idx,
+                decay_idx;
+                parallelize_corsika=false
+            )
+        end
+    end
+    
+    if sim.config["corsika"]["parallelize_corsika"]
+        println(indices)
+        corsika_parallel(
+            proposal_events,
+            geo,
+            sim.config["corsika"],
+            indices
+        )
+    end 
+end 
 
 function run_airshower!(
     sim::Simulation,
@@ -227,7 +327,7 @@ function (s::Simulation)(; track_progress=true, should_run_corsika=false)
     inject_ν!(s, s.config["injection"], track_progress=track_progress)
 
     if track_progress
-        println("Propagating charged taus")
+        println("Propagating taus")
     end
     propagate_τ!(s, s.config["proposal"], track_progress=track_progress)
 
