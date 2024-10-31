@@ -80,6 +80,9 @@ function inject_ν!(
 )
     relativize!(config)
     sim.config[outkey] = config
+
+    seed!(sim.config["steering"]["seed"])
+
     geo = Geometry(sim.config["geometry"])
     injector = Injector(config, geo)
     events = Vector{InjectionEvent}(undef, sim.config["steering"]["nevent"])
@@ -114,6 +117,9 @@ function propagate_τ!(
 )
     relativize!(config)
     sim.config[outkey] = config
+
+    seed!(sim.config["steering"]["seed"])
+
     geo = Geometry(sim.config["geometry"])
     events = Vector{ProposalResult}(undef, sim.config["steering"]["nevent"])
     propagator = ProposalPropagator(config)
@@ -152,6 +158,8 @@ function run_airshower!(
 )
     relativize!(config)
     proposal_events = sim.results[inkey]
+
+    seed!(sim.config["steering"]["seed"])
     
     sim.config[outkey] = config
     geo = Geometry(sim.config["geometry"])
@@ -198,7 +206,6 @@ function run_airshower!(
         )
     end 
     sim.results[outkey] = indices
-    #return indices 
 end 
 
 function run_airshower!(sim::Simulation, config_file::String; outkey="corsika", inkey="proposal_events", track_progress=true)
@@ -207,13 +214,33 @@ function run_airshower!(sim::Simulation, config_file::String; outkey="corsika", 
 end
 
 function (s::Simulation)(; track_progress=true, should_run_corsika=false)
-    throw("Not implemented yet")
+    seed!(s.config["steering"]["seed"])
+
+    if track_progress
+        println("Constructing geometry")
+    end
+    geo = Geometry(s.config["geometry"])
+
+    if track_progress
+        println("Injecting neutrinos")
+    end
+    inject_ν!(s, s.config["injection"], track_progress=track_progress)
+
+    if track_progress
+        println("Propagating charged taus")
+    end
+    propagate_τ!(s, s.config["proposal"], track_progress=track_progress)
+
+    if should_run_corsika
+        if track_progress
+            println("Running airshowers")
+        end
+        run_airshower!(s, s.config["corsika"], track_progress=track_progress)
+    end
 end
 
 function dump_to_file(s::Simulation, f::JLDFile)
     #resultfields = [:injected_events, :proposal_events, :corsika_indices]
-    println("Keys $(keys(s.results))")
-    println(s.results)
     f["injected_events"] = s.results["injection"]
     f["proposal_events"] = s.results["proposal"]
     f["corsika_indices"] = s.results["corsika"]
