@@ -22,6 +22,7 @@ l_endcap = 1000.0 # m
 xs_dir = "/n/home02/thomwg11/tambo/TAMBO-MC/resources/cross_sections/tables/"
 xs_model = "csms"
 interaction = "CC"
+track_progress = false
 
 [proposal]
 ecut = -1 # GeV. Negative <-> Infinity
@@ -29,6 +30,7 @@ vcut = 1e-2
 do_interpolate = true
 do_continuous = true
 tablespath = "/n/home02/thomwg11/tambo/TAMBO-MC/resources/proposal_tables/"
+track_progress = false
 
 [corsika]
 should_run_corsika = false
@@ -43,3 +45,4 @@ shower_dir = "showers/"
 singularity_path = "/n/holylfs05/LABS/arguelles_delgado_lab/Lab/common_software/source/corsika8/corsika-env.simg"
 corsika_path = "/n/holylfs05/LABS/arguelles_delgado_lab/Lab/common_software/source/corsika8/corsika-work/corsika"
 corsika_sbatch_path = "/n/home02/thomwg11/tambo/corsika_parallel.sbatch"
+track_progress = false

@@ -3,9 +3,28 @@ localrules: do_triggering
 import toml
 import glob
 
+rule inject_neutrinos:
+    input:
+        injection_config = lambda wildcards: f'../resources/configuration_examples/{wildcards.injection_config}.toml'
+    output:
+        "/n/holylfs05/LABS/arguelles_delgado_lab/Lab/TAMBO/will_misc/{injection_config}/{injection_config}_{injection_simset}_{injection_subsimset}.jld2"
+    resources:
+        cpus_per_task=1,
+        mem_mb=10000,
+        slurm_partition="arguelles_delgado",
+        runtime=240
+    shell:
+        """
+        julia 0_simulate_events/inject_neutrinos.jl \
+        --config ../resources/configuration_examples/{wildcards.injection_config}.toml \
+        --simset {wildcards.injection_simset} \
+        --subsimset {wildcards.injection_subsimset} \
+        --output /n/holylfs05/LABS/arguelles_delgado_lab/Lab/TAMBO/will_misc/{wildcards.injection_config}/{wildcards.injection_config}_{wildcards.injection_simset}_{wildcards.injection_subsimset}.jld2
+        """
+
 rule do_triggering:
     input:
-        event_dict_files = lambda wildcards: get_event_dict_files(wildcards.config),
+        event_dict_files = lambda wildcards: get_event_dict_files(wildcards.trig_config),
         trig_config = lambda wildcards: f'{wildcards.trig_config}.toml'
     output:
         "/n/holylfs05/LABS/arguelles_delgado_lab/Lab/TAMBO/will_misc/perfect_valley/triggered_events_150m/triggered_events_{trig_config}_mod_3_event_30.jld2" # FIXME: update to handle different sim configs

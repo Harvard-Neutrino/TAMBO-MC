@@ -83,6 +83,7 @@ function inject_ν!(
     sim.config[outkey] = config
 
     seed!(sim.config["steering"]["seed"])
+    track_progress = sim.config[outkey]["track_progress"]
 
     geo = Geometry(sim.config["geometry"])
     injector = Injector(config, geo)
@@ -121,6 +122,7 @@ function propagate_τ!(
     sim.config[outkey] = config
 
     seed!(sim.config["steering"]["seed"])
+    track_progress = sim.config[outkey]["track_progress"]
 
     geo = Geometry(sim.config["geometry"])
     events = Vector{ProposalResult}(undef, sim.config["steering"]["nevent"])
@@ -163,6 +165,7 @@ function identify_taus_to_shower!(
     proposal_events = sim.results[inkey]
 
     seed!(sim.config["steering"]["seed"])
+    track_progress = sim.config[outkey]["track_progress"]
     
     sim.config[outkey] = config
     geo = Geometry(sim.config["geometry"])
