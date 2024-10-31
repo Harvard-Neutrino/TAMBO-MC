@@ -9,7 +9,9 @@ export Simulation,
        normal_vecs,
        inject_ν!,
        propagate_τ!,
-       oneweight
+       run_airshower!,
+       oneweight,
+       save_simulation
 
 using CoordinateTransformations: Translation, AffineMap, LinearMap
 using Dierckx: Spline2D
@@ -145,7 +147,7 @@ function run_airshower!(
     sim::Simulation,
     config::Dict{String, Any};
     outkey="corsika",
-    inkey="proposal_events",
+    inkey="proposal",
     track_progress=true
 )
     relativize!(config)
@@ -159,7 +161,7 @@ function run_airshower!(
         geo.tambo_coordinates,
         geo
     )
-    indices = []
+    indices = Vector{Tuple{Int64, Int64}}()
     for (proposal_idx, proposal_event) in enumerate(proposal_events)
         if ~should_do_corsika(proposal_event, plane,geo)
             continue
@@ -170,7 +172,7 @@ function run_airshower!(
                 continue 
             end 
 
-            push!(indices, [proposal_idx, decay_idx])
+            push!(indices, (proposal_idx, decay_idx))
 
             if sim.config[outkey]["parallelize_corsika"]
                 continue 
@@ -187,6 +189,7 @@ function run_airshower!(
     end
     
     if sim.config["corsika"]["parallelize_corsika"]
+        println(indices)
         corsika_parallel(
             proposal_events,
             geo,
@@ -194,7 +197,8 @@ function run_airshower!(
             indices
         )
     end 
-    return indices 
+    sim.results[outkey] = indices
+    #return indices 
 end 
 
 function run_airshower!(sim::Simulation, config_file::String; outkey="corsika", inkey="proposal_events", track_progress=true)
@@ -206,8 +210,29 @@ function (s::Simulation)(; track_progress=true, should_run_corsika=false)
     throw("Not implemented yet")
 end
 
+function dump_to_file(s::Simulation, f::JLDFile)
+    #resultfields = [:injected_events, :proposal_events, :corsika_indices]
+    println("Keys $(keys(s.results))")
+    println(s.results)
+    f["injected_events"] = s.results["injection"]
+    f["proposal_events"] = s.results["proposal"]
+    f["corsika_indices"] = s.results["corsika"]
+    #f["config"] = Dict(
+    #    Dict(
+    #        fn => getfield(s, fn) for fn in fieldnames(SimulationConfig)
+    #        if fn ∉ resultfields
+    #    )
+    #)
+    f["config"] = s.config
+    return
+end
+
 function save_simulation(s::Simulation, path::String)
-    throw("Not implemented yet")
+    @assert length(s.results["injection"]) == s.config["steering"]["nevent"]
+    @assert length(s.results["proposal"]) == s.config["steering"]["nevent"]
+    jldopen(path, "w") do file
+        dump_to_file(s, file)
+    end
 end
 
 end # module
