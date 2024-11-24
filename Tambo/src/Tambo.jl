@@ -10,6 +10,8 @@ export Simulation,
        inject_ν!,
        propagate_τ!,
        identify_taus_to_shower!,
+       shower_taus!,
+       run_subshower!,
        run_airshower!,
        oneweight,
        save_simulation
@@ -17,7 +19,7 @@ export Simulation,
 using CoordinateTransformations: Translation, AffineMap, LinearMap
 using Dierckx: Spline2D
 using Distributions: Uniform, Poisson
-using JLD2: jldopen, JLDFile
+using JLD2: jldopen, JLDFile, load
 # TODO move h5 to jld2
 using HDF5: h5open
 using LinearAlgebra: norm
@@ -66,17 +68,22 @@ function relativize!(d::Dict)
     end
 end
 
-function Simulation(config_file::String)
+function Simulation(config_file::String, injection_file::String="")
     config = TOML.parsefile(config_file)
     relativize!(config)
-    results = Dict{String, Any}()
+    if injection_file == ""
+        results = Dict{String, Any}()
+
+    else
+        results = load(injection_file)
+    end
     return Simulation(config, results)
 end
 
 function inject_ν!(
     sim::Simulation,
     config::Dict{String, Any};
-    outkey="injection",
+    outkey="injected_events",
     track_progress=true
 )
     relativize!(config)
@@ -104,7 +111,7 @@ end
 function inject_ν!(
     sim::Simulation,
     config_file::String;
-    outkey="injection",
+    outkey="injected_events",
     track_progress=true
 )
     config = relativize!(TOML.parsefile(config_file))
@@ -114,8 +121,8 @@ end
 function propagate_τ!(
     sim::Simulation,
     config::Dict{String, Any};
-    inkey="injection",
-    outkey="proposal",
+    inkey="injected_events",
+    outkey="proposal_events",
     track_progress=true
 )
     relativize!(config)
@@ -146,8 +153,8 @@ end
 function propagate_τ!(
     sim::Simulation,
     config_file::String;
-    inkey::String="injection",
-    outkey::String="proposal",
+    inkey::String="injected_events",
+    outkey::String="proposal_events",
     track_progress::Bool=true
 )
     config = relativize!(TOML.parsefile(config_file))
@@ -157,15 +164,15 @@ end
 function identify_taus_to_shower!(
     sim::Simulation,
     config::Dict{String, Any};
-    inkey="proposal",
-    outkey="corsika",
+    inkey="proposal_events",
+    outkey="corsika_indices",
     track_progress=true
 )
     relativize!(config)
     proposal_events = sim.results[inkey]
 
     seed!(sim.config["steering"]["seed"])
-    track_progress = sim.config[outkey]["track_progress"]
+    track_progress = sim.config["corsika"]["track_progress"]
     
     sim.config[outkey] = config
     geo = Geometry(sim.config["geometry"])
@@ -200,20 +207,19 @@ end
 function shower_taus!(
     sim::Simulation,
     config::Dict{String, Any};
-    proposal_ids_key="corsika",
-    proposal_events_key="proposal",
-    config_key="corsika",
+    proposal_ids_key="corsika_indices",
+    proposal_events_key="proposal_events",
     track_progress=true
 )
     relativize!(config)
 
     seed!(sim.config["steering"]["seed"])
 
-    # Get proposal events corrosponding to the taus that passed should_do_corsika
-    proposal_ids = sort(unique([t[1] for t in sim.results[tau_ids]]))
-    proposal_events = sim.results[proposal_events][proposal_ids]
+    # Get proposal event ids corrosponding to the taus that passed should_do_corsika
+    should_do_corsika_proposal_ids = sort(unique([t[1] for t in sim.results[proposal_ids_key]]))
+    proposal_events = sim.results[proposal_events_key]
     
-    sim.config[config_key] = config
+    sim.config["corsika"] = config
     geo = Geometry(sim.config["geometry"])
     # TODO wrap this into a neat little constructor
     plane = Tambo.Plane(
@@ -222,17 +228,18 @@ function shower_taus!(
         geo
     )
     indices = Vector{Tuple{Int64, Int64}}()
-    for (proposal_idx, proposal_event) in enumerate(proposal_events)
+    # TODO: this double for loop is duplicating work done in identify_taus_to_shower!
+    for (proposal_idx, proposal_event) in zip(should_do_corsika_proposal_ids, proposal_events[should_do_corsika_proposal_ids])
         for (decay_idx,decay_event) in enumerate(proposal_event.decay_products)
             #wanted to keep indices lined up so checking one at at ime
             push!(indices, (proposal_idx, decay_idx))
 
-            if sim.config[outkey]["parallelize_corsika"]
+            if sim.config["corsika"]["parallelize_corsika"]
                 continue 
             end
             corsika_run(
                 decay_event,
-                sim.config[config_key],
+                sim.config["corsika"],
                 geo,
                 proposal_idx,
                 decay_idx;
@@ -252,11 +259,43 @@ function shower_taus!(
     end 
 end 
 
+function run_subshower!(
+    sim::Simulation,
+    config::Dict{String, Any},
+    proposal_id::Int64,
+    decay_id::Int64;
+    #output_path::String;
+    proposal_ids_key="corsika_indices",
+    proposal_events_key="proposal_events",
+    track_progress=true
+)
+    relativize!(config)
+
+    seed!(sim.config["steering"]["seed"])
+
+    sim.config["corsika"] = config
+    geo = Geometry(sim.config["geometry"])
+    plane = Tambo.Plane(
+        geo.tambo_normal,
+        geo.tambo_coordinates,
+        geo
+    )
+
+    corsika_run(
+        sim.results[proposal_events_key][proposal_id].decay_products[decay_id],
+        sim.config["corsika"],
+        geo,
+        proposal_id,
+        decay_id,
+        parallelize_corsika=false
+    )
+end
+
 function run_airshower!(
     sim::Simulation,
     config::Dict{String, Any};
-    outkey="corsika",
-    inkey="proposal",
+    outkey="corsika_indices",
+    inkey="proposal_events",
     track_progress=true
 )
     relativize!(config)
@@ -311,7 +350,7 @@ function run_airshower!(
     sim.results[outkey] = indices
 end 
 
-function run_airshower!(sim::Simulation, config_file::String; outkey="corsika", inkey="proposal_events", track_progress=true)
+function run_airshower!(sim::Simulation, config_file::String; outkey="corsika_indices", inkey="proposal_events", track_progress=true)
     config = relativize!(TOML.parsefile(config_file))
     run_airshower!(sim, config; outkey=outkey, inkey=inkey, track_progress=track_progress)
 end
@@ -327,7 +366,7 @@ function (s::Simulation)(; track_progress=true, should_run_corsika=false)
     if track_progress
         println("Injecting neutrinos")
     end
-    inject_ν!(s, s.config["injection"], track_progress=track_progress)
+    inject_ν!(s, s.config["injected"], track_progress=track_progress)
 
     if track_progress
         println("Propagating taus")
@@ -344,9 +383,9 @@ end
 
 function dump_to_file(s::Simulation, f::JLDFile)
     #resultfields = [:injected_events, :proposal_events, :corsika_indices]
-    f["injected_events"] = s.results["injection"]
-    f["proposal_events"] = s.results["proposal"]
-    f["corsika_indices"] = s.results["corsika"]
+    f["injected_events"] = s.results["injected_events"]
+    f["proposal_events"] = s.results["proposal_events"]
+    f["corsika_indices"] = s.results["corsika_indices"]
     #f["config"] = Dict(
     #    Dict(
     #        fn => getfield(s, fn) for fn in fieldnames(SimulationConfig)
@@ -358,8 +397,8 @@ function dump_to_file(s::Simulation, f::JLDFile)
 end
 
 function save_simulation(s::Simulation, path::String)
-    @assert length(s.results["injection"]) == s.config["steering"]["nevent"]
-    @assert length(s.results["proposal"]) == s.config["steering"]["nevent"]
+    @assert length(s.results["injected_events"]) == s.config["steering"]["nevent"]
+    @assert length(s.results["proposal_events"]) == s.config["steering"]["nevent"]
     jldopen(path, "w") do file
         dump_to_file(s, file)
     end

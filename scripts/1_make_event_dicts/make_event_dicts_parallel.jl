@@ -1,5 +1,5 @@
 using Pkg
-Pkg.activate("../Tambo")
+Pkg.activate("/n/home02/thomwg11/tambo/TAMBO-MC/Tambo")
 using Tambo
 using PyCall
 using JLD2
@@ -236,19 +236,21 @@ function main()
 
     #should fix so that we have a .toml 
     sim = jldopen(args["simfile"])
-    config = SimulationConfig(; Dict(k=>v for (k, v) in sim["config"] if k != :geo_spline_path)...)
-    geo = Tambo.Geometry(config)
-    plane = Tambo.Plane(config.plane_orientation, config.tambo_coordinates, geo)
+    config = Simulation("/n/home02/thomwg11/tambo/TAMBO-MC/resources/configuration_examples/snakemake_tests.toml")
+    #config = SimulationConfig(; Dict(k=>v for (k, v) in sim["config"] if k != :geo_spline_path)...)
+    geo = Tambo.Geometry(config.config["geometry"])
+    plane = Tambo.Plane(Tambo.Direction(config.config["geometry"]["plane_orientation"]...), Tambo.Coord(config.config["geometry"]["tambo_coordinates"]...), geo)
     altmin = args["altmin"]units.m
     altmax = args["altmax"]units.m
     
-    zcorsika = config.plane_orientation.proj
+    #zcorsika = config.plane_orientation.proj
+    zcorsika = config.config["geometry"]["plane_orientation"] # FIXME: check if correct
     xcorsika = SVector{3}([0,-zcorsika[3]/sqrt(zcorsika[2]^2+zcorsika[3]^2),zcorsika[2]/sqrt(zcorsika[2]^2+zcorsika[3]^2)])
     ycorsika = cross(zcorsika,xcorsika)
     xyzcorsika = inv([
-        xcorsika.x xcorsika.y xcorsika.z;
-        ycorsika.x ycorsika.y ycorsika.z;
-        zcorsika.x zcorsika.y zcorsika.z;
+        xcorsika[1] xcorsika[2] xcorsika[3];
+        ycorsika[1] ycorsika[2] ycorsika[3];
+        zcorsika[1] zcorsika[2] zcorsika[3];
     ])
 
     modules = Tambo.make_detector_array(
@@ -261,9 +263,9 @@ function main()
     )
 
     outfile = args["outfile"]
-    if args["nparallel"] > 1
-        outfile = replace(outfile, ".jld2"=>"_$(args["njob"])_$(args["nparallel"]).jld2")
-    end
+    #if args["nparallel"] > 1
+    #    outfile = replace(outfile, ".jld2"=>"_$(args["njob"])_$(args["nparallel"]).jld2")
+    #end
 
     if ~ispath(outfile)
         jldopen(outfile, "w") do _

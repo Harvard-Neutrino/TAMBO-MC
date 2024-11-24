@@ -1,5 +1,5 @@
 using Pkg
-Pkg.activate("../Tambo")
+Pkg.activate("/n/home02/thomwg11/tambo/TAMBO-MC/Tambo")
 using Tambo
 using JLD2
 using Glob
@@ -9,7 +9,7 @@ using TOML
 
 include("trigger_defs.jl")
 
-interpolated_effs = load("../resources/detector_efficiencies/initial_IceTop_panel_interpolations.jld2")
+interpolated_effs = load("/n/home02/thomwg11/tambo/TAMBO-MC/resources/detector_efficiencies/initial_IceTop_panel_interpolations.jld2")
 global interpolated_eff_gamma = interpolated_effs["gamma_interp"]
 global interpolated_eff_muon = interpolated_effs["muon_interp"]
 global interpolated_eff_electron = interpolated_effs["electron_interp"]
@@ -128,7 +128,7 @@ function main()
     end
     triggered_events = sim["injected_events"][triggered_event_ids]
 
-    save("$(outdir)/triggered_events_$(trigger_type)_mod_$(module_trigger_thresh)_event_$(event_trigger_thresh).jld2", "triggered_events", triggered_events)
+    save("$(outdir)/triggered_events_mod_$(module_trigger_thresh)_event_$(event_trigger_thresh).jld2", "triggered_events", triggered_events)
 end
 
 

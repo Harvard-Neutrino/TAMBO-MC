@@ -1,6 +1,6 @@
 using Pkg
 using Random: seed!
-Pkg.activate("../Tambo")
+Pkg.activate("/n/home02/thomwg11/tambo/TAMBO-MC/Tambo")
 using Tambo
 using ArgParse
 
@@ -52,7 +52,9 @@ function main()
 
     sim = Simulation(config_filename)
 
-    seed!(sim.config["steering"]["seed"])
+    seed = sim.config["steering"]["seed"]
+
+    seed!(seed + parse(Int,subsimset_ID) + parse(Int,simset_ID)) # TODO: not a unique seed
 
     inject_ν!(sim, sim.config["injection"])
     propagate_τ!(sim, sim.config["proposal"])

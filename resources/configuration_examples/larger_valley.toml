@@ -1,28 +1,29 @@
 [steering]
 nevent = 500
-seed = 1313
-run_number = 666
+seed = 69
+run_number = 0
 
 [geometry]
-geo_spline_path = "/n/home02/thomwg11/tambo/TAMBO-MC/resources/perfect_valley_spline.jld2"
-tambo_coordinates = [0.0, -0.015738128103577786] # Latitude, Longitude in degrees such that center of spline is at (0,0)
-plane_orientation = [0.5655283556, 0, 0.8247288518]
+geo_spline_path = "/n/home02/thomwg11/tambo/TAMBO-MC/resources/tambo_spline.jld2"
+tambo_coordinates = [-15.622267, -72.279397] # Larger valley, lat, long in degrees
+plane_orientation = [0.507,0.108,0.855] # Larger valley
 
 [injection]
 nu_pdg = 16
 gamma = 2.0
 emin = 3.0e5 # GeV
-emax = 1.0e8
-thetamin = 60 # degrees
+#emax = 1.0e9
+emax = 1.0e6
+thetamin = 0 # degrees
 thetamax = 117 # degrees
 phimin = 90 # degrees
-phimax = 270 # degrees
+phimax = 290 # degrees
 r_injection = 2000.0 # m
 l_endcap = 1000.0 # m
 xs_dir = "/n/home02/thomwg11/tambo/TAMBO-MC/resources/cross_sections/tables/"
 xs_model = "csms"
 interaction = "CC"
-track_progress = true
+track_progress = false
 
 [proposal]
 ecut = -1 # GeV. Negative <-> Infinity
@@ -36,14 +37,16 @@ track_progress = false
 should_run_corsika = false
 parallelize_corsika = false
 #batch_submit_corsika = true
-thinning = 0.0
+thinning = 1.0e-6
 hadron_ecut = 0.05 # GeV
 em_ecut = 0.001 # GeV
 photon_ecut = 0.001 # GeV
 mu_ecut = 0.05 # GeV
-#shower_dir = "showers/00000_00001/"
 shower_dir = "" #FIXME: should only be set at command line
 singularity_path = "/n/holylfs05/LABS/arguelles_delgado_lab/Lab/common_software/source/corsika8/corsika-env.simg"
 corsika_path = "/n/holylfs05/LABS/arguelles_delgado_lab/Lab/common_software/source/corsika8/corsika-install/bin/c8_air_shower"
 corsika_sbatch_path = "/n/home02/thomwg11/tambo/corsika_parallel.sbatch"
 track_progress = false
+
+
+
