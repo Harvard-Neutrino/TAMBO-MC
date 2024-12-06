@@ -1,8 +1,7 @@
 using Glob
 
-function get_event_numbers(basedir)
-    sims = glob("*_*_?", basedir)
-    #sims = glob("sim_test_*_?", basedir)
+function get_event_numbers(basedir::String, simset::String, subsimset::String)
+    sims = glob("showers/$(simset)_$(subsimset)/shower_*_?", basedir)
     event_numbers = []
     for sim in sims
         event_number = parse(Int, split(sim, "_")[end-1])
@@ -14,8 +13,8 @@ function get_event_numbers(basedir)
     return sort(event_numbers)
 end
 
-function find_extant_files(run_number::Int, basedir::String) Vector{String}
-    files = glob("*_$(run_number)_?/*/particles.parquet", basedir)
+function find_extant_files(simset::String, subsimset::String, event_number::Int, basedir::String) Vector{String}
+    files = glob("showers/$(simset)_$(subsimset)/shower_$(event_number)_?/*/particles.parquet", basedir)
     if isempty(files) 
         println("No files matched the pattern. The array is empty.")
     end 

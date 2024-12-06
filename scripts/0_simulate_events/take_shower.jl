@@ -2,6 +2,7 @@ using Pkg
 Pkg.activate("/n/home02/thomwg11/tambo/TAMBO-MC/Tambo")
 using Tambo
 using ArgParse
+using Random: seed!
 
 function parse_commandline()
     s = ArgParseSettings()
@@ -26,6 +27,14 @@ function parse_commandline()
             help = "ID of the decay particle from the tau to simulate"
             arg_type = Int
             required = true
+        "--simset"
+            help = "Simulation set ID"
+            arg_type = String
+            required = true
+        "--subsimset"
+            help = "Sub-simulation set ID"
+            arg_type = String
+            required = true
     end
     return parse_args(s)
 end
@@ -45,8 +54,13 @@ function main()
     shower_dir = args["shower_dir"]
     proposal_id = args["proposal_id"]
     decay_id = args["decay_id"]
+    simset_ID = args["simset"]
+    subsimset_ID = args["subsimset"]
 
     sim = Simulation(config_filename, injection_filename)
+
+    seed = sim.config["steering"]["seed"]
+    seed!(seed + parse(Int,simset_ID) + parse(Int,subsimset_ID)) # TODO: not a unique seed
 
     # Hack to make sure user doesn't try to set output_dir in config file
     # TODO: remove support for setting output_dir in config file

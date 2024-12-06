@@ -39,32 +39,38 @@ function parse_commandline()
         "--basedir"
             help = "Directory with all the simulation directories inside"
             arg_type = String
-            #required = true
+            required = true
             #default = "/Users/pavelzhelnin/Documents/physics/TAMBO/resources/airshowers/GraphNet_00000_00001"
+        "--configfile"
+            help = "Injection config file"
+            arg_type = String
+            required = true
         "--simfile"
             help = "Simulation file, if no simulation file produced you need to specify plane coord, vector and spline path"
             arg_type = String
-            #required = true 
+            required = true 
             #default = "/Users/pavelzhelnin/Documents/physics/TAMBO/resources/example_sim_file.jld2"
         "--outfile"
             help = "where to store the output"
             arg_type = String
-            #required = true
+            required = true
         "--deltas"
             help = "Distance between modules on hexagonal array"
             arg_type = Float64
-            #required = true
+            required = true
         "--length"
             help = "Length of the full array"
             arg_type = Float64
-            #required = true
+            required = true
         "--nparallel"
             help = "Number of parallel jobs happening"
             arg_type = Int
+            required = true
             #default=1
         "--njob"
             help = "Which parallel job"
             arg_type = Int
+            required = true
             #default=1
         "--run_desc"
             help = "A description that will become the group name for the file"
@@ -73,11 +79,21 @@ function parse_commandline()
         "--altmin"
             help = "Minimum altitude in m"
             arg_type = Float64
+            required = true
             #default = 1892.5255158436627
         "--altmax"
             help = "Maximum altitude in m"
             arg_type = Float64
+            required = true
             #default = 4092.525515843662 
+        "--simset"
+            help = "Simset"
+            arg_type = String
+            required = true
+        "--subsimset"
+            help = "Subsimset"
+            arg_type = String
+            required = true
         "--config"
             help = "Path to a TOML config file"
             arg_type = String
@@ -132,6 +148,8 @@ end
 
 
 function make_hit_map(
+    simset,
+    subsimset,
     event_number,
     modules,
     basedir,
@@ -156,7 +174,7 @@ function make_hit_map(
     end
 
     d = Dict{Int, Vector{Tambo.CorsikaEvent}}()
-    files = find_extant_files(event_number, basedir)
+    files = find_extant_files(simset, subsimset, event_number, basedir)
     #for file in tqdm(files)
     for file in files
         #CORSIKA8 sometimes doesn't finish b/c job times out 
@@ -200,7 +218,7 @@ end
 function main()
     # Parse config file and command line arguments
     # Overwrite config file values with command line arguments if provided
-    expected_arguments = ["basedir", "simfile", "outfile", "deltas", "length", "nparallel", "njob", "run_desc", "altmin", "altmax", "config"]
+    expected_arguments = ["basedir", "configfile", "simfile", "outfile", "deltas", "length", "nparallel", "njob", "run_desc", "altmin", "altmax", "simset", "subsimset", "config"]
     args = parse_commandline()
     
     config_params = Dict()
@@ -236,15 +254,14 @@ function main()
 
     #should fix so that we have a .toml 
     sim = jldopen(args["simfile"])
-    config = Simulation("/n/home02/thomwg11/tambo/TAMBO-MC/resources/configuration_examples/snakemake_tests.toml")
-    #config = SimulationConfig(; Dict(k=>v for (k, v) in sim["config"] if k != :geo_spline_path)...)
+    config = Simulation("/n/home02/thomwg11/tambo/TAMBO-MC/resources/configuration_examples/$(args["configfile"]).toml")
     geo = Tambo.Geometry(config.config["geometry"])
-    plane = Tambo.Plane(Tambo.Direction(config.config["geometry"]["plane_orientation"]...), Tambo.Coord(config.config["geometry"]["tambo_coordinates"]...), geo)
+    tambo_coord_degrees = Tambo.Coord((deg2rad.(config.config["geometry"]["tambo_coordinates"]))...)
+    plane = Tambo.Plane(Tambo.Direction(config.config["geometry"]["plane_orientation"]...), tambo_coord_degrees, geo)
     altmin = args["altmin"]units.m
     altmax = args["altmax"]units.m
     
-    #zcorsika = config.plane_orientation.proj
-    zcorsika = config.config["geometry"]["plane_orientation"] # FIXME: check if correct
+    zcorsika = config.config["geometry"]["plane_orientation"]
     xcorsika = SVector{3}([0,-zcorsika[3]/sqrt(zcorsika[2]^2+zcorsika[3]^2),zcorsika[2]/sqrt(zcorsika[2]^2+zcorsika[3]^2)])
     ycorsika = cross(zcorsika,xcorsika)
     xyzcorsika = inv([
@@ -267,29 +284,28 @@ function main()
     #    outfile = replace(outfile, ".jld2"=>"_$(args["njob"])_$(args["nparallel"]).jld2")
     #end
 
-    if ~ispath(outfile)
-        jldopen(outfile, "w") do _
-        end
-    end
+    # TODO: kind of sloppy. Instead wrap for loop below or something
+    jldopen(outfile, "w")
     
     run_desc = args["run_desc"]
     if length(run_desc)==0
         run_desc = "$(args["length"])_$(args["deltas"])"
     end
 
-    event_numbers = get_event_numbers(args["basedir"])[args["njob"]:args["nparallel"]:end]
+    event_numbers = get_event_numbers(args["basedir"], args["simset"], args["subsimset"])[args["njob"]:args["nparallel"]:end]
     println("creating event dicts...")
     println("event numbers: $event_numbers")
 
     #for (_,event_number) in tqdm(enumerate(event_numbers))
     for event_number in event_numbers
 
-        if can_skip_event(event_number, outfile, run_desc)
-            println("skipped event $event_number")
-            continue
-        end
+        # TODO: should probably remove this?
+        #if can_skip_event(event_number, outfile, run_desc)
+        #    println("skipped event $event_number")
+        #    continue
+        #end
 
-        hit_map = make_hit_map(event_number, modules, args["basedir"],xyzcorsika)
+        hit_map = make_hit_map(args["simset"], args["subsimset"], event_number, modules, args["basedir"],xyzcorsika)
 
         jldopen(outfile, "r+") do jldf
             jldf["$(run_desc)/$(event_number)"] = hit_map

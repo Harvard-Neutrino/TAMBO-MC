@@ -89,7 +89,9 @@ function inject_ν!(
     relativize!(config)
     sim.config[outkey] = config
 
-    seed!(sim.config["steering"]["seed"])
+    # TODO: I think we should seed in the script calling this function,
+    # not in the function itself
+    #seed!(sim.config["steering"]["seed"])
     track_progress = sim.config[outkey]["track_progress"]
 
     geo = Geometry(sim.config["geometry"])
@@ -101,6 +103,8 @@ function inject_ν!(
         itr = ProgressBar(itr)
     end
     for idx in itr
+        # FIXME: this seed is the same across simsubsets & simsubsets
+        # of the same config, but is probably fine for now
         tr_seed = sim.config["steering"]["seed"] + idx
         event = inject_event(injector, tr_seed)
         events[idx] = event
@@ -128,6 +132,8 @@ function propagate_τ!(
     relativize!(config)
     sim.config[outkey] = config
 
+    # TODO: I think we should seed in the script calling this function,
+    # not in the function itself
     seed!(sim.config["steering"]["seed"])
     track_progress = sim.config[outkey]["track_progress"]
 
@@ -143,6 +149,8 @@ function propagate_τ!(
         event = propagator(
             injected_event.final_state,
             geo,
+            # FIXME: this seed is the same across simsubsets & simsubsets
+            # of the same config, but is probably fine for now
             sim.config["steering"]["seed"] + idx
         )
         events[idx] = event
@@ -171,7 +179,9 @@ function identify_taus_to_shower!(
     relativize!(config)
     proposal_events = sim.results[inkey]
 
-    seed!(sim.config["steering"]["seed"])
+    # TODO: I think we should seed in the script calling this function,
+    # not in the function itself
+    #seed!(sim.config["steering"]["seed"])
     track_progress = sim.config["corsika"]["track_progress"]
     
     sim.config[outkey] = config
@@ -213,6 +223,8 @@ function shower_taus!(
 )
     relativize!(config)
 
+    # TODO: I think we should seed in the script calling this function,
+    # not in the function itself
     seed!(sim.config["steering"]["seed"])
 
     # Get proposal event ids corrosponding to the taus that passed should_do_corsika
@@ -271,7 +283,9 @@ function run_subshower!(
 )
     relativize!(config)
 
-    seed!(sim.config["steering"]["seed"])
+    # TODO: I think we should seed in the script calling this function,
+    # not in the function itself
+    #seed!(sim.config["steering"]["seed"])
 
     sim.config["corsika"] = config
     geo = Geometry(sim.config["geometry"])
@@ -301,6 +315,8 @@ function run_airshower!(
     relativize!(config)
     proposal_events = sim.results[inkey]
 
+    # TODO: I think we should seed in the script calling this function,
+    # not in the function itself
     seed!(sim.config["steering"]["seed"])
     
     sim.config[outkey] = config
@@ -356,6 +372,8 @@ function run_airshower!(sim::Simulation, config_file::String; outkey="corsika_in
 end
 
 function (s::Simulation)(; track_progress=true, should_run_corsika=false)
+    # TODO: I think we should seed in the script calling this function,
+    # not in the function itself
     seed!(s.config["steering"]["seed"])
 
     if track_progress

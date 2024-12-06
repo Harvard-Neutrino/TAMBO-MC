@@ -10,9 +10,9 @@ plane_orientation = [0.507,0.108,0.855] # Larger valley
 
 [injection]
 nu_pdg = 16
-gamma = 2.0
-emin = 3.0e5 # GeV
-emax = 1.0e9
+gamma = 1.0
+emin = 1.0e6 # GeV
+emax = 1.0e7
 thetamin = 0 # degrees
 thetamax = 117 # degrees
 phimin = 90 # degrees

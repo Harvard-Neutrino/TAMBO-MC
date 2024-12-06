@@ -1,5 +1,3 @@
-localrules: do_triggering
-
 import toml
 import glob
 import h5py
@@ -15,8 +13,8 @@ checkpoint inject_neutrinos:
     resources:
         cpus_per_task=1,
         mem_mb=10000,
-        slurm_partition="arguelles_delgado",
-        runtime=240
+        slurm_partition="sapphire,shared",
+        runtime=8*60
     shell:
         """
         julia /n/home02/thomwg11/tambo/TAMBO-MC/scripts/0_simulate_events/inject_neutrinos.jl \
@@ -37,16 +35,18 @@ rule take_shower:
     resources:
         cpus_per_task=1,
         mem_mb=10000,
-        slurm_partition="arguelles_delgado",
-        runtime=12*60
+        slurm_partition="sapphire,shared",
+        runtime=24*60
     shell:
         """
         julia /n/home02/thomwg11/tambo/TAMBO-MC/scripts/0_simulate_events/take_shower.jl \
         --config /n/home02/thomwg11/tambo/TAMBO-MC/resources/configuration_examples/{wildcards.injection_config}.toml \
-        --injection_file /n/home02/thomwg11/tambo/data/{wildcards.injection_config}/{wildcards.injection_config}_00000_00001.jld2 \
+        --injection_file /n/home02/thomwg11/tambo/data/{wildcards.injection_config}/{wildcards.injection_config}_{wildcards.injection_simset}_{wildcards.injection_subsimset}.jld2 \
         --shower_dir /n/holylfs05/LABS/arguelles_delgado_lab/Lab/TAMBO/will_misc/{wildcards.injection_config}/showers/{wildcards.injection_simset}_{wildcards.injection_subsimset}/ \
         --proposal_id {wildcards.take_shower_proposal_id} \
-        --decay_id {wildcards.take_shower_decay_id}
+        --decay_id {wildcards.take_shower_decay_id} \
+        --simset {wildcards.injection_simset} \
+        --subsimset {wildcards.injection_subsimset}
         """
 
 
@@ -62,7 +62,7 @@ def get_injection_files(wildcards):
         return f"/n/holylfs05/LABS/arguelles_delgado_lab/Lab/TAMBO/will_misc/{wildcards.injection_config}/{wildcards.injection_config}_{wildcards.injection_simset}_{wildcards.injection_subsimset}.jld2"
     else:
         #shower_files = expand(f"/n/holylfs05/LABS/arguelles_delgado_lab/Lab/TAMBO/will_misc/{wildcards.injection_config}/showers/00000_00001/shower_{{proposal_ids[0]}}_{{proposal_ids[1]}}/particles_obs_final/particles.parquet", proposal_ids=lambda wildcards: get_particle_ids(wildcards))
-        shower_files = expand("/n/holylfs05/LABS/arguelles_delgado_lab/Lab/TAMBO/will_misc/{{injection_config}}/showers/00000_00001/shower_{proposal_ids[0]}_{proposal_ids[1]}/particles/particles.parquet", proposal_ids=lambda wildcards: get_particle_ids(wildcards))
+        shower_files = expand("/n/holylfs05/LABS/arguelles_delgado_lab/Lab/TAMBO/will_misc/{{injection_config}}/showers/{{injection_simset}}_{{injection_subsimset}}/shower_{proposal_ids[0]}_{proposal_ids[1]}/particles/particles.parquet", proposal_ids=lambda wildcards: get_particle_ids(wildcards))
         return shower_files
 
 rule make_event_dicts: # Note: rule currently configured so that all showers must be run, even if only a subset of them are needed for a specific event dict file
@@ -79,11 +79,12 @@ rule make_event_dicts: # Note: rule currently configured so that all showers mus
     resources:
         cpus_per_task=1,
         mem_mb=8000,
-        slurm_partition="arguelles_delgado",
+        slurm_partition="sapphire,shared",
         runtime=240
     shell: 
         """
         julia /n/home02/thomwg11/tambo/TAMBO-MC/scripts/1_make_event_dicts/make_event_dicts_parallel.jl \
+        --configfile {wildcards.injection_config} \
         --altmin {wildcards.altmin} \
         --altmax {wildcards.altmax} \
         --length {wildcards.length} \
@@ -92,7 +93,9 @@ rule make_event_dicts: # Note: rule currently configured so that all showers mus
         --simfile /n/holylfs05/LABS/arguelles_delgado_lab/Lab/TAMBO/will_misc/{wildcards.injection_config}/{wildcards.injection_config}_{wildcards.injection_simset}_{wildcards.injection_subsimset}.jld2 \
         --outfile {output.outfile} \
         --njob {wildcards.event_dict_subset_id} \
-        --nparallel {wildcards.event_dict_total_subsets}
+        --nparallel {wildcards.event_dict_total_subsets} \
+        --simset {wildcards.injection_simset} \
+        --subsimset {wildcards.injection_subsimset}
         """
 
 rule do_triggering:
@@ -102,6 +105,11 @@ rule do_triggering:
         #event_dict_files = lambda wildcards: get_event_dict_files(wildcards.trig_config),
     output:
         "/n/holylfs05/LABS/arguelles_delgado_lab/Lab/TAMBO/will_misc/{injection_config}/triggered/{injection_simset}_{injection_subsimset}/{altmin}_{altmax}_{length}_{delta}/triggered_events_{delta}_{trigger_eff}/triggered_events_mod_3_event_30.jld2" # FIXME: update to handle different sim configs
+    resources:
+        cpus_per_task=1,
+        mem_mb=8000,
+        slurm_partition="sapphire,shared",
+        runtime=240
     shell: 
         """
         julia /n/home02/thomwg11/tambo/TAMBO-MC/scripts/2_trigger_events/do_triggering.jl \
