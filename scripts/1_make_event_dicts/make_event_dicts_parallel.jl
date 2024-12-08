@@ -11,6 +11,7 @@ using LinearAlgebra
 using Parquet2
 using DataFrames 
 using ProgressBars
+using Rotations
 
 #const zcorsika = whitepaper_normal_vec.proj
 #as defined in corsika 
@@ -195,13 +196,25 @@ function main()
 
     #should fix so that we have a .toml 
     sim = jldopen(args["simfile"])
-    config = SimulationConfig(; Dict(k=>v for (k, v) in sim["config"] if k != :geo_spline_path)...)
+
+    if haskey(sim["config"], :singularity_path)
+        delete!(sim["config"], :singularity_path)
+    end
+
+    config = SimulationConfig(; Dict(k=>v for (k, v) in sim["config"] if k!= :geo_spline_path)...)
     geo = Tambo.Geometry(config)
     plane = Tambo.Plane(config.plane_orientation, config.tambo_coordinates, geo)
     altmin = args["altmin"]units.m
     altmax = args["altmax"]units.m
     
     zcorsika = config.plane_orientation.proj
+    display("original zcorsika = $zcorsika")
+    #possibly a hack but (this is because everything has to be rotated to corsika x_hat = N;y_hat=W)
+    #previous convention was x_hat = E; y_hat =N 
+    #xyzcorsika rotates into 3d from 2d but to where x_hat is N!!!!
+    #need extra rotation to get it back to TAMBO coordinate system 
+    
+    zcorsika = RotZ(-π/2) * zcorsika 
     xcorsika = SVector{3}([0,-zcorsika[3]/sqrt(zcorsika[2]^2+zcorsika[3]^2),zcorsika[2]/sqrt(zcorsika[2]^2+zcorsika[3]^2)])
     ycorsika = cross(zcorsika,xcorsika)
     xyzcorsika = inv([
@@ -209,6 +222,8 @@ function main()
         ycorsika.x ycorsika.y ycorsika.z;
         zcorsika.x zcorsika.y zcorsika.z;
     ])
+
+    display("xyzcorsika = $xyzcorsika")
 
     if args["size"] == "normal"
         size = SVector{3}([1.875, 0.8, 0.03])units.m
@@ -255,7 +270,7 @@ function main()
             continue
         end
 
-        hit_map = make_hit_map(event_number, modules, args["basedir"],xyzcorsika)
+        hit_map = make_hit_map(event_number, modules, args["basedir"], xyzcorsika)
 
         jldopen(outfile, "r+") do jldf
             jldf["$(run_desc)/$(event_number)"] = hit_map
