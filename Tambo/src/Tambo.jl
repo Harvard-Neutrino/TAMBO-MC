@@ -95,8 +95,7 @@ include("corsika.jl")
     photon_ecut::Float64 = 0.001units.GeV
     mu_ecut::Float64 = 0.05units.GeV 
     shower_dir::String = "showers/"
-    singularity_path::String = "/n/holylfs05/LABS/arguelles_delgado_lab/Lab/common_software/source/corsika8/corsika-env.simg"
-    corsika_path::String = "/n/holylfs05/LABS/arguelles_delgado_lab/Lab/common_software/source/corsika8/corsika-work/corsika"
+    corsika_path::String = "/n/holylfs05/LABS/arguelles_delgado_lab/Lab/common_software/source/corsika8/corsika-install/bin/c8_air_shower"
     corsika_sbatch_path::String = "/n/holylfs05/LABS/arguelles_delgado_lab/Lab/common_software/source/TAMBO-MC/scripts/corsika_parallel.sbatch"
 
     injected_events::Vector{InjectionEvent} = InjectionEvent[]
@@ -212,7 +211,6 @@ function Base.show(io::IO, s::SimulationConfig)
         photon_ecut: $(s.photon_ecut/ units.GeV) GeV
         parallelize_corsika: $(s.parallelize_corsika)
         shower_dir: $(s.shower_dir)
-        singularity_path: $(s.singularity_path)
         corsika_path: $(s.corsika_path)
         corsika_sbatch_path: $(s.corsika_sbatch_path)
         """
@@ -224,11 +222,12 @@ function Base.getindex(s::SimulationConfig, fieldstring::String)
 end
 
 function (s::SimulationConfig)(; track_progress=true, should_run_corsika=false)
+
     seed!(s.seed)
     if track_progress
         println("Making geometry")
-        
     end
+ 
     geo = Geometry(
         s.geo_spline_path,
         s.tambo_coordinates

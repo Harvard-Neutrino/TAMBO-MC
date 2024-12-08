@@ -71,6 +71,6 @@ function probability(pl::PowerLaw, e::Float64)
     if pl.γ==1
         return pl(e) / (pl.norm * log(pl.emax / pl.emin))
     end
-    p = pl(e) / (pl.norm * (pl.emin^(1-pl.γ) - pl.emax^(1-pl.γ)))
+    p = pl(e) * ((1-pl.γ) / (pl.norm * (pl.emax^(1-pl.γ) - pl.emin^(1-pl.γ))))
     return p
 end
