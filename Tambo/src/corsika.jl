@@ -6,8 +6,7 @@ Base.@kwdef mutable struct CORSIKAConfig
     photon_ecut::Float64 = 0.001units.GeV
     mu_ecut::Float64 = 0.05units.GeV 
     shower_dir::String = "showers"
-    singularity_path::String = "/n/holylfs05/LABS/arguelles_delgado_lab/Lab/common_software/source/corsika8/corsika-env.simg"
-    corsika_path::String = "/n/holylfs05/LABS/arguelles_delgado_lab/Lab/common_software/source/corsika8/corsika-work/corsika"
+    corsika_path::String = "/n/holylfs05/LABS/arguelles_delgado_lab/Lab/common_software/source/corsika8/corsika-install/bin/c8_air_shower"
     corsika_sbatch_path::String = "/n/holylfs05/LABS/arguelles_delgado_lab/Lab/common_software/source/TAMBO-MC/scripts/corsika_parallel.sbatch"
 
     tambo_coordinates::Coord = whitepaper_coord
@@ -88,10 +87,8 @@ function corsika_parallel(proposal_events,propagator,indices)
     end 
 
     for i in indices
-        
         proposal_idx = i[1]
         decay_idx = i[2]
-        
         corsika_run(proposal_events[proposal_idx].decay_products[decay_idx],
         propagator, 
         proposal_idx,
@@ -114,7 +111,6 @@ function corsika_run(
     obs_z::Float64, 
     thinning::Float64, 
     ecuts::SVector{4},
-    singularity_path::String,
     corsika_path::String,
     corsika_sbatch_path::String,
     outdir::String,
@@ -122,31 +118,53 @@ function corsika_run(
     decay_index::Int64; 
     parallelize_corsika=parallelize_corsika
     )
-    rawinject_x,rawinject_y,rawinject_z = inject_pos
-    x_intercept,y_intercept,z_intercept = intercept_pos 
-    xdir,ydir,zdir = plane 
+    # rawinject_x,rawinject_y,rawinject_z = inject_pos
+    # x_intercept,y_intercept,z_intercept = intercept_pos 
+    # xdir,ydir,zdir = plane 
     
     #convert to CORSIKA internal units of GeV
     emcut,photoncut,mucut,hadcut = ecuts/units.GeV 
     total_index = string(proposal_index) *"_"* string(decay_index)
 
-    if energy > 1e6
-        time = "8:00:00"
+    if energy > 5e5
+        time = "24:00:00"
     elseif energy > 1e7
-        time = "12:00:00"
+        time = "30:00:00"
     elseif energy > 1e8
-        time =  "16:00:00"
+        time =  "48:00:00"
     else 
         time = "4:00:00"
     end 
 
+    #have to do rotations rotZ(-90)
+    #CORSIKA has an unintuitive way of doing things 
+    #x_hat = N; y_hat = W for them
+    #TAMBO x_hat = E; y_hat = N 
+    c_plane = RotZ(-π/2)*plane
+    c_inject = RotZ(-π/2)*inject_pos
+    c_intercept = RotZ(-π/2)*intercept_pos
+
+    if azimuth < π/2 
+        c_azimuth = 3π/2 + azimuth
+    else 
+        c_azimuth = azimuth - π/2 
+    end 
+
     if parallelize_corsika 
-        corsika_parallel_exec = "singularity exec $singularity_path $corsika_path --pdg $pdg --energy $energy --zenith $zenith --azimuth $azimuth --xpos $rawinject_x --ypos $rawinject_y --zpos $rawinject_z -f $outdir/shower_$total_index --xdir $xdir --ydir $ydir --zdir $zdir --observation-height $obs_z --force-interaction --x-intercept $x_intercept --y-intercept $y_intercept --z-intercept $z_intercept --emcut $emcut --photoncut $photoncut --mucut $mucut --hadcut $hadcut --emthin $thinning"
+        corsika_parallel_exec = "$corsika_path --pdg $pdg --energy $energy --zenith $zenith --azimuth $c_azimuth --xpos $(c_inject[1]) --ypos $(c_inject[2]) --zpos $(c_inject[3]) -f $outdir/shower_$total_index --xdir $(c_plane[1]) --ydir $(c_plane[2]) --zdir $(c_plane[3]) --observation-height $obs_z --force-interaction --x-intercept $(c_intercept[1]) --y-intercept $(c_intercept[2]) --z-intercept $(c_intercept[3]) --emcut $emcut --photoncut $photoncut --mucut $mucut --hadcut $hadcut --emthin $thinning"
         run(`sbatch --time=$time $corsika_sbatch_path $corsika_parallel_exec`)
     else 
-        corsika_exec = `singularity exec $singularity_path $corsika_path --pdg $pdg --energy $energy --zenith $zenith --azimuth $azimuth --xpos $rawinject_x --ypos $rawinject_y --zpos $rawinject_z -f $outdir/shower_$total_index --xdir $xdir --ydir $ydir --zdir $zdir --observation-height $obs_z --force-interaction --x-intercept $x_intercept --y-intercept $y_intercept --z-intercept $z_intercept --emcut $emcut --photoncut $photoncut --mucut $mucut --hadcut $hadcut --emthin $thinning`
+        corsika_exec = `$corsika_path --pdg $pdg --energy $energy --zenith $zenith --azimuth $c_azimuth --xpos $(c_inject[1]) --ypos $(c_inject[2]) --zpos $(c_inject[3]) -f $outdir/shower_$total_index --xdir $(c_plane[1]) --ydir $(c_plane[2]) --zdir $(c_plane[3]) --observation-height $obs_z --force-interaction --x-intercept $(c_intercept[1]) --y-intercept $(c_intercept[2]) --z-intercept $(c_intercept[3]) --emcut $emcut --photoncut $photoncut --mucut $mucut --hadcut $hadcut --emthin $thinning`
         run(corsika_exec)
     end 
+
+    # if parallelize_corsika 
+    #     corsika_parallel_exec = "singularity exec $singularity_path $corsika_path --pdg $pdg --energy $energy --zenith $zenith --azimuth $azimuth --xpos $rawinject_x --ypos $rawinject_y --zpos $rawinject_z -f $outdir/shower_$total_index --xdir $xdir --ydir $ydir --zdir $zdir --observation-height $obs_z --force-interaction --x-intercept $x_intercept --y-intercept $y_intercept --z-intercept $z_intercept --emcut $emcut --photoncut $photoncut --mucut $mucut --hadcut $hadcut --emthin $thinning"
+    #     run(`sbatch --time=$time $corsika_sbatch_path $corsika_parallel_exec`)
+    # else 
+    #     corsika_exec = `singularity exec $singularity_path $corsika_path --pdg $pdg --energy $energy --zenith $zenith --azimuth $azimuth --xpos $rawinject_x --ypos $rawinject_y --zpos $rawinject_z -f $outdir/shower_$total_index --xdir $xdir --ydir $ydir --zdir $zdir --observation-height $obs_z --force-interaction --x-intercept $x_intercept --y-intercept $y_intercept --z-intercept $z_intercept --emcut $emcut --photoncut $photoncut --mucut $mucut --hadcut $hadcut --emthin $thinning`
+    #     run(corsika_exec)
+    # end 
 end 
 
 function corsika_run(decay_event::Particle,propagator::CORSIKAPropagator,proposal_idx::Int64,decay_idx::Int64; parallelize_corsika=parallelize_corsika)
@@ -157,13 +175,12 @@ function corsika_run(decay_event::Particle,propagator::CORSIKAPropagator,proposa
     thinning = propagator.config.thinning
     ecuts = SVector{4}([propagator.config.em_ecut,propagator.config.photon_ecut,propagator.config.mu_ecut,propagator.config.hadron_ecut])
     outdir = propagator.config.shower_dir 
-    singularity_path = propagator.config.singularity_path
     corsika_path = propagator.config.corsika_path
     corsika_sbatch_path = propagator.config.corsika_sbatch_path
-    return corsika_run(decay_event::Particle,plane,geo,thinning,ecuts,singularity_path,corsika_path,corsika_sbatch_path,outdir,proposal_idx::Int64,decay_idx::Int64; parallelize_corsika=parallelize_corsika)
+    return corsika_run(decay_event::Particle,plane,geo,thinning,ecuts,corsika_path,corsika_sbatch_path,outdir,proposal_idx::Int64,decay_idx::Int64; parallelize_corsika=parallelize_corsika)
 end
 
-function corsika_run(decay_event::Particle,plane::Plane, geo::Geometry,thinning::Float64,ecuts,singularity_path::String,corsika_path::String,corsika_sbatch_path::String,outdir::String,proposal_idx::Int64,decay_idx::Int64; parallelize_corsika=parallelize_corsika)
+function corsika_run(decay_event::Particle,plane::Plane, geo::Geometry,thinning::Float64,ecuts,corsika_path::String,corsika_sbatch_path::String,outdir::String,proposal_idx::Int64,decay_idx::Int64; parallelize_corsika=parallelize_corsika)
   
     pdg = decay_event.pdg_mc
     energy = decay_event.energy/units.GeV
@@ -187,7 +204,6 @@ function corsika_run(decay_event::Particle,plane::Plane, geo::Geometry,thinning:
         obs_z, 
         thinning,
         ecuts,
-        singularity_path,
         corsika_path,
         corsika_sbatch_path,
         outdir,
