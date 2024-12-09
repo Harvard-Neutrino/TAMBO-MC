@@ -178,16 +178,15 @@ function make_hit_map(
     #for file in tqdm(files)
     for file in files
         #CORSIKA8 sometimes doesn't finish b/c job times out 
+        df = DataFrame()
         try
-            Parquet2.Dataset(file)
+            df = DataFrame(Parquet2.Dataset(file))
         catch
             println("This file can't be read (maybe job timed out): $file")
             continue
         end
 
-        pqf = Parquet2.Dataset(file)
-        df = DataFrame(pqf)
-        df = df = loadcorsika(select(df,Not("shower","nx","ny","nz")),xyzcorsika)
+        df = loadcorsika(select(df,Not("shower","nx","ny","nz")),xyzcorsika)
         df = filter(
                 e -> xmin < e.x && e.x < xmax && ymin < e.y && e.y < ymax,
                 df
@@ -201,18 +200,6 @@ function make_hit_map(
     end 
     
     return d
-end
-
-function can_skip_event(event_number, outfile, run_desc)
-    can_skip = false
-    jldopen(outfile, "r") do jldf
-        if ~(run_desc in keys(jldf))
-            can_skip = false
-        elseif string(event_number) in keys(jldf[run_desc])
-            can_skip = true
-        end
-    end
-    return can_skip
 end
 
 function main()
@@ -283,9 +270,6 @@ function main()
     #if args["nparallel"] > 1
     #    outfile = replace(outfile, ".jld2"=>"_$(args["njob"])_$(args["nparallel"]).jld2")
     #end
-
-    # TODO: kind of sloppy. Instead wrap for loop below or something
-    jldopen(outfile, "w")
     
     run_desc = args["run_desc"]
     if length(run_desc)==0
@@ -296,21 +280,15 @@ function main()
     println("creating event dicts...")
     println("event numbers: $event_numbers")
 
+    hit_map = Dict()
     #for (_,event_number) in tqdm(enumerate(event_numbers))
     for event_number in event_numbers
-
-        # TODO: should probably remove this?
-        #if can_skip_event(event_number, outfile, run_desc)
-        #    println("skipped event $event_number")
-        #    continue
-        #end
-
-        hit_map = make_hit_map(args["simset"], args["subsimset"], event_number, modules, args["basedir"],xyzcorsika)
-
-        jldopen(outfile, "r+") do jldf
-            jldf["$(run_desc)/$(event_number)"] = hit_map
+        hit_map["$(run_desc)/$(event_number)"] = make_hit_map(args["simset"], args["subsimset"], event_number, modules, args["basedir"], xyzcorsika)
+    end
+    jldopen(outfile, "w") do jldf
+        for (k, v) in hit_map
+            jldf[k] = v
         end
-
     end
 end
 
