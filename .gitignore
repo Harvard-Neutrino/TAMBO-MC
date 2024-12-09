@@ -4,3 +4,4 @@
 *.ipynb_checkpoints
 *Untitled*.ipynb
 notebooks/output/*
+*/.snakemake
