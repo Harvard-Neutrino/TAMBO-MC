@@ -77,7 +77,6 @@ function corsika_parallel(
         println("FASRC forbids more than 10k concurrent jobs!!")
     end 
     for i in indices
-        
         proposal_idx = i[1]
         decay_idx = i[2]
         
@@ -106,25 +105,39 @@ function corsika_run(
     obs_z::Float64, 
     thinning::Float64, 
     ecuts::SVector{4},
-    singularity_path::String,
     corsika_path::String,
     corsika_sbatch_path::String,
     outdir::String,
     proposal_index::Int64,
     decay_index::Int64; 
     parallelize_corsika=parallelize_corsika
-)
-    rawinject_x,rawinject_y,rawinject_z = inject_pos
-    x_intercept,y_intercept,z_intercept = intercept_pos 
-    xdir, ydir, zdir = plane 
+    )
+    # rawinject_x,rawinject_y,rawinject_z = inject_pos
+    # x_intercept,y_intercept,z_intercept = intercept_pos 
+    # xdir,ydir,zdir = plane 
     
     #convert to CORSIKA internal units of GeV
     emcut, photoncut, mucut, hadcut = ecuts/units.GeV 
     total_index = string(proposal_index) *"_"* string(decay_index)
 
+
+    #have to do rotations rotZ(-90)
+    #CORSIKA has an unintuitive way of doing things 
+    #x_hat = N; y_hat = W for them
+    #TAMBO x_hat = E; y_hat = N 
+    c_plane = RotZ(-π/2)*plane
+    c_inject = RotZ(-π/2)*inject_pos
+    c_intercept = RotZ(-π/2)*intercept_pos
+
+    if azimuth < π/2 
+        c_azimuth = 3π/2 + azimuth
+    else 
+        c_azimuth = azimuth - π/2 
+    end 
+
     if parallelize_corsika 
-        corsika_parallel_exec = "$corsika_path --pdg $pdg --energy $energy --zenith $zenith --azimuth $azimuth --xpos $rawinject_x --ypos $rawinject_y --zpos $rawinject_z -f $outdir/shower_$total_index --xdir $xdir --ydir $ydir --zdir $zdir --observation-height $obs_z --force-interaction --x-intercept $x_intercept --y-intercept $y_intercept --z-intercept $z_intercept --emcut $emcut --photoncut $photoncut --mucut $mucut --hadcut $hadcut --emthin $thinning"
-        run(`sbatch $corsika_sbatch_path $corsika_parallel_exec`)
+        corsika_parallel_exec = "$corsika_path --pdg $pdg --energy $energy --zenith $zenith --azimuth $c_azimuth --xpos $(c_inject[1]) --ypos $(c_inject[2]) --zpos $(c_inject[3]) -f $outdir/shower_$total_index --xdir $(c_plane[1]) --ydir $(c_plane[2]) --zdir $(c_plane[3]) --observation-height $obs_z --force-interaction --x-intercept $(c_intercept[1]) --y-intercept $(c_intercept[2]) --z-intercept $(c_intercept[3]) --emcut $emcut --photoncut $photoncut --mucut $mucut --hadcut $hadcut --emthin $thinning"
+        run(`sbatch --time=$time $corsika_sbatch_path $corsika_parallel_exec`)
     else 
         # Set environment variables using Julia's ENV dictionary
         ENV["corsika_DIR"] = "/n/holylfs05/LABS/arguelles_delgado_lab/Lab/common_software/source/corsika8/build"
@@ -136,6 +149,14 @@ function corsika_run(
         end
         run(corsika_exec)
     end 
+
+    # if parallelize_corsika 
+    #     corsika_parallel_exec = "singularity exec $singularity_path $corsika_path --pdg $pdg --energy $energy --zenith $zenith --azimuth $azimuth --xpos $rawinject_x --ypos $rawinject_y --zpos $rawinject_z -f $outdir/shower_$total_index --xdir $xdir --ydir $ydir --zdir $zdir --observation-height $obs_z --force-interaction --x-intercept $x_intercept --y-intercept $y_intercept --z-intercept $z_intercept --emcut $emcut --photoncut $photoncut --mucut $mucut --hadcut $hadcut --emthin $thinning"
+    #     run(`sbatch --time=$time $corsika_sbatch_path $corsika_parallel_exec`)
+    # else 
+    #     corsika_exec = `singularity exec $singularity_path $corsika_path --pdg $pdg --energy $energy --zenith $zenith --azimuth $azimuth --xpos $rawinject_x --ypos $rawinject_y --zpos $rawinject_z -f $outdir/shower_$total_index --xdir $xdir --ydir $ydir --zdir $zdir --observation-height $obs_z --force-interaction --x-intercept $x_intercept --y-intercept $y_intercept --z-intercept $z_intercept --emcut $emcut --photoncut $photoncut --mucut $mucut --hadcut $hadcut --emthin $thinning`
+    #     run(corsika_exec)
+    # end 
 end 
 
 function corsika_run(
@@ -214,7 +235,6 @@ function corsika_run(
         obs_z, 
         thinning,
         ecuts,
-        singularity_path,
         corsika_path,
         corsika_sbatch_path,
         outdir,

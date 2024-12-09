@@ -1,36 +1,30 @@
 #!/bin/bash
 #SBATCH -J TAMBO_make_event_dicts
 #SBATCH -c 1 # Number of cores
-#SBATCH -p arguelles_delgado,shared,sapphire
-##SBATCH -p shared,sapphire
-##SBATCH -p arguelles_delgado
-#SBATCH --mem 8000
-#SBATCH -t 0-04:00:00 # Maximum execution time (D-HH:MM:SS)
-#SBATCH -o /n/holyscratch01/arguelles_delgado_lab/Everyone/thomwg11/TAMBO_event_dicts/%A_%a.out # Standard output
-#SBATCH -e /n/holyscratch01/arguelles_delgado_lab/Everyone/thomwg11/TAMBO_event_dicts/%A_%a.err # Standard output
-#SBATCH --array 1-100
+#SBATCH -p shared,arguelles_delgado,sapphire 
+#SBATCH --mem 18000
+#SBATCH -t 0-15:30:00 # Maximum execution time (D-HH:MM:SS)
+#SBATCH -o /n/netscratch/arguelles_delgado_lab/Everyone/pzhelnin/corsika_tambo/Larger_valley_event_dicts/small/output/%A_%a.out # Standard output
+#SBATCH -e /n/netscratch/arguelles_delgado_lab/Everyone/pzhelnin/corsika_tambo/Larger_valley_event_dicts/small/error/%A_%a.err # Standard output
+#SBATCH --array 1-50
 
-#export PATH=$PATH:/n/home02/thomwg11/.juliaup/bin
-#export JULIA_DEPOT_PATH=/n/home02/thomwg11/.julia
+export PATH=/n/home03/pzhelnin/.juliaup/bin/julia:$PATH
 
-LENGTH=2000
-DELTAS=100
-ALTMIN=1850
-ALTMAX=3850
+LENGTH=5000
+DELTAS=150
+ALTMIN=2300
+ALTMAX=3700
+SIZE="medium"
+
 printf -v PADDED_IDX "%05d" $SLURM_ARRAY_TASK_ID
-#BASEDIR="/n/holylfs05/LABS/arguelles_delgado_lab/Everyone/jlazar/graphnet_simulation/00000/00000_${PADDED_IDX}"
-#BASEDIR="/n/holylfs05/LABS/arguelles_delgado_lab/Lab/common_software/source/corsika8/corsika-work/Jan7th2024_WhitePaper_300k_no_thin/"
-BASEDIR="/n/holylfs05/LABS/arguelles_delgado_lab/Lab/TAMBO/will_misc/coordinate_tests/showers/"
-#BASEDIR="/n/holylfs05/LABS/arguelles_delgado_lab/Lab/common_software/source/corsika8/corsika-work/Oct16th2023_WhitePaper_300k/"
-#BASEDIR="/n/holylfs05/LABS/arguelles_delgado_lab/Lab/common_software/source/corsika8/corsika-work/Jan7th2024_WhitePaper_300k_no_thin/Jan23rd2024_WhitePaper_300k_no_thin_rerun/"
-#OUTFILE="/n/holylfs05/LABS/arguelles_delgado_lab/Everyone/jlazar/graphnet_simulation/00000/00000_${PADDED_IDX}/event_dicts_00000_${PADDED_IDX}.jld2"
-#OUTFILE="/n/holylfs05/LABS/arguelles_delgado_lab/Everyone/thomwg11/graphnet_simulation_tests_jeff/event_dicts.jld2"
-#OUTFILE="/n/holylfs05/LABS/arguelles_delgado_lab/Lab/TAMBO/will_misc/Jan7th2024_WhitePaper_300k_no_thin/event_dicts/event_dicts.jld2"
-OUTFILE="/n/holylfs05/LABS/arguelles_delgado_lab/Lab/TAMBO/will_misc/coordinate_tests/event_dicts/event_dicts.jld2"
-SIMFILE="/n/holylfs05/LABS/arguelles_delgado_lab/Lab/TAMBO/will_misc/coordinate_tests/coordinate_tests_00000_00001.jld2"
-#SIMFILE="/n/holylfs05/LABS/arguelles_delgado_lab/Lab/common_software/source/corsika8/corsika-work/Oct16th2023_WhitePaper_300k.jld2"
+BASEDIR="/n/holylfs05/LABS/arguelles_delgado_lab/Lab/common_software/source/corsika8/corsika-work/Larger_Valley/hard_spectrum/shower/larger_valley_00000_${PADDED_IDX}"
+OUTFILE="/n/holylfs05/LABS/arguelles_delgado_lab/Lab/common_software/source/corsika8/corsika-work/Larger_Valley/hard_spectrum/event_dicts/retest_${SIZE}_larger_valley_event_dicts_00000_${PADDED_IDX}.jld2"
+SIMFILE="/n/holylfs05/LABS/arguelles_delgado_lab/Lab/common_software/source/corsika8/corsika-work/Larger_Valley/hard_spectrum/sim_files/larger_valley_00000_${PADDED_IDX}.jld2"
+#BASEDIR="/n/holylfs05/LABS/arguelles_delgado_lab/Lab/TAMBO/will_misc/pavel_cross_check/Larger_Valley/hshower/larger_valley_00000_${PADDED_IDX}"
+#SIMFILE="/n/holylfs05/LABS/arguelles_delgado_lab/Lab/TAMBO/will_misc/pavel_cross_check/larger_valley_00000_${PADDED_IDX}.jld2"
+#OUTFILE="/n/holylfs05/LABS/arguelles_delgado_lab/Lab/common_software/source/corsika8/corsika-work/Larger_Valley/event_dicts/Will_${SIZE}_larger_valley_event_dicts_00000_${PADDED_IDX}.jld2"
 
-#CMD="time julia /n/home02/thomwg11/tambo/TAMBO-MC/scripts/1_make_event_dicts/make_event_dicts_parallel.jl --length ${LENGTH} --deltas ${DELTAS} --altmin ${ALTMIN} --altmax ${ALTMAX} --outfile ${OUTFILE} --basedir ${BASEDIR} --simfile ${SIMFILE} --nparallel 100 --njob ${SLURM_ARRAY_TASK_ID}"
-CMD="time julia /n/home02/thomwg11/tambo/TAMBO-MC/scripts/1_make_event_dicts/make_event_dicts_parallel.jl --config perfect_valley_2000_150.toml --nparallel 100 --njob ${SLURM_ARRAY_TASK_ID}"
+CMD="time julia /n/holylfs05/LABS/arguelles_delgado_lab/Lab/common_software/source/TAMBO-MC/scripts/1_make_event_dicts/make_event_dicts_parallel.jl --length ${LENGTH} --deltas ${DELTAS} --outfile ${OUTFILE} --basedir ${BASEDIR} --altmin ${ALTMIN} --altmax ${ALTMAX} --simfile ${SIMFILE} --size ${SIZE}"
 echo $CMD
+echo $SLURM_ARRAY_TASK_ID
 $CMD

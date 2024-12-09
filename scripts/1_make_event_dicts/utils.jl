@@ -24,7 +24,8 @@ end
 function loadcorsika(df,xyzcorsika)
     ids = df.pdg
     es = df.kinetic_energy .* units.GeV
-    pos = Matrix(df[:,["x","y","z"]]) * xyzcorsika'
+    pos = (Matrix(df[:,["x","y","z"]]) * xyzcorsika') * RotZ(-π/2)
+    #pos = Matrix(df[:,["x","y","z"]]) * xyzcorsika'
     df.x = pos[:,1] .* units.m # x coord
     df.y = pos[:,2] .* units.m # y coord
     df.z = pos[:,3] .* units.m # z coord

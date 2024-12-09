@@ -57,8 +57,9 @@ function make_detector_array(
     ds::Real,
     altmin::Real,
     altmax::Real,
-    plane::Tambo.Plane,
-    geo::Geometry
+    plane::Plane,
+    geo::Geometry,
+    ext::SVector{3}
 )
 
     # Make a triangular grid in xy-plane
@@ -78,10 +79,23 @@ function make_detector_array(
     # Make the module list
     modules = SquareDetectionModule[]
     rot = RotY(-plane.n̂.θ) * RotZ(-plane.n̂.ϕ) # This makes the
-    ext = SVector{3}([2.00, 2.00, 0.03]) * units.m
+    #ext = SVector{3}([1.875, 0.8, 0.03]) * units.m
     for (idx, xyz) in enumerate(xyzs)
         push!(modules, SquareDetectionModule(xyz, rot, ext, idx))
     end
     println("Number of modules: $(length(modules))")
     return modules
 end
+
+function make_detector_array(
+    length::Real,
+    ds::Real,
+    altmin::Real,
+    altmax::Real,
+    plane::Plane,
+    geo::Geometry,
+)
+    ext = SVector{3}([1.875, 0.8, 0.03]) * units.m
+    return make_triangle_grid(length, ds, altmin, altmax, plane, geo, ext)
+end
+    

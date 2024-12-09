@@ -116,7 +116,6 @@ function inject_event(
 
     proposed_e_init = rand(power_law)
     proposed_particle = Particle(ν_pdg, proposed_e_init, xb, direction, nothing)
-    
     particle_entry, physX = tr_propagate(proposed_particle, geo.tambo_offset.z, tr_seed)
     e_final = rand(xs, particle_entry.energy)
 

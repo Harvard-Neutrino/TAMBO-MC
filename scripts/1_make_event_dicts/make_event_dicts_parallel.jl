@@ -12,6 +12,7 @@ using Parquet2
 using DataFrames 
 using ProgressBars
 using TOML
+using Rotations
 
 #const zcorsika = whitepaper_normal_vec.proj
 #as defined in corsika 
@@ -94,10 +95,16 @@ function parse_commandline()
             help = "Subsimset"
             arg_type = String
             required = true
+        "--size"
+            help = "size of modules"
+            arg_type = String 
+            default = "normal"
         "--config"
             help = "Path to a TOML config file"
             arg_type = String
             default = nothing
+            default = 2300
+       
     end
     return parse_args(s)
 end
@@ -249,13 +256,30 @@ function main()
     altmax = args["altmax"]units.m
     
     zcorsika = config.config["geometry"]["plane_orientation"]
+    display("original zcorsika = $zcorsika")
+    #possibly a hack but (this is because everything has to be rotated to corsika x_hat = N;y_hat=W)
+    #previous convention was x_hat = E; y_hat =N 
+    #xyzcorsika rotates into 3d from 2d but to where x_hat is N!!!!
+    #need extra rotation to get it back to TAMBO coordinate system 
+    
+    zcorsika = RotZ(-π/2) * zcorsika 
     xcorsika = SVector{3}([0,-zcorsika[3]/sqrt(zcorsika[2]^2+zcorsika[3]^2),zcorsika[2]/sqrt(zcorsika[2]^2+zcorsika[3]^2)])
     ycorsika = cross(zcorsika,xcorsika)
     xyzcorsika = inv([
-        xcorsika[1] xcorsika[2] xcorsika[3];
-        ycorsika[1] ycorsika[2] ycorsika[3];
-        zcorsika[1] zcorsika[2] zcorsika[3];
+        xcorsika.x xcorsika.y xcorsika.z;
+        ycorsika.x ycorsika.y ycorsika.z;
+        zcorsika.x zcorsika.y zcorsika.z;
     ])
+
+    display("xyzcorsika = $xyzcorsika")
+
+    if args["size"] == "normal"
+        size = SVector{3}([1.875, 0.8, 0.03])units.m
+    elseif args["size"] == "small"
+        size = SVector{3}([2,2, 0.03])units.m
+    elseif args["size"] == "medium"
+        size = SVector{3}([4,4,0.03])units.m
+    end 
 
     modules = Tambo.make_detector_array(
         args["length"]units.m,
@@ -263,7 +287,8 @@ function main()
         altmin,
         altmax,
         plane,
-        geo
+        geo,
+        size,
     )
 
     outfile = args["outfile"]
@@ -289,6 +314,7 @@ function main()
         for (k, v) in hit_map
             jldf[k] = v
         end
+
     end
 end
 

@@ -124,6 +124,7 @@ function did_trigger(
     if length(hit_map) < 3 # At least this many modules must trigger (pass module_trigger_thresh)
         return false
     end
+    
     nhit = get_nhit(hit_map, efficiencies)
     return nhit >= event_trigger_thresh
 end
