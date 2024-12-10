@@ -1,5 +1,5 @@
 using Pkg
-Pkg.activate("/n/home02/thomwg11/tambo/TAMBO-MC/Tambo")
+Pkg.activate(ENV["TAMBOSIM_PATH"] * "/Tambo")
 using Tambo
 using ArgParse
 using Random: seed!

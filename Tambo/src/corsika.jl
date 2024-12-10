@@ -143,7 +143,7 @@ function corsika_run(
         ENV["corsika_DIR"] = "/n/holylfs05/LABS/arguelles_delgado_lab/Lab/common_software/source/corsika8/build"
         ENV["FLUPRO"] = "/n/holylfs05/LABS/arguelles_delgado_lab/Lab/common_software/source/fluka"
         ENV["FLUFOR"] = "gfortransbatch"
-        corsika_exec = `$corsika_path --pdg $pdg --energy $energy --zenith $zenith --azimuth $azimuth --xpos $rawinject_x --ypos $rawinject_y --zpos $rawinject_z -f $outdir/shower_$total_index --xdir $xdir --ydir $ydir --zdir $zdir --observation-height $obs_z --force-interaction --x-intercept $x_intercept --y-intercept $y_intercept --z-intercept $z_intercept --emcut $emcut --photoncut $photoncut --mucut $mucut --hadcut $hadcut --emthin $thinning`
+        corsika_exec = `$corsika_path --pdg $pdg --energy $energy --zenith $zenith --azimuth $c_azimuth  --xpos $(c_inject[1]) --ypos $(c_inject[2]) --zpos $(c_inject[3]) -f $outdir/shower_$total_index --xdir $(c_plane[1]) --ydir $(c_plane[2]) --zdir $(c_plane[3]) --observation-height $obs_z --force-interaction --x-intercept $(c_intercept[1]) --y-intercept $(c_intercept[2]) --z-intercept $(c_intercept[3]) --emcut $emcut --photoncut $photoncut --mucut $mucut --hadcut $hadcut --emthin $thinning`
         if isdir("$outdir/shower_$total_index")
             rm("$outdir/shower_$total_index", recursive=true) # FIXME: This is a hack to avoid CORSIKA errors
         end

@@ -1,5 +1,5 @@
 using Pkg
-Pkg.activate("/n/home02/thomwg11/tambo/TAMBO-MC/Tambo")
+Pkg.activate(ENV["TAMBOSIM_PATH"] * "/Tambo")
 using Tambo
 using JLD2
 using Glob
@@ -9,7 +9,7 @@ using TOML
 
 include("trigger_defs.jl")
 
-interpolated_effs = load("/n/home02/thomwg11/tambo/TAMBO-MC/resources/detector_efficiencies/initial_IceTop_panel_interpolations.jld2")
+interpolated_effs = load(ENV["TAMBOSIM_PATH"] * "resources/detector_efficiencies/initial_IceTop_panel_interpolations.jld2")
 global interpolated_eff_gamma = interpolated_effs["gamma_interp"]
 global interpolated_eff_muon = interpolated_effs["muon_interp"]
 global interpolated_eff_electron = interpolated_effs["electron_interp"]

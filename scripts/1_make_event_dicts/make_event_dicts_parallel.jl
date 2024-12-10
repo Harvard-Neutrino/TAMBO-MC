@@ -1,5 +1,5 @@
 using Pkg
-Pkg.activate("/n/home02/thomwg11/tambo/TAMBO-MC/Tambo")
+Pkg.activate(ENV["TAMBOSIM_PATH"] * "/Tambo")
 using Tambo
 using PyCall
 using JLD2
@@ -98,13 +98,10 @@ function parse_commandline()
         "--size"
             help = "size of modules"
             arg_type = String 
-            default = "normal"
         "--config"
             help = "Path to a TOML config file"
             arg_type = String
-            default = nothing
-            default = 2300
-       
+            default = nothing       
     end
     return parse_args(s)
 end
@@ -212,7 +209,7 @@ end
 function main()
     # Parse config file and command line arguments
     # Overwrite config file values with command line arguments if provided
-    expected_arguments = ["basedir", "configfile", "simfile", "outfile", "deltas", "length", "nparallel", "njob", "run_desc", "altmin", "altmax", "simset", "subsimset", "config"]
+    expected_arguments = ["basedir", "configfile", "simfile", "outfile", "deltas", "length", "size", "nparallel", "njob", "run_desc", "altmin", "altmax", "simset", "subsimset", "config"]
     args = parse_commandline()
     
     config_params = Dict()
@@ -238,6 +235,10 @@ function main()
             config_params[k] = v
         end
     end
+
+    if args["size"] ∉ ["normal", "small", "medium"]
+        error("Invalid size: $(args["size"])")
+    end
     
     @assert args["njob"] <= args["nparallel"]
 
@@ -246,9 +247,12 @@ function main()
         println("$k: $v")
     end
 
-    #should fix so that we have a .toml 
-    sim = jldopen(args["simfile"])
-    config = Simulation("/n/home02/thomwg11/tambo/TAMBO-MC/resources/configuration_examples/$(args["configfile"]).toml")
+    config = nothing
+    try 
+        config = Simulation(ENV["TAMBOSIM_PATH"] * "/resources/configuration_examples/$(args["configfile"]).toml")
+    catch
+        error("Config file not found. Currently only supports running config files in the resources/configuration_examples directory")
+    end
     geo = Tambo.Geometry(config.config["geometry"])
     tambo_coord_degrees = Tambo.Coord((deg2rad.(config.config["geometry"]["tambo_coordinates"]))...)
     plane = Tambo.Plane(Tambo.Direction(config.config["geometry"]["plane_orientation"]...), tambo_coord_degrees, geo)
@@ -288,7 +292,7 @@ function main()
         altmax,
         plane,
         geo,
-        size,
+        size
     )
 
     outfile = args["outfile"]
