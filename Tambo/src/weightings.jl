@@ -51,3 +51,22 @@ function oneweight(
 )
     return oneweight(event, injector.xs, xsphys, injector.powerlaw, injector.anglesampler, injector.injectionvolume, injector.geo)
 end
+
+function oneweight(
+    event::InjectionEvent,
+    injectors::Vector{Injector},
+    xsphyss::Vector{CrossSection},
+)
+    weights=Vector{Float64}([])
+    for (injector,xsphys) in zip(injectors, xsphyss)
+
+        n = p_phys(event, xsphys, injector.geo)
+        d = p_mc(event, injector.powerlaw, injector.xs, injector.anglesampler, injector.injectionvolume, injector.geo)
+        if n==0
+            return 0
+        end
+        push!(weights, d / n)
+    end 
+    w = sum(weights)
+    return 1 / w 
+end
