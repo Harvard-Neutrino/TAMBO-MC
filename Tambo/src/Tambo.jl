@@ -258,7 +258,6 @@ function (s::SimulationConfig)(; track_progress=true, should_run_corsika=false)
             track_progress=track_progress,
         )
     end
-
 end
 
 function dump_to_file(s::SimulationConfig, f::JLDFile)
