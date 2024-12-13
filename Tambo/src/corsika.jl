@@ -1,70 +1,3 @@
-#Base.@kwdef mutable struct CORSIKAConfig
-#    parallelize_corsika::Bool = false
-#    thinning::Float64 = 1e-6 
-#    hadron_ecut::Float64 = 0.05units.GeV
-#    em_ecut::Float64 = 0.01units.GeV
-#    photon_ecut::Float64 = 0.002units.GeV
-#    mu_ecut::Float64 = 0.05units.GeV 
-#    shower_dir::String = "showers"
-#    singularity_path::String = "/n/holylfs05/LABS/arguelles_delgado_lab/Lab/common_software/source/corsika8/corsika-env.simg"
-#    corsika_path::String = "/n/holylfs05/LABS/arguelles_delgado_lab/Lab/common_software/source/corsika8/corsika-work/corsika"
-#    corsika_sbatch_path::String = "/n/holylfs05/LABS/arguelles_delgado_lab/Lab/common_software/source/TAMBO-MC/scripts/corsika_parallel.sbatch"
-#
-#    tambo_coordinates::Coord = whitepaper_coord
-#    plane_orientation::Direction = whitepaper_normal_vec
-#    proposal_events::Vector{ProposalResult} = [] 
-#end
-
-#struct CORSIKAPropagator
-#    config::Dict{String, Any}
-#    geo::Geometry 
-#end 
-#
-#function (propagator::CORSIKAPropagator)(; track_progress=true)
-#    n = length(propagator.config.proposal_events)
-#    proposal_events = propagator.config.proposal_events
-#    iter = 1:n 
-#    if track_progress 
-#        iter = ProgressBar(iter) 
-#    end 
-#
-#    geo = propagator.geo 
-#    #plane = Tambo.Plane(whitepaper_normal_vec, whitepaper_coord, geo)
-#    plane = Tambo.Plane(propagator.config.plane_orientation, propagator.config.tambo_coordinates, geo)
-#    indices = []
-#    for (proposal_idx, proposal_event) in enumerate(proposal_events)
-#        update(iter)
-#        if should_do_corsika(proposal_event,plane,geo)
-#            for (decay_idx,decay_event) in enumerate(proposal_event.decay_products)
-#
-#                #checks if decay product is a neutrino 
-#                #skips if is 
-#                #wanted to keep indices lined up so checking one at at ime
-#                if ~check_neutrino(decay_event)
-#                    push!(indices,[proposal_idx,decay_idx])
-#                else 
-#                    continue 
-#                end 
-#
-#                if propagator.config.parallelize_corsika 
-#                    continue 
-#                else 
-#                    corsika_run(decay_event,propagator,proposal_idx,decay_idx; parallelize_corsika=false)
-#                end 
-#            end
-#        end
-#    end
-#    
-#    if propagator.config.parallelize_corsika 
-#        if track_progress 
-#            n = length(indices)
-#            println("Running CORSIKA in parallel for $n showers")
-#        end 
-#        corsika_parallel(proposal_events,propagator,indices)
-#    end 
-#    return indices 
-#end 
-
 function corsika_parallel(
     proposal_events::Vector{ProposalResult},
     geo::Geometry,
@@ -90,8 +23,6 @@ function corsika_parallel(
         )
         
     end 
-    #parallelize_corsika_exec = `sbatch $sbatch_dir`
-    #run(corsika_exec);
 end 
 
 function corsika_run(
@@ -112,9 +43,6 @@ function corsika_run(
     decay_index::Int64; 
     parallelize_corsika=parallelize_corsika
     )
-    # rawinject_x,rawinject_y,rawinject_z = inject_pos
-    # x_intercept,y_intercept,z_intercept = intercept_pos 
-    # xdir,ydir,zdir = plane 
     
     #convert to CORSIKA internal units of GeV
     emcut, photoncut, mucut, hadcut = ecuts/units.GeV 
@@ -145,18 +73,10 @@ function corsika_run(
         ENV["FLUFOR"] = "gfortransbatch"
         corsika_exec = `$corsika_path --pdg $pdg --energy $energy --zenith $zenith --azimuth $c_azimuth  --xpos $(c_inject[1]) --ypos $(c_inject[2]) --zpos $(c_inject[3]) -f $outdir/shower_$total_index --xdir $(c_plane[1]) --ydir $(c_plane[2]) --zdir $(c_plane[3]) --observation-height $obs_z --force-interaction --x-intercept $(c_intercept[1]) --y-intercept $(c_intercept[2]) --z-intercept $(c_intercept[3]) --emcut $emcut --photoncut $photoncut --mucut $mucut --hadcut $hadcut --emthin $thinning`
         if isdir("$outdir/shower_$total_index")
-            rm("$outdir/shower_$total_index", recursive=true) # FIXME: This is a hack to avoid CORSIKA errors
+            rm("$outdir/shower_$total_index", recursive=true) # CORSIKA doesn't like overwriting files, so we'll do it for them
         end
         run(corsika_exec)
     end 
-
-    # if parallelize_corsika 
-    #     corsika_parallel_exec = "singularity exec $singularity_path $corsika_path --pdg $pdg --energy $energy --zenith $zenith --azimuth $azimuth --xpos $rawinject_x --ypos $rawinject_y --zpos $rawinject_z -f $outdir/shower_$total_index --xdir $xdir --ydir $ydir --zdir $zdir --observation-height $obs_z --force-interaction --x-intercept $x_intercept --y-intercept $y_intercept --z-intercept $z_intercept --emcut $emcut --photoncut $photoncut --mucut $mucut --hadcut $hadcut --emthin $thinning"
-    #     run(`sbatch --time=$time $corsika_sbatch_path $corsika_parallel_exec`)
-    # else 
-    #     corsika_exec = `singularity exec $singularity_path $corsika_path --pdg $pdg --energy $energy --zenith $zenith --azimuth $azimuth --xpos $rawinject_x --ypos $rawinject_y --zpos $rawinject_z -f $outdir/shower_$total_index --xdir $xdir --ydir $ydir --zdir $zdir --observation-height $obs_z --force-interaction --x-intercept $x_intercept --y-intercept $y_intercept --z-intercept $z_intercept --emcut $emcut --photoncut $photoncut --mucut $mucut --hadcut $hadcut --emthin $thinning`
-    #     run(corsika_exec)
-    # end 
 end 
 
 function corsika_run(

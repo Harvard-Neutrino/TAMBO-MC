@@ -7,7 +7,6 @@ from os import environ
 TAMBOSIM_PATH = environ['TAMBOSIM_PATH']
 TAMBO_DATA_PATH = environ['TAMBO_DATA_PATH']
 
-# FIXME: Need to purge old showers if new dataset injected
 checkpoint inject_neutrinos:
     input:
         injection_config = lambda wildcards: f'{TAMBOSIM_PATH}/resources/configuration_examples/{wildcards.injection_config}.toml'
@@ -18,8 +17,9 @@ checkpoint inject_neutrinos:
         mem_mb=10000,
         slurm_partition="sapphire,shared",
         runtime=8*60
-    shell:
+    shell: # Purge old shower files and inject neutrinos
         f"""
+        rm -rf {TAMBO_DATA_PATH}/{{wildcards.injection_config}}/showers/{{wildcards.injection_simset}}_{{wildcards.injection_subsimset}}/shower_*_* ; \
         julia {TAMBOSIM_PATH}/scripts/0_simulate_events/inject_neutrinos.jl \
         --config {{input.injection_config}} \
         --simset {{wildcards.injection_simset}} \
