@@ -1,7 +1,6 @@
 using Pkg
 Pkg.activate(ENV["TAMBOSIM_PATH"] * "/Tambo")
 using Tambo
-using PyCall
 using JLD2
 using StaticArrays
 using ArgParse
@@ -14,24 +13,6 @@ using ProgressBars
 using TOML
 using Rotations
 
-#const zcorsika = whitepaper_normal_vec.proj
-#as defined in corsika 
-#const xcorsika = SVector{3}([0,-zcorsika[3]/sqrt(zcorsika[2]^2+zcorsika[3]^2),zcorsika[2]/sqrt(zcorsika[2]^2+zcorsika[3]^2)])
-#const ycorsika = cross(zcorsika,xcorsika)
-
-#const xyzcorsika = inv([
-#    xcorsika.x xcorsika.y xcorsika.z;
-#    ycorsika.x ycorsika.y ycorsika.z;
-#    zcorsika.x zcorsika.y zcorsika.z;
-#])
-
-#const sim = jldopen("/n/holylfs05/LABS/arguelles_delgado_lab/Lab/common_software/source/corsika8/corsika-work/WhitePaper_300k.jld2")
-#const config = SimulationConfig(; Dict(k=>v for (k, v) in sim["config"] if k != :geo_spline_path)...)
-#const geo = Tambo.Geometry("/Users/pavelzhelnin/Documents/physics/TAMBO/resources/tambo_spline.jld2", Tambo.whitepaper_coord)
-#const plane = Tambo.Plane(whitepaper_normal_vec, whitepaper_coord, geo)
-#const altmin = 1.8925255158436627units.km
-#const altmax = 4.092525515843662units.km
-
 include("utils.jl")
 
 function parse_commandline()
@@ -42,7 +23,7 @@ function parse_commandline()
             arg_type = String
             required = true
             #default = "/Users/pavelzhelnin/Documents/physics/TAMBO/resources/airshowers/GraphNet_00000_00001"
-        "--configfile"
+        "--injection_config"
             help = "Injection config file"
             arg_type = String
             required = true
@@ -58,11 +39,11 @@ function parse_commandline()
         "--deltas"
             help = "Distance between modules on hexagonal array"
             arg_type = Float64
-            required = true
+            required = false
         "--length"
             help = "Length of the full array"
             arg_type = Float64
-            required = true
+            required = false
         "--nparallel"
             help = "Number of parallel jobs happening"
             arg_type = Int
@@ -73,20 +54,14 @@ function parse_commandline()
             arg_type = Int
             required = true
             #default=1
-        "--run_desc"
-            help = "A description that will become the group name for the file"
-            arg_type = String
-            default = ""
         "--altmin"
             help = "Minimum altitude in m"
             arg_type = Float64
-            required = true
-            #default = 1892.5255158436627
+            required = false
         "--altmax"
             help = "Maximum altitude in m"
             arg_type = Float64
-            required = true
-            #default = 4092.525515843662 
+            required = false
         "--simset"
             help = "Simset"
             arg_type = String
@@ -98,7 +73,7 @@ function parse_commandline()
         "--size"
             help = "size of modules"
             arg_type = String 
-        "--config"
+        "--array_config"
             help = "Path to a TOML config file"
             arg_type = String
             default = nothing       
@@ -112,6 +87,55 @@ function load_config(file_path::String)
     else
         error("Config file not found at: $file_path")
     end
+end
+
+function setup_configuration(args)
+    expected_arguments = ["basedir", "array_config", "injection_config", "simfile", "outfile", "deltas", "length", "size", "nparallel", "njob", "altmin", "altmax", "simset", "subsimset", "config"]
+
+    # First check that either config file of CL arguments are provided, not both
+    if !isnothing(args["array_config"]) && any(!isnothing, [args["deltas"], args["length"], args["size"], args["altmin"], args["altmax"]])
+        error("If providing a config file, cannot provide any of deltas, length, size, altmin, altmax")
+    end
+
+    # If using CLI, check that all required arguments are provided
+    if isnothing(args["array_config"]) && any(isnothing, [args["deltas"], args["length"], args["size"], args["altmin"], args["altmax"]])
+        error("If not providing a config file, must provide all of deltas, length, size, altmin, altmax")
+    end
+    
+    config_params = Dict()
+
+    # Load from config files if provided
+    if !isnothing(args["array_config"])
+        println(args)
+        config_params = load_config(args["array_config"])
+        for (k, v) in config_params
+            if k ∉ expected_arguments
+                error("Unexpected key in config file: $k")
+            end
+            args[k] = v
+        end
+    else
+        for (k, v) in args
+            if k ∉ expected_arguments
+                error("Unexpected key in command line arguments: $k")
+            end
+            if k != "array_config"
+                config_params[k] = v
+            end
+        end
+    end
+
+    if args["size"] ∉ ["normal", "small", "medium"]
+        error("Invalid size: $(args["size"])")
+    end
+    
+    @assert args["njob"] <= args["nparallel"]
+
+    println("Configuration:")
+    for (k, v) in args
+        println("$k: $v")
+    end
+    return args
 end
 
 function add_hits!(d::Dict, og_df::DataFrame, modules)
@@ -208,48 +232,16 @@ end
 
 function main()
     # Parse config file and command line arguments
-    # Overwrite config file values with command line arguments if provided
-    expected_arguments = ["basedir", "configfile", "simfile", "outfile", "deltas", "length", "size", "nparallel", "njob", "run_desc", "altmin", "altmax", "simset", "subsimset", "config"]
+    # Providing the configuration via a config file vs command line arguments
+    # is enforced to be mutually exclusive
     args = parse_commandline()
+    args = setup_configuration(args)
     
-    config_params = Dict()
-
-    # Load from config files if provided
-    if haskey(args, "config") && !isnothing(args["config"])
-        println(args)
-        config_params = load_config(args["config"])
-        for (k, v) in config_params
-            if k ∉ expected_arguments
-                error("Unexpected key in config file: $k")
-            end
-            args[k] = v
-        end
-    end
-
-    # Override with command line arguments if provided
-    for (k, v) in args
-        if k ∉ expected_arguments
-            error("Unexpected key in command line arguments: $k")
-        end
-        if k != "config"
-            config_params[k] = v
-        end
-    end
-
-    if args["size"] ∉ ["normal", "small", "medium"]
-        error("Invalid size: $(args["size"])")
-    end
-    
-    @assert args["njob"] <= args["nparallel"]
-
-    println("Configuration:")
-    for (k, v) in args
-        println("$k: $v")
-    end
 
     config = nothing
     try 
-        config = Simulation(ENV["TAMBOSIM_PATH"] * "/resources/configuration_examples/$(args["configfile"]).toml")
+        # TODO: seems like this should load from the injection file rather than the config in case config is changed
+        config = Simulation(ENV["TAMBOSIM_PATH"] * "/resources/configuration_examples/$(args["injection_config"]).toml")
     catch
         error("Config file not found. Currently only supports running config files in the resources/configuration_examples directory")
     end
@@ -284,7 +276,7 @@ function main()
     elseif args["size"] == "medium"
         size = SVector{3}([4,4,0.03])units.m
     end 
-
+    println("type: $(typeof(args["length"]))")
     modules = Tambo.make_detector_array(
         args["length"]units.m,
         args["deltas"]units.m,
@@ -299,11 +291,6 @@ function main()
     #if args["nparallel"] > 1
     #    outfile = replace(outfile, ".jld2"=>"_$(args["njob"])_$(args["nparallel"]).jld2")
     #end
-    
-    run_desc = args["run_desc"]
-    if length(run_desc)==0
-        run_desc = "$(args["length"])_$(args["deltas"])"
-    end
 
     event_numbers = get_event_numbers(args["basedir"], args["simset"], args["subsimset"])[args["njob"]:args["nparallel"]:end]
     println("creating event dicts...")
@@ -312,13 +299,20 @@ function main()
     hit_map = Dict()
     #for (_,event_number) in tqdm(enumerate(event_numbers))
     for event_number in event_numbers
-        hit_map["$(run_desc)/$(event_number)"] = make_hit_map(args["simset"], args["subsimset"], event_number, modules, args["basedir"], xyzcorsika)
+        hit_map["$(event_number)"] = make_hit_map(args["simset"], args["subsimset"], event_number, modules, args["basedir"], xyzcorsika)
     end
-    jldopen(outfile, "w") do jldf
-        for (k, v) in hit_map
-            jldf[k] = v
-        end
+    println(outfile)
+    println("type: $(typeof(args["length"]))")
 
+    jldopen(outfile, "w") do jldf
+        jldf["hit_map"] = hit_map
+        jldf["array_config"] = Dict(
+            "length" => args["length"]units.m,
+            "deltas" => args["deltas"]units.m,
+            "detector_size" => args["size"],
+            "altmin" => args["altmin"]units.m,
+            "altmax" => args["altmax"]units.m
+        )
     end
 end
 

@@ -1,0 +1,3 @@
+trigger_type = "whitepaper"
+module_threshold = 3
+event_threshold = 30

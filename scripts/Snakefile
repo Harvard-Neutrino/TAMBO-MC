@@ -11,7 +11,7 @@ checkpoint inject_neutrinos:
     input:
         injection_config = lambda wildcards: f'{TAMBOSIM_PATH}/resources/configuration_examples/{wildcards.injection_config}.toml'
     output:
-        outfile = f"{TAMBO_DATA_PATH}/{{injection_config}}/{{injection_config}}_{{injection_simset}}_{{injection_subsimset}}.jld2"
+        outfile = f"{TAMBO_DATA_PATH}/{{injection_config}}/injection/{{injection_config}}_{{injection_simset}}_{{injection_subsimset}}.jld2"
     resources:
         cpus_per_task=1,
         mem_mb=10000,
@@ -30,10 +30,8 @@ checkpoint inject_neutrinos:
 rule take_shower:
     input:
         injection_config = lambda wildcards: f"{TAMBOSIM_PATH}/resources/configuration_examples/{wildcards.injection_config}.toml",
-        injection_file = lambda wildcards: f"{TAMBO_DATA_PATH}/{wildcards.injection_config}/{wildcards.injection_config}_{wildcards.injection_simset}_{wildcards.injection_subsimset}.jld2"
+        injection_file = lambda wildcards: f"{TAMBO_DATA_PATH}/{wildcards.injection_config}/injection/{wildcards.injection_config}_{wildcards.injection_simset}_{wildcards.injection_subsimset}.jld2"
     output:
-        ## TODO: this is a major hack; should have Snakemake handle the parallel submission of showers
-        #directory("{TAMBO_DATA_PATH}/{injection_config}/showers/{injection_simset}_{injection_subsimset}/")
         f"{TAMBO_DATA_PATH}/{{injection_config}}/showers/{{injection_simset}}_{{injection_subsimset}}/shower_{{take_shower_proposal_id}}_{{take_shower_decay_id}}/particles/particles.parquet"
     resources:
         cpus_per_task=1,
@@ -44,7 +42,7 @@ rule take_shower:
         f"""
         julia {TAMBOSIM_PATH}/scripts/0_simulate_events/take_shower.jl \
         --config {TAMBOSIM_PATH}/resources/configuration_examples/{{wildcards.injection_config}}.toml \
-        --injection_file {TAMBO_DATA_PATH}/{{wildcards.injection_config}}/{{wildcards.injection_config}}_{{wildcards.injection_simset}}_{{wildcards.injection_subsimset}}.jld2 \
+        --injection_file {TAMBO_DATA_PATH}/{{wildcards.injection_config}}/injection/{{wildcards.injection_config}}_{{wildcards.injection_simset}}_{{wildcards.injection_subsimset}}.jld2 \
         --shower_dir {TAMBO_DATA_PATH}/{{wildcards.injection_config}}/showers/{{wildcards.injection_simset}}_{{wildcards.injection_subsimset}}/ \
         --proposal_id {{wildcards.take_shower_proposal_id}} \
         --decay_id {{wildcards.take_shower_decay_id}} \
@@ -54,24 +52,26 @@ rule take_shower:
 
 
 def get_particle_ids(wildcards):
-    with h5py.File(f"{TAMBO_DATA_PATH}/{wildcards.injection_config}/{wildcards.injection_config}_{wildcards.injection_simset}_{wildcards.injection_subsimset}.jld2") as f:
+    with h5py.File(f"{TAMBO_DATA_PATH}/{wildcards.injection_config}/injection/{wildcards.injection_config}_{wildcards.injection_simset}_{wildcards.injection_subsimset}.jld2") as f:
         particle_ids = f["corsika_indices"][:]
         return list(np.array([particle_ids['1'], particle_ids['2']]).T) # Yikes
 
 def get_injection_files(wildcards):
-    # Check if injection file exists
-    injection_filename = f"{TAMBO_DATA_PATH}/{wildcards.injection_config}/{wildcards.injection_config}_{wildcards.injection_simset}_{wildcards.injection_subsimset}.jld2"
+    # If the injection file doesn't exist, then the injection should be specified as the input file
+    # If the injection file does exist, then the shower files should be specified as the input files
+    injection_filename = f"{TAMBO_DATA_PATH}/{wildcards.injection_config}/injection/{wildcards.injection_config}_{wildcards.injection_simset}_{wildcards.injection_subsimset}.jld2"
     if not os.path.exists(injection_filename):
-        return f"{TAMBO_DATA_PATH}/{wildcards.injection_config}/{wildcards.injection_config}_{wildcards.injection_simset}_{wildcards.injection_subsimset}.jld2"
+        return injection_filename
     else:
         shower_files = expand(f"{TAMBO_DATA_PATH}" + "/{{injection_config}}/showers/{{injection_simset}}_{{injection_subsimset}}/shower_{proposal_ids[0]}_{proposal_ids[1]}/particles/particles.parquet", proposal_ids=lambda wildcards: get_particle_ids(wildcards))
         return shower_files
 
 rule make_event_dicts: # Note: rule currently configured so that all showers must be run, even if only a subset of them are needed for a specific event dict file
     input:
-        get_injection_files
+        get_injection_files,
+        array_config = lambda wildcards: f'{TAMBOSIM_PATH}/resources/configuration_examples/{wildcards.array_config}.toml'
     output:
-        outfile = f"{TAMBO_DATA_PATH}/{{injection_config}}/event_dicts/{{altmin}}_{{altmax}}_{{length}}_{{delta}}_{{module_size}}/event_dicts_{{injection_simset}}_{{injection_subsimset}}_{{event_dict_subset_id}}_{{event_dict_total_subsets}}.jld2"
+        outfile = f"{TAMBO_DATA_PATH}/{{injection_config}}/event_dicts/{{array_config}}/event_dicts_{{injection_simset}}_{{injection_subsimset}}_{{event_dict_subset_id}}_{{event_dict_total_subsets}}.jld2"
     resources:
         cpus_per_task=1,
         mem_mb=8000,
@@ -80,12 +80,8 @@ rule make_event_dicts: # Note: rule currently configured so that all showers mus
     shell: 
        f"""
         julia {TAMBOSIM_PATH}/scripts/1_make_event_dicts/make_event_dicts_parallel.jl \
-        --configfile {{wildcards.injection_config}} \
-        --altmin {{wildcards.altmin}} \
-        --altmax {{wildcards.altmax}} \
-        --length {{wildcards.length}} \
-        --delta {{wildcards.delta}} \
-        --size {{wildcards.module_size}} \
+        --array_config {{input.array_config}} \
+        --injection_config {{wildcards.injection_config}} \
         --basedir {TAMBO_DATA_PATH}/{{wildcards.injection_config}} \
         --simfile {TAMBO_DATA_PATH}/{{wildcards.injection_config}}/{{wildcards.injection_config}}_{{wildcards.injection_simset}}_{{wildcards.injection_subsimset}}.jld2 \
         --outfile {{output.outfile}} \
@@ -95,12 +91,32 @@ rule make_event_dicts: # Note: rule currently configured so that all showers mus
         --subsimset {{wildcards.injection_subsimset}}
         """
 
-rule do_triggering:
+rule combine_event_dict_files:
     input:
         # FIXME: update to handle different number of event dict files
-        event_dict_files = expand(f"{TAMBO_DATA_PATH}" + "/{{injection_config}}/event_dicts/{{altmin}}_{{altmax}}_{{length}}_{{delta}}_{{module_size}}/event_dicts_{{injection_simset}}_{{injection_subsimset}}_{idx}_100.jld2", idx=range(1,101)),
+        event_dict_files = expand(f"{TAMBO_DATA_PATH}" + "/{{injection_config}}/event_dicts/{{array_config}}/event_dicts_{{injection_simset}}_{{injection_subsimset}}_{idx}_100.jld2", idx=range(1,101))
     output:
-        f"{TAMBO_DATA_PATH}/{{injection_config}}/triggered/{{injection_simset}}_{{injection_subsimset}}/{{altmin}}_{{altmax}}_{{length}}_{{delta}}_{{module_size}}/triggered_events_{{delta}}_{{trigger_eff}}/triggered_events_mod_3_event_30.jld2" # FIXME: update to handle different sim configs
+        f"{TAMBO_DATA_PATH}/{{injection_config}}/event_dicts/{{array_config}}/event_dicts_{{injection_simset}}_{{injection_subsimset}}_full.jld2"
+    resources:
+        cpus_per_task=1,
+        mem_mb=4000,
+        slurm_partition="sapphire,shared",
+        runtime=60
+    shell:
+        f"""
+        julia {TAMBOSIM_PATH}/scripts/1_make_event_dicts/combine_event_dict_files.jl \
+        --hit_map_directory {TAMBO_DATA_PATH}/{{wildcards.injection_config}}/event_dicts/{{wildcards.array_config}}/ \
+        --simset {{wildcards.injection_simset}} \
+        --subsimset {{wildcards.injection_subsimset}} \
+        """
+
+rule do_triggering:
+    input:
+        f"{TAMBO_DATA_PATH}/{{injection_config}}/injection/{{injection_config}}_{{injection_simset}}_{{injection_subsimset}}.jld2",
+        f"{TAMBO_DATA_PATH}/{{injection_config}}/event_dicts/{{array_config}}/event_dicts_{{injection_simset}}_{{injection_subsimset}}_full.jld2",
+        trigger_config = lambda wildcards: f'{TAMBOSIM_PATH}/resources/configuration_examples/{wildcards.trigger_config}.toml'
+    output:
+        f"{TAMBO_DATA_PATH}/{{injection_config}}/triggered/{{array_config}}/{{trigger_config}}/triggered_events_{{injection_simset}}_{{injection_subsimset}}.jld2"
     resources:
         cpus_per_task=1,
         mem_mb=8000,
@@ -109,10 +125,12 @@ rule do_triggering:
     shell: 
         f"""
         julia {TAMBOSIM_PATH}/scripts/2_trigger_events/do_triggering.jl \
-        --simfile {TAMBO_DATA_PATH}/{{wildcards.injection_config}}/{{wildcards.injection_config}}_{{wildcards.injection_simset}}_{{wildcards.injection_subsimset}}.jld2 \
-        --eventdictdir {TAMBO_DATA_PATH}/{{wildcards.injection_config}}/event_dicts/{{wildcards.altmin}}_{{wildcards.altmax}}_{{wildcards.length}}_{{wildcards.delta}}_{{wildcards.module_size}}/ \
-        --trigger_type {{wildcards.trigger_eff}} \
-        --outdir {TAMBO_DATA_PATH}/{{wildcards.injection_config}}/triggered/{{wildcards.injection_simset}}_{{wildcards.injection_subsimset}}/{{wildcards.altmin}}_{{wildcards.altmax}}_{{wildcards.length}}_{{wildcards.delta}}_{{wildcards.module_size}}/triggered_events_{{wildcards.delta}}_{{wildcards.trigger_eff}}/
+        --simfile {TAMBO_DATA_PATH}/{{wildcards.injection_config}}/injection/{{wildcards.injection_config}}_{{wildcards.injection_simset}}_{{wildcards.injection_subsimset}}.jld2 \
+        --eventdictdir {TAMBO_DATA_PATH}/{{wildcards.injection_config}}/event_dicts/{{wildcards.array_config}}/ \
+        --simset {{wildcards.injection_simset}} \
+        --subsimset {{wildcards.injection_subsimset}} \
+        --trigger_config {{input.trigger_config}} \
+        --outdir {TAMBO_DATA_PATH}/{{wildcards.injection_config}}/triggered/{{wildcards.array_config}}/{{wildcards.trigger_config}}/
         """
 
 def get_event_dict_files(config):

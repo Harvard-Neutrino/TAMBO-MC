@@ -9,7 +9,7 @@ using TOML
 
 include("trigger_defs.jl")
 
-interpolated_effs = load(ENV["TAMBOSIM_PATH"] * "resources/detector_efficiencies/initial_IceTop_panel_interpolations.jld2")
+interpolated_effs = load(ENV["TAMBOSIM_PATH"] * "/resources/detector_efficiencies/initial_IceTop_panel_interpolations.jld2")
 global interpolated_eff_gamma = interpolated_effs["gamma_interp"]
 global interpolated_eff_muon = interpolated_effs["muon_interp"]
 global interpolated_eff_electron = interpolated_effs["electron_interp"]
@@ -27,19 +27,32 @@ function parse_commandline()
             arg_type = String
             #default = "/n/holylfs05/LABS/arguelles_delgado_lab/Lab/TAMBO/will_misc/triggered_events/Jan7th2024_WhitePaper_300k_no_thin/"
             #required = true 
+        "--simset"
+            help = "Simulation set ID"
+            arg_type = String
+            #required = true
+        "--subsimset"
+            help = "Sub-simulation set ID"
+            arg_type = String
+            #required = true
         "--outdir"
             help = "where to store the output"
             arg_type = String
             #default = "./"
             #required = true
-        "--trigger_type"
-            help = "Type of trigger to use"
-            arg_type = String
-            #default = "whitepaper"
-        "--config"
+        "--trigger_config"
             help = "Config file"
             arg_type = String
             default = nothing
+        "--trigger_type"
+            help = "Type of trigger to use"
+            arg_type = String
+        "--module_threshold"
+            help = "Module threshold"
+            arg_type = Int64
+        "--event_threshold"
+            help = "Event threshold"
+            arg_type = Int64
     end
     return parse_args(s)
 end
@@ -52,39 +65,47 @@ function load_config(file_path::String)
     end
 end
 
-function main()
-    # Parse config file and command line arguments
-    # Overwrite config file values with command line arguments if provided
-    expected_arguments = ["simfile", "eventdictdir", "outdir", "trigger_type", "config"]
-    args = parse_commandline()
-    
+function setup_configuration(args)
+    expected_arguments = ["simfile", "eventdictdir", "outdir", "trigger_config", "trigger_type", "module_threshold", "event_threshold"]
+
     config_params = Dict()
 
+    # Check that trigger configuration is provided either via CLI or config file
+    if all(isnothing, [args["trigger_config"], any(isnothing, [args["trigger_type"], args["module_threshold"], args["event_threshold"]])])
+        error("Missing required arguments. Please define the trigger either via CLI or config file.")
+    end
+
+    # Check that trigger settings set by either CLI or config file, not both
+    if !isnothing(args["trigger_config"]) && any(!isnothing, [args["trigger_type"], args["module_threshold"], args["event_threshold"]])
+        error("Both CLI and config file interface used. Please use only one.")
+    end
+
     # Load from config files if provided
-    if haskey(args, "config") && !isnothing(args["config"])
-        config_params = load_config(args["config"])
+    if !isnothing(args["trigger_config"])
+        config_params = load_config(args["trigger_config"])
         for (k, v) in config_params
             if k ∉ expected_arguments
-                error("Unexpected key in config file: $k")
+                error("Unexpected key in trigger_config file: $k")
             end
             args[k] = v
         end
     end
+    return args
+end
 
-    # Override with command line arguments if provided
-    for (k, v) in args
-        if k ∉ expected_arguments
-            error("Unexpected key in command line arguments: $k")
-        end
-        if k != "config"
-            config_params[k] = v
-        end
-    end
+function main()
+    # Parse config file and command line arguments
+    args = parse_commandline()
+    args = setup_configuration(args)
 
     sim_file = args["simfile"]
     event_dicts_path = args["eventdictdir"]
+    simset_ID = args["simset"]
+    subsimset_ID = args["subsimset"]
     outdir = args["outdir"]
     trigger_type = args["trigger_type"]
+    module_thresh = args["module_threshold"]
+    event_thresh = args["event_threshold"]
 
     println("Configuration:")
     println("sim_file: $sim_file")
@@ -93,42 +114,37 @@ function main()
     println("trigger_type: $trigger_type")
     println()
 
-    if trigger_type == "whitepaper"
-        module_trigger_thresh = 3
-        event_trigger_thresh = 30
     
-    elseif trigger_type == "threeamigos"
-        module_trigger_thresh = 3
-        event_trigger_thresh = 30
-
-    elseif trigger_type == "icetop_tanks"
-        module_trigger_thresh = 300
-        event_trigger_thresh = 3000
-
-    elseif trigger_type == "icetop_panels"
-        module_trigger_thresh = 3 * 65
-        event_trigger_thresh = 30 * 65
-    end
-
-    sim = jldopen(sim_file)
-    
-    event_dict_files = glob("*.jld2", event_dicts_path)
     event_dicts = Dict{String, Any}()
-
-
-    for event_dict_file in event_dict_files
-        merge!(event_dicts, load(event_dict_file))
+    try # TODO: bit of a hack. Should just require user to provide full event dict
+        event_dicts = load(event_dicts_path * "/event_dicts_$(simset_ID)_$(subsimset_ID)_full.jld2")["hit_map"]
+    catch ArgumentError
+        println("No full event dict found. Falling back to old behavior of combining all event dicts here.")
+        
+        include("../1_make_event_dicts/combine_event_dict_files.jl")
+        event_dict_files = get_filename_list(event_dicts_path, simset_ID, subsimset_ID)
+        for event_dict_file in event_dict_files
+            merge!(event_dicts, load(event_dict_file)["hit_map"])
+        end
     end
 
     triggered_event_ids = []
     for (key, value) in event_dicts
-        if did_trigger(value, module_trigger_thresh, event_trigger_thresh, trigger_type)
+        if did_trigger(value, module_thresh, event_thresh, trigger_type)
             push!(triggered_event_ids, parse(Int, split(key, "/")[end]))
         end
     end
-    triggered_events = sim["injected_events"][triggered_event_ids]
 
-    save("$(outdir)/triggered_events_mod_$(module_trigger_thresh)_event_$(event_trigger_thresh).jld2", "triggered_events", triggered_events)
+    triggered_events = load(sim_file)["injected_events"][triggered_event_ids]
+
+    jldopen("$(outdir)/triggered_events_$(simset_ID)_$(subsimset_ID).jld2", "w") do f
+        f["triggered_events"] = triggered_events
+        f["trigger_config"] = Dict(
+            "module_thresh" => module_thresh,
+            "event_thresh" => event_thresh,
+            "trigger_type" => trigger_type
+        )
+    end
 end
 
 
