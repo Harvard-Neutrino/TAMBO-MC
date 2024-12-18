@@ -68,8 +68,50 @@ function relativize!(d::Dict)
     end
 end
 
+function validate_config_file(config::Dict{String, Any})
+    # Check that only expected configuration parameters are present
+    # so user doesn't think they're setting parameters they aren't
+
+    expected_top_level_keys = Set(["geometry", "steering", "injection", "proposal", "corsika"])
+    unexpected_keys = setdiff(Set(keys(config)), expected_top_level_keys)
+    if !isempty(unexpected_keys)
+        error("Unexpected keys found in config file: ", unexpected_keys)
+    end
+
+    expected_steering_keys = Set(["nevent", "seed", "run_number"])
+    unexpected_keys = setdiff(Set(keys(config["steering"])), expected_steering_keys)
+    if !isempty(unexpected_keys)
+        error("Unexpected keys found in steering section of config file: ", unexpected_keys)
+    end
+
+    expected_geo_keys = Set(["geo_spline_path", "tambo_coordinates", "plane_orientation"])
+    unexpected_keys = setdiff(Set(keys(config["geometry"])), expected_geo_keys)
+    if !isempty(unexpected_keys)
+        error("Unexpected keys found in geometry section of config file: ", unexpected_keys)
+    end
+
+    expected_injection_keys = Set(["nu_pdg", "gamma", "gamma", "emin", "emax", "thetamin", "thetamax", "phimin", "phimax", "r_injection", "l_endcap", "xs_dir", "xs_model", "interaction", "track_progress"])
+    unexpected_keys = setdiff(Set(keys(config["injection"])), expected_injection_keys)
+    if !isempty(unexpected_keys)
+        error("Unexpected keys found in injection section of config file: ", unexpected_keys)
+    end
+
+    expected_proposal_keys = Set(["ecut", "vcut", "do_interpolate", "do_continuous", "tablespath", "track_progress"])
+    unexpected_keys = setdiff(Set(keys(config["proposal"])), expected_proposal_keys)
+    if !isempty(unexpected_keys)
+        error("Unexpected keys found in proposal section of config file: ", unexpected_keys)
+    end
+
+    expected_corsika_keys = Set(["should_run_corsika", "parallelize_corsika", "thinning", "hadron_ecut", "em_ecut", "photon_ecut", "mu_ecut", "corsika_path", "track_progress", "FLUPRO", "FLUFOR"])
+    unexpected_keys = setdiff(Set(keys(config["corsika"])), expected_corsika_keys)
+    if !isempty(unexpected_keys)
+        error("Unexpected keys found in corsika section of config file: ", unexpected_keys)
+    end
+end
+
 function Simulation(config_file::String, injection_file::String="")
     config = TOML.parsefile(config_file)
+    validate_config_file(config)
     relativize!(config)
     if injection_file == ""
         results = Dict{String, Any}()

@@ -62,12 +62,6 @@ function main()
     seed = sim.config["steering"]["seed"]
     seed!(seed + parse(Int,simset_ID) + parse(Int,subsimset_ID)) # TODO: not a unique seed
 
-    # Hack to make sure user doesn't try to set output_dir in config file
-    # TODO: remove support for setting output_dir in config file
-    if sim.config["corsika"]["shower_dir"] != ""::String
-        error("output_dir must be set via command line argument, not in the config file")
-    end
-
     sim.config["corsika"]["shower_dir"] = shower_dir
 
     run_subshower!(sim, sim.config["corsika"], proposal_id, decay_id)

@@ -59,7 +59,9 @@ end
 
 function load_config(file_path::String)
     if isfile(file_path)
-        return TOML.parsefile(file_path)
+        config_dict = TOML.parsefile(file_path)
+        validate_config_file(config_dict)
+        return config_dict
     else
         error("Config file not found at: $file_path")
     end
@@ -91,6 +93,16 @@ function setup_configuration(args)
         end
     end
     return args
+end
+
+function validate_config_file(config::Dict{String, Any})
+    # Check that only expected configuration parameters are present
+    # so user doesn't think they're setting parameters they aren't
+    expected_keys = Set(["trigger_type", "module_threshold", "event_threshold"])
+    unexpected_keys = setdiff(Set(keys(config)), expected_keys)
+    if !isempty(unexpected_keys)
+        error("Unexpected keys found in config file: ", unexpected_keys)
+    end
 end
 
 function main()

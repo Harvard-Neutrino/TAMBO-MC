@@ -37,7 +37,8 @@ function corsika_run(
     thinning::Float64, 
     ecuts::SVector{4},
     corsika_path::String,
-    corsika_sbatch_path::String,
+    corsika_FLUPRO::String,
+    corsika_FLUFOR::String,
     outdir::String,
     proposal_index::Int64,
     decay_index::Int64; 
@@ -63,14 +64,14 @@ function corsika_run(
         c_azimuth = azimuth - π/2 
     end 
 
+    # Set environment variables using Julia's ENV dictionary
+    ENV["FLUPRO"] = corsika_FLUPRO
+    ENV["FLUFOR"] = corsika_FLUFOR
+
     if parallelize_corsika 
         corsika_parallel_exec = "$corsika_path --pdg $pdg --energy $energy --zenith $zenith --azimuth $c_azimuth --xpos $(c_inject[1]) --ypos $(c_inject[2]) --zpos $(c_inject[3]) -f $outdir/shower_$total_index --xdir $(c_plane[1]) --ydir $(c_plane[2]) --zdir $(c_plane[3]) --observation-height $obs_z --force-interaction --x-intercept $(c_intercept[1]) --y-intercept $(c_intercept[2]) --z-intercept $(c_intercept[3]) --emcut $emcut --photoncut $photoncut --mucut $mucut --hadcut $hadcut --emthin $thinning"
         run(`sbatch --time=$time $corsika_sbatch_path $corsika_parallel_exec`)
     else 
-        # Set environment variables using Julia's ENV dictionary
-        ENV["corsika_DIR"] = "/n/holylfs05/LABS/arguelles_delgado_lab/Lab/common_software/source/corsika8/build"
-        ENV["FLUPRO"] = "/n/holylfs05/LABS/arguelles_delgado_lab/Lab/common_software/source/fluka"
-        ENV["FLUFOR"] = "gfortransbatch"
         corsika_exec = `$corsika_path --pdg $pdg --energy $energy --zenith $zenith --azimuth $c_azimuth  --xpos $(c_inject[1]) --ypos $(c_inject[2]) --zpos $(c_inject[3]) -f $outdir/shower_$total_index --xdir $(c_plane[1]) --ydir $(c_plane[2]) --zdir $(c_plane[3]) --observation-height $obs_z --force-interaction --x-intercept $(c_intercept[1]) --y-intercept $(c_intercept[2]) --z-intercept $(c_intercept[3]) --emcut $emcut --photoncut $photoncut --mucut $mucut --hadcut $hadcut --emthin $thinning`
         if isdir("$outdir/shower_$total_index")
             rm("$outdir/shower_$total_index", recursive=true) # CORSIKA doesn't like overwriting files, so we'll do it for them
@@ -99,18 +100,18 @@ function corsika_run(
         config["hadron_ecut"] * units.GeV
     ])
     outdir = config["shower_dir"]
-    singularity_path = config["singularity_path"]
     corsika_path = config["corsika_path"]
-    corsika_sbatch_path = config["corsika_sbatch_path"]
+    corsika_FLUPRO = config["FLUPRO"]
+    corsika_FLUFOR = config["FLUFOR"]
     return corsika_run(
         decay_event::Particle,
         plane,
         geo,
         thinning,
         ecuts,
-        singularity_path,
         corsika_path,
-        corsika_sbatch_path,
+        corsika_FLUPRO,
+        corsika_FLUFOR,
         outdir,
         proposal_idx::Int64,
         decay_idx::Int64;
@@ -124,9 +125,9 @@ function corsika_run(
     geo::Geometry,
     thinning::Float64,
     ecuts,
-    singularity_path::String,
     corsika_path::String,
-    corsika_sbatch_path::String,
+    corsika_FLUPRO::String,
+    corsika_FLUFOR::String,
     outdir::String,
     proposal_idx::Int64,
     decay_idx::Int64; 
@@ -156,7 +157,8 @@ function corsika_run(
         thinning,
         ecuts,
         corsika_path,
-        corsika_sbatch_path,
+        corsika_FLUPRO,
+        corsika_FLUFOR,
         outdir,
         proposal_idx,
         decay_idx;
