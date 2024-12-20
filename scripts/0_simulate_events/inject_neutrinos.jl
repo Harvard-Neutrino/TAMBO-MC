@@ -13,11 +13,11 @@ function parse_commandline()
             default = nothing
         "--simset"
             help = "Simulation set ID"
-            arg_type = String
+            arg_type = Int
             required = true
         "--subsimset"
             help = "Sub-simulation set ID"
-            arg_type = String
+            arg_type = Int
             required = true
         "--output"
             help = "Output file"
@@ -54,7 +54,7 @@ function main()
 
     seed = sim.config["steering"]["seed"]
 
-    seed!(seed + parse(Int,simset_ID) + parse(Int,subsimset_ID)) # TODO: not a unique seed
+    seed!(seed + simset_ID + subsimset_ID) # TODO: not a unique seed
 
     inject_ν!(sim, sim.config["injection"])
     propagate_τ!(sim, sim.config["proposal"])
