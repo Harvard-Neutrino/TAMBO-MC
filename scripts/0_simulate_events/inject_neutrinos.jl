@@ -54,7 +54,7 @@ function main()
 
     seed = sim.config["steering"]["seed"]
 
-    seed!(seed + parse(Int,simset_ID) + parse(Int,subsimset_ID)) # TODO: not a unique seed
+    seed!(seed + 100000*parse(Int,simset_ID) + parse(Int,subsimset_ID)) 
 
     inject_ν!(sim, sim.config["injection"])
     propagate_τ!(sim, sim.config["proposal"])
