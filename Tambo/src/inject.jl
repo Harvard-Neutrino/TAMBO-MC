@@ -1,67 +1,10 @@
-Base.@kwdef mutable struct InjectionConfig
-    n::Int = 10
-    xs_dir::String = realpath(
-        "$(@__DIR__)/../../resources/cross_sections/tables/"
-    )
-    xs_model::String = "csms"
-    interaction::Interaction = Interaction(1) # Charged current
-    tambo_coordinates::Coord = minesite_coord
-    ν_pdg::Int = 16
-    γ::Float64 = 1
-    emin::Float64 = 1e6units.GeV
-    emax::Float64 = 1e9units.GeV
-    θmin::Float64 = 0.0
-    θmax::Float64 = π
-    ϕmin::Float64 = 0.0
-    ϕmax::Float64 = 2π
-    r_injection::Float64 = 900units.m
-    l_endcap::Float64 = 1units.km
-    seed::Int64 = 0
-end
-
 struct Injector
-    config::InjectionConfig
+    nu_pdg::Int
     powerlaw::PowerLaw
     xs::CrossSection
     anglesampler::UniformAngularSampler
     injectionvolume::SymmetricInjectionCylinder
     geo::Geometry
-end
-
-function Injector(config::InjectionConfig, geo::Geometry)
-    pl = PowerLaw(config.γ, config.emin, config.emax)
-    xs = CrossSection(config.xs_dir, config.xs_model, config.ν_pdg, config.interaction)
-    anglesampler = UniformAngularSampler(
-        config.θmin,
-        config.θmax,
-        config.ϕmin,
-        config.ϕmax
-    )
-
-    injectionvolume = SymmetricInjectionCylinder(config.r_injection, config.l_endcap)
-    return Injector(config, pl, xs, anglesampler, injectionvolume, geo)
-end
-
-function inject_event(injector::Injector, tr_seed::Int)
-    event = inject_event(
-        injector.config.ν_pdg,
-        injector.powerlaw,
-        injector.xs,
-        injector.anglesampler,
-        injector.injectionvolume,
-        injector.geo,
-        tr_seed
-    )
-    return event
-end
-
-function (injector::Injector)(; track_progress=true)
-    seed!(injector.config.seed)
-    iter = 1:injector.config.n
-    if track_progress
-        iter = ProgressBar(iter)
-    end
-    return [inject_event(injector, idx+injector.config.seed) for idx in iter]
 end
 
 struct InjectionEvent
@@ -70,6 +13,45 @@ struct InjectionEvent
     final_state::Particle
     physX::Float64
     genX::Float64
+end
+
+function Injector(config::Dict, geo::Geometry)
+    pl = PowerLaw(
+        config["gamma"],
+        config["emin"] * units.GeV,
+        config["emax"] * units.GeV
+    )
+    xs = CrossSection(
+        config["xs_dir"],
+        config["xs_model"],
+        config["nu_pdg"],
+        config["interaction"]
+    )
+    anglesampler = UniformAngularSampler(
+        deg2rad(config["thetamin"]),
+        deg2rad(config["thetamax"]),
+        deg2rad(config["phimin"]),
+        deg2rad(config["phimax"])
+    )
+
+    injectionvolume = SymmetricInjectionCylinder(
+        config["r_injection"] * units.m,
+        config["l_endcap"] * units.m
+    )
+    return Injector(config["nu_pdg"], pl, xs, anglesampler, injectionvolume, geo)
+end
+
+function inject_event(injector::Injector, tr_seed::Int)
+    event = inject_event(
+        injector.nu_pdg,
+        injector.powerlaw,
+        injector.xs,
+        injector.anglesampler,
+        injector.injectionvolume,
+        injector.geo,
+        tr_seed
+    )
+    return event
 end
 
 """
@@ -114,21 +96,6 @@ function endcapcolumndepth(t::Track, l_endcap::Float64, range::Float64, segments
 end
 
 """
-    inject_event(
-    ν_pdg::Int,
-    e_sampler,
-    diff_xs::CrossSection,
-    anglesampler,
-    injectionvolume::SymmetricInjectionCylinder,
-    geo::Geometry,
-)
-    ν_pdg::Int,
-    e_sampler,
-    diff_xs::OutgoingEnergy,
-    anglesampler,
-    injectionvolume::SymmetricInjectionCylinder,
-    geo::Geometry,
-)
 
 TBW
 """
@@ -164,40 +131,4 @@ function inject_event(
         genX
     )
     return event
-end
-
-function save_simulation(config::InjectionConfig, path::String)
-    @assert length(s.injected_events)==s.n "Looks like you didn't inject the right number of events"
-    jldopen(path, "w") do f
-        dump_to_file(s, f)
-    end
-end
-
-### Convenience functions ###
-
-function Base.getindex(v::Vector{InjectionEvent}, s::String)
-    return getfield.(v, Symbol(s))
-end
-
-function Base.show(io::IO, config::InjectionConfig)
-    print(
-        io,
-        """
-        n=$(config.n)
-        seed=$(config.seed)
-        ν_pdg=$(config.ν_pdg)
-        interaction=$(config.interaction)
-        xs_model=$(config.xs_model)
-        γ=$(config.γ)
-        emin=$(config.emin / units.GeV) GeV
-        emax=$(config.emax / units.GeV) GeV
-        θmin=$(round(config.θmin * 180 / π, sigdigits=3))°
-        θmax=$(round(config.θmax * 180 / π, sigdigits=3))°
-        ϕmin=$(round(config.ϕmin * 180 / π, sigdigits=3))°
-        ϕmax=$(round(config.ϕmax * 180 / π, sigdigits=3))°
-        r_injection=$(config.r_injection / units.m) m 
-        l_endcap=$(config.l_endcap / units.m) m
-        xs_dir=$(config.xs_dir)
-        """
-    )
 end

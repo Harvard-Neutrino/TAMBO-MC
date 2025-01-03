@@ -53,7 +53,7 @@ function make_triangle_grid(x0::Real, x1::Real, y0::Real, y1::Real, ds::Real)
 end
 
 function make_detector_array(
-    length::Real,
+    array_length::Real,
     ds::Real,
     altmin::Real,
     altmax::Real,
@@ -66,7 +66,7 @@ function make_detector_array(
 
     #leave this, something with rotation makes the lengths work out such that
     #the lengths along the x axis 
-    xys = Tambo.make_triangle_grid(-2units.km, 2units.km, -length/2, length/2, ds)
+    xys = Tambo.make_triangle_grid(-2units.km, 2units.km, -array_length/2, array_length/2, ds)
 
     # Rotate it to align with the mountain plain
     r = RotZ(plane.n̂.ϕ) * RotY(plane.n̂.θ)
@@ -83,6 +83,7 @@ function make_detector_array(
     for (idx, xyz) in enumerate(xyzs)
         push!(modules, SquareDetectionModule(xyz, rot, ext, idx))
     end
+    println("Number of modules: $(length(modules))")
     return modules
 end
 
