@@ -25,7 +25,7 @@ using HDF5: h5open
 using LinearAlgebra: norm
 using ProgressBars
 using PyCall: PyCall, PyNULL, PyObject
-using Random: seed!
+using Random: seed!, rand
 using Roots: find_zeros, find_zero
 using Rotations: RotX, RotZ
 using StaticArrays: SVector, SMatrix 
@@ -61,7 +61,7 @@ end
 function relativize!(d::Dict)
     for (k, v) in pairs(d)
         if isa(v, String)
-            d[k] = replace(v, "_TAMBO_PATH_" => dirname(pathof(Tambo)))
+            d[k] = replace(v, "_TAMBOSIM_PATH_" => ENV["TAMBOSIM_PATH"])
         elseif isa(v, Dict)
             relativize!(v)
         end
@@ -78,7 +78,7 @@ function validate_config_file(config::Dict{String, Any})
         error("Unexpected keys found in config file: ", unexpected_keys)
     end
 
-    expected_steering_keys = Set(["nevent", "seed", "run_number"])
+    expected_steering_keys = Set(["nevent", "pinecone", "run_number"])
     unexpected_keys = setdiff(Set(keys(config["steering"])), expected_steering_keys)
     if !isempty(unexpected_keys)
         error("Unexpected keys found in steering section of config file: ", unexpected_keys)
@@ -124,16 +124,15 @@ end
 
 function inject_ν!(
     sim::Simulation,
-    config::Dict{String, Any};
+    config::Dict{String, Any},
+    seed::Int64;
     outkey="injected_events",
     track_progress=true
 )
     relativize!(config)
     sim.config[outkey] = config
 
-    # TODO: I think we should seed in the script calling this function,
-    # not in the function itself
-    #seed!(sim.config["steering"]["seed"])
+    seed!(seed)
     track_progress = sim.config[outkey]["track_progress"]
 
     geo = Geometry(sim.config["geometry"])
@@ -145,9 +144,7 @@ function inject_ν!(
         itr = ProgressBar(itr)
     end
     for idx in itr
-        # FIXME: this seed is the same across simsubsets & simsubsets
-        # of the same config, but is probably fine for now
-        tr_seed = sim.config["steering"]["seed"] + idx
+        tr_seed = round(Int, rand()) + idx
         event = inject_event(injector, tr_seed)
         events[idx] = event
     end
@@ -166,7 +163,8 @@ end
 
 function propagate_τ!(
     sim::Simulation,
-    config::Dict{String, Any};
+    config::Dict{String, Any},
+    seed::Int64;
     inkey="injected_events",
     outkey="proposal_events",
     track_progress=true
@@ -174,9 +172,7 @@ function propagate_τ!(
     relativize!(config)
     sim.config[outkey] = config
 
-    # TODO: I think we should seed in the script calling this function,
-    # not in the function itself
-    seed!(sim.config["steering"]["seed"])
+    seed!(seed)
     track_progress = sim.config[outkey]["track_progress"]
 
     geo = Geometry(sim.config["geometry"])
@@ -191,9 +187,7 @@ function propagate_τ!(
         event = propagator(
             injected_event.final_state,
             geo,
-            # FIXME: this seed is the same across simsubsets & simsubsets
-            # of the same config, but is probably fine for now
-            sim.config["steering"]["seed"] + idx
+            round(Int, rand()) + idx
         )
         events[idx] = event
     end
@@ -213,7 +207,8 @@ end
 
 function identify_taus_to_shower!(
     sim::Simulation,
-    config::Dict{String, Any};
+    config::Dict{String, Any},
+    seed::Int64;
     inkey="proposal_events",
     outkey="corsika_indices",
     track_progress=true
@@ -221,9 +216,6 @@ function identify_taus_to_shower!(
     relativize!(config)
     proposal_events = sim.results[inkey]
 
-    # TODO: I think we should seed in the script calling this function,
-    # not in the function itself
-    #seed!(sim.config["steering"]["seed"])
     track_progress = sim.config["corsika"]["track_progress"]
     
     sim.config[outkey] = config
