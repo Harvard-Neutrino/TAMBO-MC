@@ -4,7 +4,7 @@ seed = 70
 run_number = 0
 
 [geometry]
-geo_spline_path = "/n/home02/thomwg11/tambo/TAMBO-MC/resources/tambo_spline.jld2"
+geo_spline_path = "_TAMBOSIM_PATH_/resources/tambo_spline.jld2"
 tambo_coordinates = [-15.622267, -72.279397] # Larger valley, lat, long in degrees
 plane_orientation = [0.507,0.108,0.855] # Larger valley
 
@@ -19,7 +19,7 @@ phimin = 90 # degrees
 phimax = 290 # degrees
 r_injection = 2000.0 # m
 l_endcap = 1000.0 # m
-xs_dir = "/n/home02/thomwg11/tambo/TAMBO-MC/resources/cross_sections/tables/"
+xs_dir = "_TAMBOSIM_PATH_/resources/cross_sections/tables/"
 xs_model = "csms"
 interaction = "CC"
 track_progress = false
@@ -29,23 +29,18 @@ ecut = -1 # GeV. Negative <-> Infinity
 vcut = 1e-2
 do_interpolate = true
 do_continuous = true
-tablespath = "/n/home02/thomwg11/tambo/TAMBO-MC/resources/proposal_tables/"
+tablespath = "_TAMBOSIM_PATH_/resources/proposal_tables/"
 track_progress = false
 
 [corsika]
 should_run_corsika = false
 parallelize_corsika = false
-#batch_submit_corsika = true
 thinning = 1.0e-6
 hadron_ecut = 0.05 # GeV
 em_ecut = 0.001 # GeV
 photon_ecut = 0.001 # GeV
 mu_ecut = 0.05 # GeV
-shower_dir = "" #FIXME: should only be set at command line
-singularity_path = "/n/holylfs05/LABS/arguelles_delgado_lab/Lab/common_software/source/corsika8/corsika-env.simg"
 corsika_path = "/n/holylfs05/LABS/arguelles_delgado_lab/Lab/common_software/source/corsika8/corsika-install/bin/c8_air_shower"
-corsika_sbatch_path = "/n/home02/thomwg11/tambo/corsika_parallel.sbatch"
 track_progress = false
-
-
-
+FLUPRO = "/n/holylfs05/LABS/arguelles_delgado_lab/Lab/common_software/source/fluka"
+FLUFOR = "gfortransbatch"

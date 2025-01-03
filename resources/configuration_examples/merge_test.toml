@@ -1,10 +1,10 @@
 [steering]
 nevent = 1000
-seed = 70
+pinecone = 71
 run_number = 0
 
 [geometry]
-geo_spline_path = "/n/home02/thomwg11/tambo/TAMBO-MC/resources/tambo_spline.jld2"
+geo_spline_path = "_TAMBOSIM_PATH_/resources/tambo_spline.jld2"
 tambo_coordinates = [-15.622267, -72.279397] # Larger valley, lat, long in degrees
 plane_orientation = [0.507,0.108,0.855] # Larger valley
 
@@ -19,7 +19,7 @@ phimin = 90 # degrees
 phimax = 290 # degrees
 r_injection = 2000.0 # m
 l_endcap = 1000.0 # m
-xs_dir = "/n/home02/thomwg11/tambo/TAMBO-MC/resources/cross_sections/tables/"
+xs_dir = "_TAMBOSIM_PATH_/resources/cross_sections/tables/"
 xs_model = "csms"
 interaction = "CC"
 track_progress = false
@@ -29,7 +29,7 @@ ecut = -1 # GeV. Negative <-> Infinity
 vcut = 1e-2
 do_interpolate = true
 do_continuous = true
-tablespath = "/n/home02/thomwg11/tambo/TAMBO-MC/resources/proposal_tables/"
+tablespath = "_TAMBOSIM_PATH_/resources/proposal_tables/"
 track_progress = false
 
 [corsika]

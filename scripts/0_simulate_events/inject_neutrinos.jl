@@ -52,14 +52,18 @@ function main()
 
     sim = Simulation(config_filename)
 
-    seed = sim.config["steering"]["seed"]
+    # A single pinecone is used to generate a unique seed for each simulation
+    # based on the simulation set ID and sub-simulation set ID.
+    # It is a pinecone because pinecones release seeds.
+    pinecone = sim.config["steering"]["pinecone"]
 
-    seed!(seed + simset_ID + subsimset_ID) # TODO: not a unique seed
+    seed!(pinecone)
+    seed = round(Int64, rand()) + 100000*simset_ID + subsimset_ID
+    seed!(seed)
 
-    inject_ν!(sim, sim.config["injection"])
-    propagate_τ!(sim, sim.config["proposal"])
-    #run_airshower!(sim, sim.config["corsika"])
-    identify_taus_to_shower!(sim, sim.config["corsika"])
+    inject_ν!(sim, sim.config["injection"], seed)
+    propagate_τ!(sim, sim.config["proposal"], seed)
+    identify_taus_to_shower!(sim, sim.config["corsika"], seed)
 
     # Create output directory if it does not exist
     output_dir = dirname(output_filename)
