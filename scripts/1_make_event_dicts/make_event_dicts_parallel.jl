@@ -216,12 +216,7 @@ function make_hit_map(
     end
 
     d = Dict{Int, Vector{Tambo.CorsikaEvent}}()
-<<<<<<< HEAD
     files = find_extant_files(simset, subsimset, event_number, basedir)
-    #for file in tqdm(files)
-=======
-    files = find_extant_files(event_number, basedir)
->>>>>>> 3ac7c8c (plz)
     for file in files
         #CORSIKA8 sometimes doesn't finish b/c job times out 
         df = DataFrame()
