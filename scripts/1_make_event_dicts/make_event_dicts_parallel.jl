@@ -1,11 +1,12 @@
 using Pkg
-Pkg.activate(ENV["TAMBOSIM_PATH"] * "/Tambo")
+Pkg.develop(path="$(ENV["TAMBOSIM_PATH"])/Tambo")
 using Tambo
+
+Pkg.activate(".")
 using JLD2
 using StaticArrays
 using ArgParse
 using Glob
-using Distributions
 using LinearAlgebra
 using Parquet2
 using DataFrames 
@@ -215,8 +216,12 @@ function make_hit_map(
     end
 
     d = Dict{Int, Vector{Tambo.CorsikaEvent}}()
+<<<<<<< HEAD
     files = find_extant_files(simset, subsimset, event_number, basedir)
     #for file in tqdm(files)
+=======
+    files = find_extant_files(event_number, basedir)
+>>>>>>> 3ac7c8c (plz)
     for file in files
         #CORSIKA8 sometimes doesn't finish b/c job times out 
         df = DataFrame()
@@ -233,7 +238,6 @@ function make_hit_map(
                 df
             )
         add_hits!(d, df, modules)
-      
 
         #if necessary to avoid runaway RAM usage
         #GC.gc()
@@ -289,7 +293,7 @@ function main()
     elseif args["size"] == "medium"
         size = SVector{3}([4,4,0.03])units.m
     end 
-    println("type: $(typeof(args["length"]))")
+
     modules = Tambo.make_detector_array(
         args["length"]units.m,
         args["deltas"]units.m,
@@ -301,30 +305,21 @@ function main()
     )
 
     outfile = args["outfile"]
-    #if args["nparallel"] > 1
-    #    outfile = replace(outfile, ".jld2"=>"_$(args["njob"])_$(args["nparallel"]).jld2")
-    #end
 
     event_numbers = get_event_numbers(args["basedir"], args["simset"], args["subsimset"])[args["njob"]:args["nparallel"]:end]
-    println("creating event dicts...")
-    println("event numbers: $event_numbers")
-
     hit_map = Dict()
-    #for (_,event_number) in tqdm(enumerate(event_numbers))
     for event_number in event_numbers
         hit_map["$(event_number)"] = make_hit_map(args["simset"], args["subsimset"], event_number, modules, args["basedir"], xyzcorsika)
     end
-    println(outfile)
-    println("type: $(typeof(args["length"]))")
 
     jldopen(outfile, "w") do jldf
         jldf["hit_map"] = hit_map
         jldf["array_config"] = Dict(
-            "length" => args["length"]units.m,
-            "deltas" => args["deltas"]units.m,
+            "length" => args["length"] * units.m,
+            "deltas" => args["deltas"] * units.m,
             "detector_size" => args["size"],
-            "altmin" => args["altmin"]units.m,
-            "altmax" => args["altmax"]units.m
+            "altmin" => args["altmin"] * units.m,
+            "altmax" => args["altmax"] * units.m
         )
     end
 end
