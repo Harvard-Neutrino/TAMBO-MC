@@ -2,7 +2,7 @@
 
 [steering]
 nevent = 100
-seed = 925
+pinecone = 925
 run_number = 925
 
 [geometry]

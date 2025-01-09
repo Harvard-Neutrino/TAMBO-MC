@@ -1,6 +1,6 @@
 [steering]
 nevent = 20000
-seed = 70
+pinecone = 70
 run_number = 0
 
 [geometry]
