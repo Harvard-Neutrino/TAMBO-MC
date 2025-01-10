@@ -83,7 +83,6 @@ function make_detector_array(
     for (idx, xyz) in enumerate(xyzs)
         push!(modules, SquareDetectionModule(xyz, rot, ext, idx))
     end
-    println("Number of modules: $(length(modules))")
     return modules
 end
 
