@@ -1,5 +1,9 @@
 using Pkg
-Pkg.develop(path="$(ENV["TAMBOSIM_PATH"])/Tambo")
+if "TAMBOSIM_PATH" ∈ keys(ENV)
+    Pkg.develop(path="$(ENV["TAMBOSIM_PATH"])/Tambo")
+else
+    Pkg.develop(path="../../Tambo/")
+end
 using Tambo
 
 Pkg.activate(".")
@@ -260,8 +264,6 @@ function main()
     geo = Tambo.Geometry(config.config["geometry"])
     tambo_coord_degrees = Tambo.Coord((deg2rad.(config.config["geometry"]["tambo_coordinates"]))...)
     plane = Tambo.Plane(Tambo.Direction(config.config["geometry"]["plane_orientation"]...), tambo_coord_degrees, geo)
-    altmin = args["altmin"]units.m
-    altmax = args["altmax"]units.m
     
     zcorsika = config.config["geometry"]["plane_orientation"]
     display("original zcorsika = $zcorsika")
@@ -292,8 +294,8 @@ function main()
     modules = Tambo.make_detector_array(
         args["length"]units.m,
         args["deltas"]units.m,
-        altmin,
-        altmax,
+        altmin = args["altmin"]units.m
+        altmax = args["altmax"]units.m
         plane,
         geo,
         size
@@ -303,7 +305,7 @@ function main()
 
     event_numbers = get_event_numbers(args["basedir"], args["simset"], args["subsimset"])[args["njob"]:args["nparallel"]:end]
     hit_map = Dict()
-    for event_number in event_numbers
+    for event_number in ProgressBar(event_numbers)
         hit_map["$(event_number)"] = make_hit_map(args["simset"], args["subsimset"], event_number, modules, args["basedir"], xyzcorsika)
     end
 
