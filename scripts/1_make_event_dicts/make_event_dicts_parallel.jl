@@ -185,8 +185,16 @@ function add_hits!(d::Dict, og_df::DataFrame, modules)
             end
             for particle in eachrow(df)
                 position = SVector{3}([particle.x,particle.y,particle.z])
-                push!(d[m.idx], Tambo.CorsikaEvent(particle.pdg,
-                particle.kinetic_energy,position,particle.time,particle.weight))
+                push!(
+                    d[m.idx],
+                    Tambo.CorsikaEvent(
+                        particle.pdg,
+                        particle.kinetic_energy * units.GeV,
+                        position,
+                        particle.time * units.second,
+                        particle.weight
+                    )
+                )
             end 
         end 
     end 
@@ -294,8 +302,8 @@ function main()
     modules = Tambo.make_detector_array(
         args["length"]units.m,
         args["deltas"]units.m,
-        altmin = args["altmin"]units.m
-        altmax = args["altmax"]units.m
+        args["altmin"]units.m,
+        args["altmax"]units.m,
         plane,
         geo,
         size
