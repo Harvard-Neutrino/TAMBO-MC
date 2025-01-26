@@ -41,7 +41,8 @@ function corsika_run(
     corsika_FLUFOR::String,
     outdir::String,
     proposal_index::Int64,
-    decay_index::Int64; 
+    decay_index::Int64,
+    seed::Int64; 
     parallelize_corsika=parallelize_corsika
     )
     
@@ -72,7 +73,7 @@ function corsika_run(
         corsika_parallel_exec = "$corsika_path --pdg $pdg --energy $energy --zenith $zenith --azimuth $c_azimuth --xpos $(c_inject[1]) --ypos $(c_inject[2]) --zpos $(c_inject[3]) -f $outdir/shower_$total_index --xdir $(c_plane[1]) --ydir $(c_plane[2]) --zdir $(c_plane[3]) --observation-height $obs_z --force-interaction --x-intercept $(c_intercept[1]) --y-intercept $(c_intercept[2]) --z-intercept $(c_intercept[3]) --emcut $emcut --photoncut $photoncut --mucut $mucut --hadcut $hadcut --emthin $thinning"
         run(`sbatch --time=$time $corsika_sbatch_path $corsika_parallel_exec`)
     else 
-        corsika_exec = `$corsika_path --pdg $pdg --energy $energy --zenith $zenith --azimuth $c_azimuth  --xpos $(c_inject[1]) --ypos $(c_inject[2]) --zpos $(c_inject[3]) -f $outdir/shower_$total_index --xdir $(c_plane[1]) --ydir $(c_plane[2]) --zdir $(c_plane[3]) --observation-height $obs_z --force-interaction --x-intercept $(c_intercept[1]) --y-intercept $(c_intercept[2]) --z-intercept $(c_intercept[3]) --emcut $emcut --photoncut $photoncut --mucut $mucut --hadcut $hadcut --emthin $thinning`
+        corsika_exec = `$corsika_path --pdg $pdg --energy $energy --zenith $zenith --azimuth $c_azimuth  --xpos $(c_inject[1]) --ypos $(c_inject[2]) --zpos $(c_inject[3]) -f $outdir/shower_$total_index --xdir $(c_plane[1]) --ydir $(c_plane[2]) --zdir $(c_plane[3]) --observation-height $obs_z --force-interaction --x-intercept $(c_intercept[1]) --y-intercept $(c_intercept[2]) --z-intercept $(c_intercept[3]) --emcut $emcut --photoncut $photoncut --mucut $mucut --hadcut $hadcut --emthin $thinning --seed $seed`
         if isdir("$outdir/shower_$total_index")
             rm("$outdir/shower_$total_index", recursive=true) # CORSIKA doesn't like overwriting files, so we'll do it for them
         end
@@ -85,7 +86,8 @@ function corsika_run(
     config::Dict{String, Any},
     geo::Geometry,
     proposal_idx::Int64,
-    decay_idx::Int64;
+    decay_idx::Int64,
+    seed::Int64;
     parallelize_corsika=parallelize_corsika
 )
     
@@ -114,7 +116,8 @@ function corsika_run(
         corsika_FLUFOR,
         outdir,
         proposal_idx::Int64,
-        decay_idx::Int64;
+        decay_idx::Int64,
+        seed::Int64;
         parallelize_corsika=parallelize_corsika
     )
 end
@@ -130,7 +133,8 @@ function corsika_run(
     corsika_FLUFOR::String,
     outdir::String,
     proposal_idx::Int64,
-    decay_idx::Int64; 
+    decay_idx::Int64,
+    seed::Int64; 
     parallelize_corsika=parallelize_corsika
 )
   
@@ -161,7 +165,8 @@ function corsika_run(
         corsika_FLUFOR,
         outdir,
         proposal_idx,
-        decay_idx;
+        decay_idx,
+        seed;
         parallelize_corsika=parallelize_corsika
     )
 end 

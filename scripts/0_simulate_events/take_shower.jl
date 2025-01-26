@@ -29,11 +29,11 @@ function parse_commandline()
             required = true
         "--simset"
             help = "Simulation set ID"
-            arg_type = String
+            arg_type = Int
             required = true
         "--subsimset"
             help = "Sub-simulation set ID"
-            arg_type = String
+            arg_type = Int
             required = true
     end
     return parse_args(s)
@@ -59,12 +59,18 @@ function main()
 
     sim = Simulation(config_filename, injection_filename)
 
-    seed = sim.config["steering"]["seed"]
-    seed!(seed + parse(Int,simset_ID) + parse(Int,subsimset_ID)) # TODO: not a unique seed
+    # A single pinecone is used to generate a unique seed for each simulation
+    # based on the simulation set ID and sub-simulation set ID.
+    # It is a pinecone because pinecones release seeds.
+    pinecone = sim.config["steering"]["pinecone"]
+
+    seed!(pinecone)
+    seed = round(Int64, rand()) + 100000*simset_ID + subsimset_ID
+    seed!(seed)
 
     sim.config["corsika"]["shower_dir"] = shower_dir
 
-    run_subshower!(sim, sim.config["corsika"], proposal_id, decay_id)
+    run_subshower!(sim, sim.config["corsika"], proposal_id, decay_id, seed)
 end
 
 if abspath(PROGRAM_FILE) == @__FILE__

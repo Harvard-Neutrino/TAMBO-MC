@@ -309,7 +309,8 @@ function run_subshower!(
     sim::Simulation,
     config::Dict{String, Any},
     proposal_id::Int64,
-    decay_id::Int64;
+    decay_id::Int64,
+    seed::Int64;
     #output_path::String;
     proposal_ids_key="corsika_indices",
     proposal_events_key="proposal_events",
@@ -317,9 +318,7 @@ function run_subshower!(
 )
     relativize!(config)
 
-    # TODO: I think we should seed in the script calling this function,
-    # not in the function itself
-    #seed!(sim.config["steering"]["seed"])
+    seed!(seed)
 
     sim.config["corsika"] = config
     geo = Geometry(sim.config["geometry"])
@@ -335,11 +334,12 @@ function run_subshower!(
         geo,
         proposal_id,
         decay_id,
+        seed,
         parallelize_corsika=false
     )
 end
 
-function run_airshower!(
+function run_airshower!( # TODO: obsolete?
     sim::Simulation,
     config::Dict{String, Any};
     outkey="corsika_indices",
