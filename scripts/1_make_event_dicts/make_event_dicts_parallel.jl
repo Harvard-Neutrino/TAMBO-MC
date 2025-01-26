@@ -1,11 +1,16 @@
 using Pkg
-Pkg.activate(ENV["TAMBOSIM_PATH"] * "/Tambo")
+if "TAMBOSIM_PATH" ∈ keys(ENV)
+    Pkg.develop(path="$(ENV["TAMBOSIM_PATH"])/Tambo")
+else
+    Pkg.develop(path="../../Tambo/")
+end
 using Tambo
+
+Pkg.activate(".")
 using JLD2
 using StaticArrays
 using ArgParse
 using Glob
-using Distributions
 using LinearAlgebra
 using Parquet2
 using DataFrames 
@@ -180,8 +185,16 @@ function add_hits!(d::Dict, og_df::DataFrame, modules)
             end
             for particle in eachrow(df)
                 position = SVector{3}([particle.x,particle.y,particle.z])
-                push!(d[m.idx], Tambo.CorsikaEvent(particle.pdg,
-                particle.kinetic_energy,position,particle.time,particle.weight))
+                push!(
+                    d[m.idx],
+                    Tambo.CorsikaEvent(
+                        particle.pdg,
+                        particle.kinetic_energy * units.GeV,
+                        position,
+                        particle.time * units.second,
+                        particle.weight
+                    )
+                )
             end 
         end 
     end 
@@ -216,7 +229,6 @@ function make_hit_map(
 
     d = Dict{Int, Vector{Tambo.CorsikaEvent}}()
     files = find_extant_files(simset, subsimset, event_number, basedir)
-    #for file in tqdm(files)
     for file in files
         #CORSIKA8 sometimes doesn't finish b/c job times out 
         df = DataFrame()
@@ -233,7 +245,6 @@ function make_hit_map(
                 df
             )
         add_hits!(d, df, modules)
-      
 
         #if necessary to avoid runaway RAM usage
         #GC.gc()
@@ -261,8 +272,6 @@ function main()
     geo = Tambo.Geometry(config.config["geometry"])
     tambo_coord_degrees = Tambo.Coord((deg2rad.(config.config["geometry"]["tambo_coordinates"]))...)
     plane = Tambo.Plane(Tambo.Direction(config.config["geometry"]["plane_orientation"]...), tambo_coord_degrees, geo)
-    altmin = args["altmin"]units.m
-    altmax = args["altmax"]units.m
     
     zcorsika = config.config["geometry"]["plane_orientation"]
     display("original zcorsika = $zcorsika")
@@ -289,42 +298,33 @@ function main()
     elseif args["size"] == "medium"
         size = SVector{3}([4,4,0.03])units.m
     end 
-    println("type: $(typeof(args["length"]))")
+
     modules = Tambo.make_detector_array(
         args["length"]units.m,
         args["deltas"]units.m,
-        altmin,
-        altmax,
+        args["altmin"]units.m,
+        args["altmax"]units.m,
         plane,
         geo,
         size
     )
 
     outfile = args["outfile"]
-    #if args["nparallel"] > 1
-    #    outfile = replace(outfile, ".jld2"=>"_$(args["njob"])_$(args["nparallel"]).jld2")
-    #end
 
     event_numbers = get_event_numbers(args["basedir"], args["simset"], args["subsimset"])[args["njob"]:args["nparallel"]:end]
-    println("creating event dicts...")
-    println("event numbers: $event_numbers")
-
     hit_map = Dict()
-    #for (_,event_number) in tqdm(enumerate(event_numbers))
-    for event_number in event_numbers
+    for event_number in ProgressBar(event_numbers)
         hit_map["$(event_number)"] = make_hit_map(args["simset"], args["subsimset"], event_number, modules, args["basedir"], xyzcorsika)
     end
-    println(outfile)
-    println("type: $(typeof(args["length"]))")
 
     jldopen(outfile, "w") do jldf
         jldf["hit_map"] = hit_map
         jldf["array_config"] = Dict(
-            "length" => args["length"]units.m,
-            "deltas" => args["deltas"]units.m,
+            "length" => args["length"] * units.m,
+            "deltas" => args["deltas"] * units.m,
             "detector_size" => args["size"],
-            "altmin" => args["altmin"]units.m,
-            "altmax" => args["altmax"]units.m
+            "altmin" => args["altmin"] * units.m,
+            "altmax" => args["altmax"] * units.m
         )
     end
 end
