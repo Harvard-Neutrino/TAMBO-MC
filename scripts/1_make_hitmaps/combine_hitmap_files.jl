@@ -8,8 +8,8 @@ using ArgParse
 function parse_commandline()
     s = ArgParseSettings()
     @add_arg_table s begin
-        "--hit_map_directory"
-            help = "Directory containing hit map files"
+        "--hitmap_directory"
+            help = "Directory containing hitmap files"
             arg_type = String
             required = true
         "--simset"
@@ -29,7 +29,7 @@ function get_filename_list(directory::String, simset_ID::String, subsimset_ID::S
         error("Directory does not exist: $directory")
     end
 
-    filelist = glob("event_dicts_$(simset_ID)_$(subsimset_ID)_*_*.jld2", directory)
+    filelist = glob("hitmaps_$(simset_ID)_$(subsimset_ID)_*_*.jld2", directory)
 
     if isempty(filelist)
         error("No files with this simset and subsimset ID found in directory: $directory")
@@ -39,7 +39,7 @@ function get_filename_list(directory::String, simset_ID::String, subsimset_ID::S
     num_expected_files = parse(Int64, split(split(filelist[1], ".")[begin], "_")[end])
     for i in eachindex(filelist[begin+1:end])
         if parse(Int64, split(split(filelist[i], ".")[begin], "_")[end]) != num_expected_files
-            error("Unexpected file: $directory/event_dicts_$(simset_ID)_$(subsimset_ID)_$num_expected_files.jld2\nMultiple hit map file divisions in same directory is not supported.")
+            error("Unexpected file: $directory/hitmaps_$(simset_ID)_$(subsimset_ID)_$num_expected_files.jld2\nMultiple hitmap file divisions in same directory is not supported.")
         end
     end
 
@@ -62,16 +62,16 @@ end
 
 function main()
     args = parse_commandline()
-    hit_map_directory = args["hit_map_directory"]
+    hitmap_directory = args["hitmap_directory"]
     simset_ID = args["simset"]
     subsimset_ID = args["subsimset"]
 
     # Get list of files to merge and perform some checks
-    filename_list = get_filename_list(hit_map_directory, simset_ID, subsimset_ID)
+    filename_list = get_filename_list(hitmap_directory, simset_ID, subsimset_ID)
 
-    # Combine hit maps into one file and save
+    # Combine hitmaps into one file and save
     array_config = Dict()
-    full_hit_map = Dict()
+    full_hitmap = Dict()
 
     jldopen(filename_list[begin]) do ref_file
         array_config = ref_file["array_config"]
@@ -79,16 +79,16 @@ function main()
 
     for file in filename_list
         jldopen(file) do f
-            merge!(full_hit_map, f["hit_map"]) do key, val1, val2
-                error("Key conflict when merging hit maps: $key. This means this event is present in multiple files!")
+            merge!(full_hitmap, f["hitmap"]) do key, val1, val2
+                error("Key conflict when merging hitmaps: $key. This means this event is present in multiple files!")
             end
         end
     end
 
-    outfile = hit_map_directory * "/event_dicts_$(simset_ID)_$(subsimset_ID)_full.jld2"
+    outfile = hitmap_directory * "/hitmaps_$(simset_ID)_$(subsimset_ID)_full.jld2"
     jldopen(outfile, "w") do file
         file["array_config"] = array_config
-        file["hit_map"] = full_hit_map
+        file["hitmap"] = full_hitmap
     end
 
     println("Hit maps combined and saved to: $outfile. You may now delete the individual files.")
