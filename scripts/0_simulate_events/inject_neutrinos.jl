@@ -36,7 +36,8 @@ end
 
 function validate_output_filename(output_filename::String)
     # Check that output filename adheres to specified <name>_xxxxx_yyyyy.jld2 format
-    if match(r"^(.+)_\d{5}_\d{5}\.jld2$", output_filename) === nothing
+    if match(r"^(.+)_\d{5}_\d{5}\.((jld2)|(h5)|(hdf5))", output_filename) === nothing
+    #if match(r"^(.+)_\d{5}_\d{5}\.{jld2,h5,hdf5}$", output_filename) === nothing
         error("Output filename must adhere to format <name>_xxxxx_yyyyy.jld2")
     end
 end

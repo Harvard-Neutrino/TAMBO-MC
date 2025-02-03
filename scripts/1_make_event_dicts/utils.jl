@@ -43,7 +43,8 @@ function write_to_shared_file(sharedfilename, key, contenttowrite)
 end
 
 function get_event_numbers(basedir::String, simset::String, subsimset::String)
-    sims = glob("*_*_?", basedir)
+    sims = glob("shower/*$(simset)_$(subsimset)/shower_*_?", basedir)
+    #sims = glob("showers/$(simset)_$(subsimset)/shower_*_?", basedir)
     event_numbers = []
     for sim in sims
         event_number = parse(Int, split(sim, "_")[end-1])
@@ -56,7 +57,8 @@ function get_event_numbers(basedir::String, simset::String, subsimset::String)
 end
 
 function find_extant_files(simset::String, subsimset::String, event_number::Int, basedir::String) Vector{String}
-    files = glob("showers/$(simset)_$(subsimset)/shower_$(event_number)_?/*/particles.parquet", basedir)
+    files = glob("shower/*$(simset)_$(subsimset)/shower_$(event_number)_?/*/particles.parquet", basedir)
+    #files = glob("showers/$(simset)_$(subsimset)/shower_$(event_number)_?/*/particles.parquet", basedir)
     if isempty(files) 
         println("No files matched the pattern. The array is empty.")
     end 

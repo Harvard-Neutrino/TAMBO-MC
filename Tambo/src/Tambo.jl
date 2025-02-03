@@ -433,27 +433,38 @@ function (s::Simulation)(; track_progress=true, should_run_corsika=false)
     end
 end
 
-function dump_to_file(s::Simulation, f::JLDFile)
-    #resultfields = [:injected_events, :proposal_events, :corsika_indices]
-    f["injected_events"] = s.results["injected_events"]
-    f["proposal_events"] = s.results["proposal_events"]
-    f["corsika_indices"] = s.results["corsika_indices"]
-    #f["config"] = Dict(
-    #    Dict(
-    #        fn => getfield(s, fn) for fn in fieldnames(SimulationConfig)
-    #        if fn ∉ resultfields
-    #    )
-    #)
-    f["config"] = s.config
-    return
-end
-
-function save_simulation(s::Simulation, path::String)
+function save_simulation_to_jld2(s::Simulation, path::String)
     @assert length(s.results["injected_events"]) == s.config["steering"]["nevent"]
     @assert length(s.results["proposal_events"]) == s.config["steering"]["nevent"]
     jldopen(path, "w") do file
-        dump_to_file(s, file)
+        f["injected_events"] = s.results["injected_events"]
+        f["proposal_events"] = s.results["proposal_events"]
+        f["corsika_indices"] = s.results["corsika_indices"]
+        f["config"] = s.config
     end
 end
+
+function save_simulation_to_hdf5(s::Simulation, path::String)
+    @assert length(s.results["injected_events"]) == s.config["steering"]["nevent"]
+    @assert length(s.results["proposal_events"]) == s.config["steering"]["nevent"]
+    h5open(path, "w") do file
+        g = create_group(file, "injected_events")
+        write_to_h5(s.results["injected_events"], g)
+        g = create_group(file, "proposal_events")
+        write_to_h5(s.results["proposal_events"], g)
+        create_dataset(file, "corsika_indices", s.results["corsika_indices"])
+        for (k, v) in pairs(s)
+            attrs(file)[k] = v
+        end
+    end
+end
+
+#function save_simulation(s::Simulation, path::String)
+#    @assert length(s.results["injected_events"]) == s.config["steering"]["nevent"]
+#    @assert length(s.results["proposal_events"]) == s.config["steering"]["nevent"]
+#    jldopen(path, "w") do file
+#        dump_to_file(s, file)
+#    end
+#end
 
 end # module
