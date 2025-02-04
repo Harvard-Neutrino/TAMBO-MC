@@ -6,7 +6,8 @@ else
 end
 using Tambo
 
-Pkg.activate(".")
+Pkg.activate("$(ENV["TAMBOSIM_PATH"])/scripts/1_make_hitmaps/")
+
 using JLD2
 using StaticArrays
 using ArgParse
@@ -201,7 +202,7 @@ function add_hits!(d::Dict, og_df::DataFrame, modules)
 end 
 
 
-function make_hit_map(
+function make_hitmap(
     simset,
     subsimset,
     event_number,
@@ -312,13 +313,14 @@ function main()
     outfile = args["outfile"]
 
     event_numbers = get_event_numbers(args["basedir"], args["simset"], args["subsimset"])[args["njob"]:args["nparallel"]:end]
-    hit_map = Dict()
+    hitmap = Dict()
+    println("Processing events: ", event_numbers)
     for event_number in ProgressBar(event_numbers)
-        hit_map["$(event_number)"] = make_hit_map(args["simset"], args["subsimset"], event_number, modules, args["basedir"], xyzcorsika)
+        hitmap["$(event_number)"] = make_hitmap(args["simset"], args["subsimset"], event_number, modules, args["basedir"], xyzcorsika)
     end
 
     jldopen(outfile, "w") do jldf
-        jldf["hit_map"] = hit_map
+        jldf["hitmap"] = hitmap
         jldf["array_config"] = Dict(
             "length" => args["length"] * units.m,
             "deltas" => args["deltas"] * units.m,

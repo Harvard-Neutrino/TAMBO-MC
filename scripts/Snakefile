@@ -66,12 +66,12 @@ def get_injection_files(wildcards):
         shower_files = expand(f"{TAMBO_DATA_PATH}" + "/{{injection_config}}/showers/{{injection_simset}}_{{injection_subsimset}}/shower_{proposal_ids[0]}_{proposal_ids[1]}/particles/particles.parquet", proposal_ids=lambda wildcards: get_particle_ids(wildcards))
         return shower_files
 
-rule make_event_dicts: # Note: rule currently configured so that all showers must be run, even if only a subset of them are needed for a specific event dict file
+rule make_hitmaps: # Note: rule currently configured so that all showers must be run, even if only a subset of them are needed for a specific him map file
     input:
         get_injection_files,
         array_config = lambda wildcards: f'{TAMBOSIM_PATH}/resources/configuration_examples/{wildcards.array_config}.toml'
     output:
-        outfile = f"{TAMBO_DATA_PATH}/{{injection_config}}/event_dicts/{{array_config}}/event_dicts_{{injection_simset}}_{{injection_subsimset}}_{{event_dict_subset_id}}_{{event_dict_total_subsets}}.jld2"
+        outfile = f"{TAMBO_DATA_PATH}/{{injection_config}}/hitmaps/{{array_config}}/hitmaps_{{injection_simset}}_{{injection_subsimset}}_{{hitmap_subset_id}}_{{hitmap_total_subsets}}.jld2"
     resources:
         cpus_per_task=1,
         mem_mb=8000,
@@ -79,24 +79,24 @@ rule make_event_dicts: # Note: rule currently configured so that all showers mus
         runtime=240
     shell: 
        f"""
-        julia {TAMBOSIM_PATH}/scripts/1_make_event_dicts/make_event_dicts_parallel.jl \
+        julia {TAMBOSIM_PATH}/scripts/1_make_hitmaps/make_hitmap.jl \
         --array_config {{input.array_config}} \
         --injection_config {{wildcards.injection_config}} \
         --basedir {TAMBO_DATA_PATH}/{{wildcards.injection_config}} \
         --simfile {TAMBO_DATA_PATH}/{{wildcards.injection_config}}/{{wildcards.injection_config}}_{{wildcards.injection_simset}}_{{wildcards.injection_subsimset}}.jld2 \
         --outfile {{output.outfile}} \
-        --njob {{wildcards.event_dict_subset_id}} \
-        --nparallel {{wildcards.event_dict_total_subsets}} \
+        --njob {{wildcards.hitmap_subset_id}} \
+        --nparallel {{wildcards.hitmap_total_subsets}} \
         --simset {{wildcards.injection_simset}} \
         --subsimset {{wildcards.injection_subsimset}}
         """
 
-rule combine_event_dict_files:
+rule combine_hitmap_files:
     input:
-        # FIXME: update to handle different number of event dict files
-        event_dict_files = expand(f"{TAMBO_DATA_PATH}" + "/{{injection_config}}/event_dicts/{{array_config}}/event_dicts_{{injection_simset}}_{{injection_subsimset}}_{idx}_100.jld2", idx=range(1,101))
+        # FIXME: update to handle different number of hitmap files
+        hitmap_files = expand(f"{TAMBO_DATA_PATH}" + "/{{injection_config}}/hitmaps/{{array_config}}/hitmaps_{{injection_simset}}_{{injection_subsimset}}_{idx}_100.jld2", idx=range(1,101))
     output:
-        f"{TAMBO_DATA_PATH}/{{injection_config}}/event_dicts/{{array_config}}/event_dicts_{{injection_simset}}_{{injection_subsimset}}_full.jld2"
+        f"{TAMBO_DATA_PATH}/{{injection_config}}/hitmaps/{{array_config}}/hitmaps_{{injection_simset}}_{{injection_subsimset}}_full.jld2"
     resources:
         cpus_per_task=1,
         mem_mb=4000,
@@ -104,8 +104,8 @@ rule combine_event_dict_files:
         runtime=60
     shell:
         f"""
-        julia {TAMBOSIM_PATH}/scripts/1_make_event_dicts/combine_event_dict_files.jl \
-        --hit_map_directory {TAMBO_DATA_PATH}/{{wildcards.injection_config}}/event_dicts/{{wildcards.array_config}}/ \
+        julia {TAMBOSIM_PATH}/scripts/1_make_hitmaps/combine_hitmap_files.jl \
+        --hitmap_directory {TAMBO_DATA_PATH}/{{wildcards.injection_config}}/hitmaps/{{wildcards.array_config}}/ \
         --simset {{wildcards.injection_simset}} \
         --subsimset {{wildcards.injection_subsimset}} \
         """
@@ -113,7 +113,7 @@ rule combine_event_dict_files:
 rule do_triggering:
     input:
         f"{TAMBO_DATA_PATH}/{{injection_config}}/injection/{{injection_config}}_{{injection_simset}}_{{injection_subsimset}}.jld2",
-        f"{TAMBO_DATA_PATH}/{{injection_config}}/event_dicts/{{array_config}}/event_dicts_{{injection_simset}}_{{injection_subsimset}}_full.jld2",
+        f"{TAMBO_DATA_PATH}/{{injection_config}}/hitmaps/{{array_config}}/hitmaps_{{injection_simset}}_{{injection_subsimset}}_full.jld2",
         trigger_config = lambda wildcards: f'{TAMBOSIM_PATH}/resources/configuration_examples/{wildcards.trigger_config}.toml'
     output:
         f"{TAMBO_DATA_PATH}/{{injection_config}}/triggered/{{array_config}}/{{trigger_config}}/triggered_events_{{injection_simset}}_{{injection_subsimset}}.jld2"
@@ -126,17 +126,17 @@ rule do_triggering:
         f"""
         julia {TAMBOSIM_PATH}/scripts/2_trigger_events/do_triggering.jl \
         --simfile {TAMBO_DATA_PATH}/{{wildcards.injection_config}}/injection/{{wildcards.injection_config}}_{{wildcards.injection_simset}}_{{wildcards.injection_subsimset}}.jld2 \
-        --eventdictdir {TAMBO_DATA_PATH}/{{wildcards.injection_config}}/event_dicts/{{wildcards.array_config}}/ \
+        --hitmapdir {TAMBO_DATA_PATH}/{{wildcards.injection_config}}/hitmaps/{{wildcards.array_config}}/ \
         --simset {{wildcards.injection_simset}} \
         --subsimset {{wildcards.injection_subsimset}} \
         --trigger_config {{input.trigger_config}} \
         --outdir {TAMBO_DATA_PATH}/{{wildcards.injection_config}}/triggered/{{wildcards.array_config}}/{{wildcards.trigger_config}}/
         """
 
-def get_event_dict_files(config):
+def get_hitmap_files(config):
     config = config + '.toml'
     with open(config) as f:
         config_dict = toml.load(f)
-    event_dicts_dir = config_dict['eventdictdir']
-    event_dicts_files = glob.glob(f'{event_dicts_dir}event_dicts_*.jld2')
-    return event_dicts_files
+    hitmaps_dir = config_dict['hitmapdir']
+    hitmaps_files = glob.glob(f'{hitmaps_dir}hitmaps_*.jld2')
+    return hitmaps_files
