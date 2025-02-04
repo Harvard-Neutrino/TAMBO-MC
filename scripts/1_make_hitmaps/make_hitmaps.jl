@@ -282,8 +282,8 @@ function main()
     #need extra rotation to get it back to TAMBO coordinate system 
     
     zcorsika = RotZ(-π/2) * zcorsika 
-    xcorsika = SVector{3}([0,-zcorsika[3]/sqrt(zcorsika[2]^2+zcorsika[3]^2),zcorsika[2]/sqrt(zcorsika[2]^2+zcorsika[3]^2)])
-    ycorsika = cross(zcorsika,xcorsika)
+    xcorsika = SVector{3}([0, -zcorsika[3]/sqrt(zcorsika[2]^2+zcorsika[3]^2), zcorsika[2]/sqrt(zcorsika[2]^2+zcorsika[3]^2)])
+    ycorsika = cross(zcorsika, xcorsika)
     xyzcorsika = inv([
         xcorsika.x xcorsika.y xcorsika.z;
         ycorsika.x ycorsika.y ycorsika.z;
