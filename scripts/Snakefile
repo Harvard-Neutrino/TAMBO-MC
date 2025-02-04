@@ -79,7 +79,7 @@ rule make_hitmaps: # Note: rule currently configured so that all showers must be
         runtime=240
     shell: 
        f"""
-        julia {TAMBOSIM_PATH}/scripts/1_make_hitmaps/make_hitmap.jl \
+        julia {TAMBOSIM_PATH}/scripts/1_make_hitmaps/make_hitmaps.jl \
         --array_config {{input.array_config}} \
         --injection_config {{wildcards.injection_config}} \
         --basedir {TAMBO_DATA_PATH}/{{wildcards.injection_config}} \
