@@ -127,7 +127,7 @@ function inject_ν!(
     config::Dict{String, Any},
     seed::Int64;
     outkey="injected_events",
-    track_progress=true
+    track_progress=false
 )
     relativize!(config)
     sim.config[outkey] = config
@@ -155,7 +155,7 @@ function inject_ν!(
     sim::Simulation,
     config_file::String;
     outkey="injected_events",
-    track_progress=true
+    track_progress=false
 )
     config = relativize!(TOML.parsefile(config_file))
     inject_ν!(sim, config; outkey=outkey, track_progress=track_progress)
@@ -167,7 +167,7 @@ function propagate_τ!(
     seed::Int64;
     inkey="injected_events",
     outkey="proposal_events",
-    track_progress=true
+    track_progress=false
 )
     relativize!(config)
     sim.config[outkey] = config
@@ -199,7 +199,7 @@ function propagate_τ!(
     config_file::String;
     inkey::String="injected_events",
     outkey::String="proposal_events",
-    track_progress::Bool=true
+    track_progress::Bool=false
 )
     config = relativize!(TOML.parsefile(config_file))
     propagate_τ!(sim, config; inkey=inkey, outkey=outkey, track_progress=track_progress)
@@ -211,7 +211,7 @@ function identify_taus_to_shower!(
     seed::Int64;
     inkey="proposal_events",
     outkey="corsika_indices",
-    track_progress=true
+    track_progress=false
 )
     relativize!(config)
     proposal_events = sim.results[inkey]
@@ -253,7 +253,7 @@ function shower_taus!(
     config::Dict{String, Any};
     proposal_ids_key="corsika_indices",
     proposal_events_key="proposal_events",
-    track_progress=true
+    track_progress=false
 )
     relativize!(config)
 
@@ -314,7 +314,7 @@ function run_subshower!(
     #output_path::String;
     proposal_ids_key="corsika_indices",
     proposal_events_key="proposal_events",
-    track_progress=true
+    track_progress=false
 )
     relativize!(config)
 
@@ -344,7 +344,7 @@ function run_airshower!( # TODO: obsolete?
     config::Dict{String, Any};
     outkey="corsika_indices",
     inkey="proposal_events",
-    track_progress=true
+    track_progress=false
 )
     relativize!(config)
     proposal_events = sim.results[inkey]
@@ -400,12 +400,12 @@ function run_airshower!( # TODO: obsolete?
     sim.results[outkey] = indices
 end 
 
-function run_airshower!(sim::Simulation, config_file::String; outkey="corsika_indices", inkey="proposal_events", track_progress=true)
+function run_airshower!(sim::Simulation, config_file::String; outkey="corsika_indices", inkey="proposal_events", track_progress=false)
     config = relativize!(TOML.parsefile(config_file))
     run_airshower!(sim, config; outkey=outkey, inkey=inkey, track_progress=track_progress)
 end
 
-function (s::Simulation)(; track_progress=true, should_run_corsika=false)
+function (s::Simulation)(; track_progress=false, should_run_corsika=false)
     # TODO: I think we should seed in the script calling this function,
     # not in the function itself
     seed!(s.config["steering"]["seed"])
