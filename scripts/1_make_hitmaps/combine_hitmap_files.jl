@@ -12,34 +12,30 @@ function parse_commandline()
             help = "Directory containing hitmap files"
             arg_type = String
             required = true
-        "--simset"
+        "--simset_id"
             help = "Simulation set ID"
-            arg_type = String
-            required = true
-        "--subsimset"
-            help = "Sub-simulation set ID"
             arg_type = String
             required = true
     end
     return parse_args(s)
 end
 
-function get_filename_list(directory::String, simset_ID::String, subsimset_ID::String)
+function get_filename_list(directory::String, simset_id::String)
     if !isdir(directory)
         error("Directory does not exist: $directory")
     end
 
-    filelist = glob("hitmaps_$(simset_ID)_$(subsimset_ID)_*_*.jld2", directory)
+    filelist = glob("hitmaps_$(simset_id)_*_*.jld2", directory)
 
     if isempty(filelist)
-        error("No files with this simset and subsimset ID found in directory: $directory")
+        error("No files with this simset ID found in directory: $directory")
     end
 
     # Check only one division of files exists and that we have all files expected
     num_expected_files = parse(Int64, split(split(filelist[1], ".")[begin], "_")[end])
     for i in eachindex(filelist[begin+1:end])
         if parse(Int64, split(split(filelist[i], ".")[begin], "_")[end]) != num_expected_files
-            error("Unexpected file: $directory/hitmaps_$(simset_ID)_$(subsimset_ID)_$num_expected_files.jld2\nMultiple hitmap file divisions in same directory is not supported.")
+            error("Unexpected file: $directory/hitmaps_$(simset_id)_$num_expected_files.jld2\nMultiple hitmap file divisions in same directory is not supported.")
         end
     end
 
@@ -63,11 +59,10 @@ end
 function main()
     args = parse_commandline()
     hitmap_directory = args["hitmap_directory"]
-    simset_ID = args["simset"]
-    subsimset_ID = args["subsimset"]
+    simset_id = args["simset_id"]
 
     # Get list of files to merge and perform some checks
-    filename_list = get_filename_list(hitmap_directory, simset_ID, subsimset_ID)
+    filename_list = get_filename_list(hitmap_directory, simset_ID)
 
     # Combine hitmaps into one file and save
     array_config = Dict()
@@ -85,7 +80,7 @@ function main()
         end
     end
 
-    outfile = hitmap_directory * "/hitmaps_$(simset_ID)_$(subsimset_ID)_full.jld2"
+    outfile = hitmap_directory * "/hitmaps_$(simset_id)_full.jld2"
     jldopen(outfile, "w") do file
         file["array_config"] = array_config
         file["hitmap"] = full_hitmap

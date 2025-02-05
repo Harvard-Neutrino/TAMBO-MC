@@ -27,12 +27,8 @@ function parse_commandline()
             arg_type = String
             #default = "/n/holylfs05/LABS/arguelles_delgado_lab/Lab/TAMBO/will_misc/triggered_events/Jan7th2024_WhitePaper_300k_no_thin/"
             #required = true 
-        "--simset"
+        "--simset_id"
             help = "Simulation set ID"
-            arg_type = String
-            #required = true
-        "--subsimset"
-            help = "Sub-simulation set ID"
             arg_type = String
             #required = true
         "--outdir"
@@ -112,8 +108,7 @@ function main()
 
     sim_file = args["simfile"]
     hitmaps_path = args["hitmapdir"]
-    simset_ID = args["simset"]
-    subsimset_ID = args["subsimset"]
+    simset_id = args["simset_id"]
     outdir = args["outdir"]
     trigger_type = args["trigger_type"]
     module_thresh = args["module_threshold"]
@@ -128,7 +123,7 @@ function main()
 
     
     hitmaps = Dict{String, Any}()
-    hitmaps = load(hitmaps_path * "/hitmaps_$(simset_ID)_$(subsimset_ID)_full.jld2")["hitmap"]
+    hitmaps = load(hitmaps_path * "/hitmaps_$(simset_id)_full.jld2")["hitmap"]
 
     triggered_event_ids = []
     for (key, value) in hitmaps
@@ -139,7 +134,7 @@ function main()
 
     triggered_events = load(sim_file)["injected_events"][triggered_event_ids]
 
-    jldopen("$(outdir)/triggered_events_$(simset_ID)_$(subsimset_ID).jld2", "w") do f
+    jldopen("$(outdir)/triggered_events_$(simset_id).jld2", "w") do f
         f["triggered_events"] = triggered_events
         f["trigger_config"] = Dict(
             "module_thresh" => module_thresh,

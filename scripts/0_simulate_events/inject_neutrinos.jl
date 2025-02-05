@@ -11,12 +11,8 @@ function parse_commandline()
             help = "Path to a TOML config file"
             arg_type = String
             default = nothing
-        "--simset"
+        "--simset_id"
             help = "Simulation set ID"
-            arg_type = Int
-            required = true
-        "--subsimset"
-            help = "Sub-simulation set ID"
             arg_type = Int
             required = true
         "--output"
@@ -44,8 +40,7 @@ end
 function main()
     args = parse_commandline()
     config_filename = args["config"]
-    simset_ID = args["simset"]
-    subsimset_ID = args["subsimset"]
+    simset_id = args["simset_id"]
     output_filename = args["output"]
 
     validate_output_filename(output_filename)
@@ -57,8 +52,7 @@ function main()
     # It is a pinecone because pinecones release seeds.
     pinecone = sim.config["steering"]["pinecone"]
 
-    seed!(pinecone)
-    seed = round(Int64, rand()) + 100000*simset_ID + subsimset_ID
+    seed = pinecone + simset_id
     seed!(seed)
 
     inject_ν!(sim, sim.config["injection"], seed)
