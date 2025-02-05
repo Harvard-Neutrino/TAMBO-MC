@@ -8,6 +8,7 @@ struct Injector
 end
 
 struct InjectionEvent
+    event_id::Int
     entry_state::Particle
     initial_state::Particle
     final_state::Particle
@@ -41,8 +42,9 @@ function Injector(config::Dict, geo::Geometry)
     return Injector(config["nu_pdg"], pl, xs, anglesampler, injectionvolume, geo)
 end
 
-function inject_event(injector::Injector, tr_seed::Int)
+function inject_event(injector::Injector, event_id::Int, tr_seed::Int)
     event = inject_event(
+        event_id,
         injector.nu_pdg,
         injector.powerlaw,
         injector.xs,
@@ -100,6 +102,7 @@ end
 TBW
 """
 function inject_event(
+    event_id::Int,
     ν_pdg::Int,
     power_law::PowerLaw,
     xs::CrossSection,
@@ -124,6 +127,7 @@ function inject_event(
     final_state = Particle(ν_pdg - sign(ν_pdg), e_final, p_int, direction, particle_entry)
     # Now our generation column depth is the same as our physical column depth so we set them equal
     event = InjectionEvent(
+        event_id,
         particle_entry,
         proposed_particle,
         final_state,

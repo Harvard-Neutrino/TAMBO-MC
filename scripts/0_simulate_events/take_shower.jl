@@ -59,7 +59,8 @@ function main()
     # It is a pinecone because pinecones release seeds.
     pinecone = sim.config["steering"]["pinecone"]
 
-    seed = pinecone + simset_id
+    seed!(pinecone)
+    seed = rand(1:typemax(Int64)) + simset_id
     seed!(seed)
 
     sim.config["corsika"]["shower_dir"] = shower_dir

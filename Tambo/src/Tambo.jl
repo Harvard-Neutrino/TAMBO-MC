@@ -125,6 +125,7 @@ end
 function inject_ν!(
     sim::Simulation,
     config::Dict{String, Any},
+    simset_id::String,
     seed::Int64;
     outkey="injected_events",
     track_progress=true
@@ -143,9 +144,12 @@ function inject_ν!(
         println("Injecting neutrinos")
         itr = ProgressBar(itr)
     end
+
+    event_id_offset = parse(simset_id, Int) * sim.config["steering"]["nevent"]
     for idx in itr
-        tr_seed = round(Int, rand()) + idx
-        event = inject_event(injector, tr_seed)
+        tr_seed = seed + idx
+        event_id = event_id_offset + idx
+        event = inject_event(injector, event_id, tr_seed)
         events[idx] = event
     end
     sim.results[outkey] = events
@@ -241,8 +245,9 @@ function identify_taus_to_shower!(
             #wanted to keep indices lined up so checking one at at ime
             if check_neutrino(decay_event)
                 continue 
-            end 
-            push!(indices, (proposal_idx, decay_idx))
+            end
+            event_id = proposal_idx * sim.config["steering"]["nevent"] 
+            push!(indices, (event_id, decay_idx))
         end
     end
     sim.results[outkey] = indices
