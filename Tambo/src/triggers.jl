@@ -165,3 +165,4 @@ function corsika_int_weight(
 ) :: Vector{Int}
     return [corsika_int_weight(event, efficiencies) for event in events]
 end
+
