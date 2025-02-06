@@ -1,55 +1,33 @@
-function flatten_obj(obj; pre="", lists=nothing)
-    if typeof(lists)==Nothing
-        lists = Tuple{String, Int}[]
-    end
-    for field in fieldnames(typeof(obj))
-        val = getfield(obj, field)
-        t = typeof(val)
-        if t <: Real
-            s = length(pre)==0 ? string(field) : "$(pre).$(string(field))"
-            push!(lists, (s, 0))
-            continue
-        elseif val isa AbstractVector
-            s = length(pre)==0 ? string(field) : "$(pre).$(string(field))"
-            push!(lists, (s, length(val)))
-            continue
+ArrowTypes.arrowname(::Type{InjectionEvent}) = :InjectionEvent
+ArrowTypes.JuliaType(::Val{:InjectionEvent}) = InjectionEvent
+
+ArrowTypes.arrowname(::Type{ProposalResult}) = :ProposalResult
+ArrowTypes.JuliaType(::Val{:ProposalResult}) = ProposalResult
+
+ArrowTypes.arrowname(::Type{Particle}) = :Particle
+ArrowTypes.JuliaType(::Val{:Particle}) = Particle
+
+ArrowTypes.arrowname(::Type{Direction}) = :Direction
+ArrowTypes.JuliaType(::Val{:Direction}) = Direction
+
+ArrowTypes.arrowname(::Type{Loss}) = :Loss
+ArrowTypes.JuliaType(::Val{:Loss}) = Loss
+
+function rec_flatten_dict(d, prefix_delim = ".")
+    new_d = empty(d)
+    for (key, value) in pairs(d)
+        if isa(value, Dict)
+             flattened_value = rec_flatten_dict(value, prefix_delim)
+             for (ikey, ivalue) in pairs(flattened_value)
+                 new_d["$key.$ikey"] = ivalue
+             end
+        elseif isa(value, AbstractVector) || isa(value, Tuple)
+            for (idx, v) in enumerate(value)
+                new_d["$(key).$(idx)"] = string(v)
+            end
         else
-            w = length(pre)==0 ? string(field) : "$(pre).$(string(field))"
-            flatten_dict(val; pre=w, lists=lists)
+            new_d[key] = string(value)
         end
     end
-    return lists
-end
-
-function write_to_h5(objs, baseg)
-    types = flatten_obj(first(objs))
-
-    for (s, l) in types
-        out = l==0 ? zeros(length(objs)) : zeros((length(objs), l))
-        for (idx, event) in enumerate(objs)
-            v = recursively_access(event, s)
-            if l==0
-                out[idx] = v
-            else
-                out[idx, :] = v
-            end
-        end
-
-        splits = split(s, ".")
-        g = baseg
-        for x in splits[1:end-1]
-            if ~(x ∈ keys(g))
-                create_group(g, x)
-            end
-            g = g[x]
-        end
-        create_dataset(g, splits[end], out)
-    end
-end
-
-function recursively_access(obj, s)
-    for x in split(s, ".")
-        obj = getfield(obj, Symbol(x))
-    end
-    return obj
+    return new_d
 end

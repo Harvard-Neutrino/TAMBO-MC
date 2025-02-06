@@ -14,14 +14,16 @@ export Simulation,
        run_subshower!,
        run_airshower!,
        oneweight,
-       save_simulation
+       save_simulation_to_arrow,
+       save_simulation_to_jld2
+
 
 using CoordinateTransformations: Translation, AffineMap, LinearMap
 using Dierckx: Spline2D
 using Distributions: Uniform, Poisson
 using JLD2: jldopen, JLDFile, load
 # TODO move h5 to jld2
-using HDF5: h5open
+using HDF5
 using LinearAlgebra: norm
 using ProgressBars
 using PyCall: PyCall, PyNULL, PyObject
@@ -30,6 +32,7 @@ using Roots: find_zeros, find_zero
 using Rotations: RotX, RotZ
 using StaticArrays: SVector, SMatrix 
 using TOML
+using Arrow
 
 include("units.jl")
 include("samplers/angularsamplers.jl")
@@ -47,6 +50,7 @@ include("weightings.jl")
 include("taurunner.jl")
 include("detector.jl")
 include("corsika.jl")
+include("serialization.jl")
 
 @Base.kwdef mutable struct Simulation
     config::Dict{String, Any}
@@ -437,34 +441,29 @@ function save_simulation_to_jld2(s::Simulation, path::String)
     @assert length(s.results["injected_events"]) == s.config["steering"]["nevent"]
     @assert length(s.results["proposal_events"]) == s.config["steering"]["nevent"]
     jldopen(path, "w") do file
-        f["injected_events"] = s.results["injected_events"]
-        f["proposal_events"] = s.results["proposal_events"]
-        f["corsika_indices"] = s.results["corsika_indices"]
-        f["config"] = s.config
+        file["injected_events"] = s.results["injected_events"]
+        file["proposal_events"] = s.results["proposal_events"]
+        file["corsika_indices"] = s.results["corsika_indices"]
+        file["config"] = s.config
     end
 end
 
-function save_simulation_to_hdf5(s::Simulation, path::String)
+function save_simulation_to_arrow(s::Simulation, path::String)
     @assert length(s.results["injected_events"]) == s.config["steering"]["nevent"]
     @assert length(s.results["proposal_events"]) == s.config["steering"]["nevent"]
-    h5open(path, "w") do file
-        g = create_group(file, "injected_events")
-        write_to_h5(s.results["injected_events"], g)
-        g = create_group(file, "proposal_events")
-        write_to_h5(s.results["proposal_events"], g)
-        create_dataset(file, "corsika_indices", s.results["corsika_indices"])
-        for (k, v) in pairs(s)
-            attrs(file)[k] = v
-        end
+    crska_idxs = Vector{Tuple{Int, Int}}[Tuple{Int, Int}[] for _ in 1:s.config["steering"]["nevent"]]
+    for (a, b) in s.results["corsika_indices"]
+        push!(crska_idxs[a], (a, b))
     end
+    Arrow.write(
+        path,
+        (
+            proposal_events=s.results["proposal_events"],
+            injected_events=s.results["injected_events"],
+            corsika_indices=crska_idxs
+        ),
+        metadata=rec_flatten_dict(s.config)
+    )
 end
-
-#function save_simulation(s::Simulation, path::String)
-#    @assert length(s.results["injected_events"]) == s.config["steering"]["nevent"]
-#    @assert length(s.results["proposal_events"]) == s.config["steering"]["nevent"]
-#    jldopen(path, "w") do file
-#        dump_to_file(s, file)
-#    end
-#end
 
 end # module

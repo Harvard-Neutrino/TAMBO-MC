@@ -1,8 +1,11 @@
 using Pkg
-using Random: seed!
-Pkg.activate(ENV["TAMBOSIM_PATH"] * "/Tambo")
+Pkg.activate(ENV["TAMBOSIM_PATH"] * "/scripts/0_simulate_events/")
+Pkg.develop(path=ENV["TAMBOSIM_PATH"] * "/Tambo")
+Pkg.add("ArgParse")
+#Pkg.activate(ENV["TAMBOSIM_PATH"] * "/Tambo")
 using Tambo
 using ArgParse
+using Random: seed!
 
 function parse_commandline()
     s = ArgParseSettings()
@@ -36,8 +39,8 @@ end
 
 function validate_output_filename(output_filename::String)
     # Check that output filename adheres to specified <name>_xxxxx_yyyyy.jld2 format
-    if match(r"^(.+)_\d{5}_\d{5}\.((jld2)|(h5)|(hdf5))", output_filename) === nothing
-    #if match(r"^(.+)_\d{5}_\d{5}\.{jld2,h5,hdf5}$", output_filename) === nothing
+    #if match(r"^(.+)_\d{5}_\d{5}\((.jld2)|(.arrow))", output_filename) === nothing
+    if match(r"^(.+)_\d{5}_\d{5}\.((jld2)|(arrow))$", output_filename) === nothing
         error("Output filename must adhere to format <name>_xxxxx_yyyyy.jld2")
     end
 end
@@ -62,7 +65,7 @@ function main()
     seed = round(Int64, rand()) + 100000*simset_ID + subsimset_ID
     seed!(seed)
 
-    inject_ν!(sim, sim.config["injection"], seed)
+    inject_ν!(sim, sim.config["injection"], seed; track_progress=true)
     propagate_τ!(sim, sim.config["proposal"], seed)
     identify_taus_to_shower!(sim, sim.config["corsika"], seed)
 
@@ -72,7 +75,15 @@ function main()
         mkdir(output_dir)
     end
 
-    save_simulation(sim, output_filename)
+    if endswith(output_filename, "jld2")
+        save_simulation_to_jld2(sim, output_filename)
+    elseif endswith(output_filename, "arrow")
+        save_simulation_to_arrow(sim, output_filename)
+    else
+        save_simulation_to_jld2(sim, output_filename)
+        save_simulation_to_arrow(sim, output_filename)
+    end
+
 end
 
 if abspath(PROGRAM_FILE) == @__FILE__
