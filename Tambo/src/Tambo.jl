@@ -189,9 +189,10 @@ function propagate_τ!(
     end
     for (idx, injected_event) in enumerate(injected_events)
         event = propagator(
+            injected_event.event_id,
             injected_event.final_state,
             geo,
-            round(Int, rand()) + idx
+            seed + idx
         )
         events[idx] = event
     end
