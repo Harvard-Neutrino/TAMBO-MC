@@ -6,9 +6,6 @@ using Glob
 using ArgParse
 using TOML
 
-
-include("trigger_defs.jl")
-
 interpolated_effs = load(ENV["TAMBOSIM_PATH"] * "/resources/detector_efficiencies/initial_IceTop_panel_interpolations.jld2")
 global interpolated_eff_gamma = interpolated_effs["gamma_interp"]
 global interpolated_eff_muon = interpolated_effs["muon_interp"]
@@ -132,7 +129,7 @@ function main()
 
     triggered_event_ids = []
     for (key, value) in hitmaps
-        if did_trigger(value, module_thresh, event_thresh, trigger_type)
+        if Tambo.did_trigger(value, module_thresh, event_thresh, trigger_type)
             push!(triggered_event_ids, parse(Int, split(key, "/")[end]))
         end
     end
