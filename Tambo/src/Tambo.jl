@@ -50,22 +50,42 @@ include("detector.jl")
 include("corsika.jl")
 
 function __init__()
-    #commit_hash = get_git_commit_hash()
+    commit_hash = get_git_commit_hash()
     println("Welcome to TAMBOSim version -0.1")
-    #println("Git commit hash: $commit_hash")
+    println("Git commit hash: $commit_hash")
+    println(raw"""
+              /\    //\
+             { `---'  }
+             {  O   O  }
+      _______{  \     /}________
+    /  \     `._`---'_/     /  \
+   /  |    ν_τ  `~.~`  ν_τ   |  \
+  /   |        _.-'-.        |   \
+ /    |     .'       `.     |    \
+/     |    /           \    |     \ """)
+println(raw"""
+    ████████╗ █████╗ ███╗   ███╗██████╗  ██████╗ 
+    ╚══██╔══╝██╔══██╗████╗ ████║██╔══██╗██╔═══██╗
+       ██║   ███████║██╔████╔██║██████╔╝██║   ██║
+       ██║   ██╔══██║██║╚██╔╝██║██╔══██╗██║   ██║
+       ██║   ██║  ██║██║ ╚═╝ ██║██████╔╝╚██████╔╝
+       ╚═╝   ╚═╝  ╚═╝╚═╝     ╚═╝╚═════╝  ╚═════╝ 
+                                                 """)
 end
 
 function get_git_commit_hash()
     git_repo_path = ENV["TAMBOSIM_PATH"]
 
-    # Open the current repository
+    # # Open the Git repository located at the module's directory
     repo = LibGit2.GitRepo(git_repo_path)
             
-    # Get the current HEAD reference
-    commit_hash = LibGit2.git_commit_id(LibGit2.head(repo))
-                
-    # Convert to string
-    return string(commit_hash)
+    # Get the OID (object ID) of the current HEAD reference
+    oid = LibGit2.head_oid(repo)
+        
+    # Convert the OID to a hex string representing the commit hash
+    commit_hash = LibGit2.string(oid)
+    
+    return commit_hash
 end
 
 
