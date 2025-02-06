@@ -122,8 +122,8 @@ function ProposalResult(secondaries, parent_particle)
         direction = Direction(
             inv(r)(SVector{3}(product.direction.x, product.direction.y, product.direction.z))
         )
-        parent = parent_particle
-        child = Particle(pdg_code, energy, position, direction, parent)
+        #parent = parent_particle
+        child = Particle(pdg_code, energy, position, direction)
         push!(children, child)
     end
     continuous_total = Loss(
@@ -140,7 +140,6 @@ function ProposalResult(secondaries, parent_particle)
         final_e,
         final_pos,
         parent_particle.direction,
-        nothing
     )
     return ProposalResult(
         losses, continuous_total, did_decay,

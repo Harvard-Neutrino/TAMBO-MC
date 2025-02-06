@@ -115,13 +115,13 @@ function inject_event(
     xb = intersect(closest_approach, reverse(direction), geo.box)
 
     proposed_e_init = rand(power_law)
-    proposed_particle = Particle(ν_pdg, proposed_e_init, xb, direction, nothing)
+    proposed_particle = Particle(ν_pdg, proposed_e_init, xb, direction)
     particle_entry, physX = tr_propagate(proposed_particle, geo.tambo_offset.z, tr_seed)
     e_final = rand(xs, particle_entry.energy)
 
     range = lepton_range(e_final, ν_pdg - sign(ν_pdg))
     p_int, genX = sample_interaction_vertex(injectionvolume, closest_approach, direction, range, geo)
-    final_state = Particle(ν_pdg - sign(ν_pdg), e_final, p_int, direction, particle_entry)
+    final_state = Particle(ν_pdg - sign(ν_pdg), e_final, p_int, direction)
     # Now our generation column depth is the same as our physical column depth so we set them equal
     event = InjectionEvent(
         particle_entry,
