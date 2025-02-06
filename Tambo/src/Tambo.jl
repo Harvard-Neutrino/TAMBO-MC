@@ -30,6 +30,7 @@ using Roots: find_zeros, find_zero
 using Rotations: RotX, RotZ
 using StaticArrays: SVector, SMatrix 
 using TOML
+using LibGit2
 
 include("units.jl")
 include("samplers/angularsamplers.jl")
@@ -47,6 +48,26 @@ include("weightings.jl")
 include("taurunner.jl")
 include("detector.jl")
 include("corsika.jl")
+
+function __init__()
+    #commit_hash = get_git_commit_hash()
+    println("Welcome to TAMBOSim version -0.1")
+    #println("Git commit hash: $commit_hash")
+end
+
+function get_git_commit_hash()
+    git_repo_path = ENV["TAMBOSIM_PATH"]
+
+    # Open the current repository
+    repo = LibGit2.GitRepo(git_repo_path)
+            
+    # Get the current HEAD reference
+    commit_hash = LibGit2.git_commit_id(LibGit2.head(repo))
+                
+    # Convert to string
+    return string(commit_hash)
+end
+
 
 @Base.kwdef mutable struct Simulation
     config::Dict{String, Any}
@@ -125,7 +146,7 @@ end
 function inject_ν!(
     sim::Simulation,
     config::Dict{String, Any},
-    simset_id::String,
+    simset_id::Int64,
     seed::Int64;
     outkey="injected_events",
     track_progress=true
@@ -145,7 +166,7 @@ function inject_ν!(
         itr = ProgressBar(itr)
     end
 
-    event_id_offset = parse(simset_id, Int) * sim.config["steering"]["nevent"]
+    event_id_offset = simset_id * sim.config["steering"]["nevent"]
     for idx in itr
         tr_seed = seed + idx
         event_id = event_id_offset + idx
@@ -247,7 +268,7 @@ function identify_taus_to_shower!(
             if check_neutrino(decay_event)
                 continue 
             end
-            event_id = proposal_idx * sim.config["steering"]["nevent"] 
+            event_id = proposal_event.event_id
             push!(indices, (event_id, decay_idx))
         end
     end
@@ -334,8 +355,11 @@ function run_subshower!(
         geo
     )
 
+    # TODO: this is a hack, assumes that the proposal id is the index of the event in the array.
+    # Should instead search through array for event with matching event_id
+    pseudo_proposal_id = mod(proposal_id, sim.config["steering"]["nevent"])
     corsika_run(
-        sim.results[proposal_events_key][proposal_id].decay_products[decay_id],
+        sim.results[proposal_events_key][pseudo_proposal_id].decay_products[decay_id],
         sim.config["corsika"],
         geo,
         proposal_id,

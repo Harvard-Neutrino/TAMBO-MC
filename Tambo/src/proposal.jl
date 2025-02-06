@@ -78,6 +78,7 @@ function (prop::ProposalPropagator)(
     t = Track(particle.position, particle.direction, geo.box)
     segments = computesegments(t, geo)
     secondaries = propagate(
+        event_id,
         particle,
         getfield.(segments, :medium_name),
         getfield.(segments, :density),
@@ -180,6 +181,7 @@ function make_propagator(
 end
 
 function propagate(
+    event_id::Int64,
     chargedlepton::Particle,
     media::Vector{String},
     densities::Vector{Float64},
@@ -190,6 +192,7 @@ function propagate(
     # Double hack. We should fix this
     if chargedlepton.energy==0
         return ProposalResult(
+            event_id,
             Loss[],
             Loss(-1, 0.0, SVector{3}([0,0,0])),
             false,

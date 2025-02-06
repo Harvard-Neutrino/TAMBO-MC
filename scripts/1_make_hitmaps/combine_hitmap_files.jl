@@ -62,7 +62,7 @@ function main()
     simset_id = args["simset_id"]
 
     # Get list of files to merge and perform some checks
-    filename_list = get_filename_list(hitmap_directory, simset_ID)
+    filename_list = get_filename_list(hitmap_directory, simset_id)
 
     # Combine hitmaps into one file and save
     array_config = Dict()

@@ -15,7 +15,8 @@ checkpoint inject_neutrinos:
     resources:
         cpus_per_task=1,
         mem_mb=10000,
-        slurm_partition="sapphire,shared",
+        slurm_partition="arguelles_delgado",
+        #slurm_partition="sapphire,shared",
         runtime=8*60
     shell: # Purge old shower files and inject neutrinos
         f"""
@@ -35,7 +36,8 @@ rule take_shower:
     resources:
         cpus_per_task=1,
         mem_mb=10000,
-        slurm_partition="sapphire,shared",
+        slurm_partition="arguelles_delgado",
+        #slurm_partition="sapphire,shared",
         runtime=24*60
     shell:
         f"""
@@ -73,7 +75,8 @@ rule make_hitmaps: # Note: rule currently configured so that all showers must be
     resources:
         cpus_per_task=1,
         mem_mb=8000,
-        slurm_partition="sapphire,shared",
+        slurm_partition="arguelles_delgado",
+        #slurm_partition="sapphire,shared",
         runtime=240
     shell: 
        f"""
@@ -97,7 +100,8 @@ rule combine_hitmap_files:
     resources:
         cpus_per_task=1,
         mem_mb=4000,
-        slurm_partition="sapphire,shared",
+        slurm_partition="arguelles_delgado",
+        #slurm_partition="sapphire,shared",
         runtime=60
     shell:
         f"""
@@ -116,7 +120,8 @@ rule do_triggering:
     resources:
         cpus_per_task=1,
         mem_mb=8000,
-        slurm_partition="sapphire,shared",
+        #slurm_partition="sapphire,shared",
+        slurm_partition="arguelles_delgado",
         runtime=240
     shell: 
         f"""
