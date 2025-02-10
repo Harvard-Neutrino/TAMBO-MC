@@ -8,6 +8,7 @@ using TOML
 
 
 include("trigger_defs.jl")
+include("column_depth_functions.jl")
 
 interpolated_effs = load(ENV["TAMBOSIM_PATH"] * "/resources/detector_efficiencies/initial_IceTop_panel_interpolations.jld2")
 global interpolated_eff_gamma = interpolated_effs["gamma_interp"]
@@ -137,15 +138,25 @@ function main()
         end
     end
 
-    triggered_events = load(sim_file)["injected_events"][triggered_event_ids]
+    sim_file = load(sim_file)
+    triggered_events = sim_file["injected_events"][triggered_event_ids]
 
-    jldopen("$(outdir)/triggered_events_$(simset_ID)_$(subsimset_ID).jld2", "w") do f
-        f["triggered_events"] = triggered_events
-        f["trigger_config"] = Dict(
-            "module_thresh" => module_thresh,
-            "event_thresh" => event_thresh,
-            "trigger_type" => trigger_type
-        )
+    # Now apply the column depth requirement. This is actually a physics-level cut,
+    # but given it's currently the only one, we'll do it here for now
+    probability_threshold = 1.00
+    for i in 0:4
+        column_depth_probabilities = [compute_column_depth_probability(sim_file, event, 1, i*units.km) for event in triggered_events]
+        column_depth_mask = column_depth_probabilities .>= probability_threshold
+        passed_events = triggered_events[column_depth_mask]
+
+        jldopen("$(outdir)/triggered_events_$(i)km_1deg-res_100pct_$(simset_ID)_$(subsimset_ID).jld2", "w") do f
+            f["triggered_events"] = passed_events
+            f["trigger_config"] = Dict(
+                "module_thresh" => module_thresh,
+                "event_thresh" => event_thresh,
+                "trigger_type" => trigger_type
+            )
+        end
     end
 end
 
