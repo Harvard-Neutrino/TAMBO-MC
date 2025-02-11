@@ -1,6 +1,6 @@
 using StaticArrays: SVector
 
-struct SymmetricInjectionCylinder
+struct SymmetricInjectionCylinder <: AbstractInjectionShape
     r_injection::Float64
     l_endcap::Float64
 end
@@ -15,7 +15,7 @@ function Base.show(io::IO, cylinder::SymmetricInjectionCylinder)
     )
 end
 
-struct AsymmetricInjectionCylinder
+struct AsymmetricInjectionCylinder <: AbstractInjectionShape
     r_injection::Float64
     l_incoming_endcap::Float64
     l_outgoing_endcap::Float64
