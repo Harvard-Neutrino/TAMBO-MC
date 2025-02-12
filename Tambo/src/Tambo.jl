@@ -22,7 +22,7 @@ using Distributions: Uniform, Poisson
 using JLD2: jldopen, JLDFile, load
 # TODO move h5 to jld2
 using HDF5: h5open
-using LinearAlgebra: norm
+using LinearAlgebra: norm, dot
 using ProgressBars
 using PyCall: PyCall, PyNULL, PyObject
 using Random: seed!, rand
@@ -222,7 +222,7 @@ function identify_taus_to_shower!(
     sim.config[outkey] = config
     geo = Geometry(sim.config["geometry"])
     # TODO wrap this into a neat little constructor
-    plane = Tambo.Plane(
+    plane = Plane(
         geo.tambo_normal,
         geo.tambo_coordinates,
         geo
@@ -269,7 +269,7 @@ function shower_taus!(
     sim.config["corsika"] = config
     geo = Geometry(sim.config["geometry"])
     # TODO wrap this into a neat little constructor
-    plane = Tambo.Plane(
+    plane = Plane(
         geo.tambo_normal,
         geo.tambo_coordinates,
         geo
@@ -323,7 +323,7 @@ function run_subshower!(
 
     sim.config["corsika"] = config
     geo = Geometry(sim.config["geometry"])
-    plane = Tambo.Plane(
+    plane = Plane(
         geo.tambo_normal,
         geo.tambo_coordinates,
         geo
@@ -357,7 +357,7 @@ function run_airshower!( # TODO: obsolete?
     sim.config[outkey] = config
     geo = Geometry(sim.config["geometry"])
     # TODO wrap this into a neat little constructor
-    plane = Tambo.Plane(
+    plane = Plane(
         geo.tambo_normal,
         geo.tambo_coordinates,
         geo

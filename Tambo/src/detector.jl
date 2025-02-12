@@ -57,7 +57,7 @@ function make_detector_array(
     ds::Real,
     altmin::Real,
     altmax::Real,
-    plane::Plane,
+    #plane::Plane,
     geo::Geometry,
     ext::SVector{3}
 )
@@ -91,7 +91,7 @@ function make_detector_array(
     ds::Real,
     altmin::Real,
     altmax::Real,
-    plane::Plane,
+    #plane::Plane,
     geo::Geometry,
 )
     ext = SVector{3}([1.875, 0.8, 0.03]) * units.m
