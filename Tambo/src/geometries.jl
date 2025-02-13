@@ -3,11 +3,11 @@ const defaults = (zup=5units.km, zdown=10units.km, depth1=12units.km, depth2=21.
 struct Plane
     n̂::Direction
     x0::SVector{3, Float64}
-    function Plane(n, x0)
-        n̂ = Direction(n)
-        x0 = SVector{3, Float64}(x0)
-        return new(n̂, x0)
-    end
+    #function Plane(n, x0)
+    #    n̂ = Direction(n)
+    #    x0 = SVector{3, Float64}(x0)
+    #    return new(n̂, x0)
+    #end
 end
 
 struct Box
@@ -18,17 +18,6 @@ struct Box
         return new(c1, c2)
     end
 end
-
-#function Box(c)
-#    c1 = [0, 0, 0]
-#    c2 = c
-#    return Box(c1, c2)
-#end
-#
-#function Box(x, y, z)
-#    c = [x, y, z]
-#    return Box(c)
-#end
 
 struct Valley
     spline::Spline2D
@@ -49,7 +38,8 @@ struct Geometry
     ρair::Float64
     ρrock::Float64
     tambo_bounds::SMatrix{4, 2, Float64}
-    tambo_normal::Direction
+    plane::Plane
+    #tambo_normal::Direction
     tambo_coordinates::Coord
 end
 
@@ -84,7 +74,9 @@ function Geometry(spl_path::String, tambo_coord::Coord, normal_vec::Direction)
         -1.0 1.0 -1.0 1.0;
         -0.5 -0.5 0.5 0.5
     ])
-    return Geometry(valley, box, xyzoffset, units.ρair0, units.ρrock0, bounds, normal_vec, tambo_coord)
+    plane = Plane(normal_vec, [0, 0, 0])
+    return Geometry(valley, box, xyzoffset, units.ρair0, units.ρrock0, bounds, plane, tambo_coord)
+    #return Geometry(valley, box, xyzoffset, units.ρair0, units.ρrock0, bounds, normal_vec, tambo_coord)
 end
 
 function Plane(n̂::Direction, coord::Coord, geo::Geometry)
@@ -94,7 +86,9 @@ function Plane(n̂::Direction, coord::Coord, geo::Geometry)
         plane_xy...,
         plane_z
     )
-    return Plane(n̂.proj, x0)
+    @show n̂.proj, x0
+    return Plane(n̂, x0)
+    #return Plane(n̂.proj, x0)
 end
 
 function plane_z(x::Real, y::Real, plane::Plane)
