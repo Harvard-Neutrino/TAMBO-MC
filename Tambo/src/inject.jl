@@ -146,7 +146,7 @@ function determine_injection_start(
             end
             saw_air = true
         elseif saw_air && segment.medium_name=="StandardRock"
-            closest_approach = segment.pstart
+            start = segment.pstart
             l_endcap = 0.0
             break
         end
