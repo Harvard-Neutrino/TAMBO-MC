@@ -60,6 +60,9 @@ include("corsika.jl")
 end
 
 function relativize!(d::Dict)
+    if "TAMBOSIM_PATH" ∉ keys(ENV)
+        return
+    end
     for (k, v) in pairs(d)
         if isa(v, String)
             d[k] = replace(v, "_TAMBOSIM_PATH_" => ENV["TAMBOSIM_PATH"])
