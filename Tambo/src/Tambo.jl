@@ -225,11 +225,11 @@ function identify_taus_to_shower!(
     sim.config[outkey] = config
     geo = Geometry(sim.config["geometry"])
     # TODO wrap this into a neat little constructor
-    plane = Plane(
-        geo.tambo_normal,
-        geo.tambo_coordinates,
-        geo
-    )
+    #plane = Plane(
+    #    geo.tambo_normal,
+    #    geo.tambo_coordinates,
+    #    geo
+    #)
 
     indices = Vector{Tuple{Int64, Int64}}()
 
@@ -238,7 +238,8 @@ function identify_taus_to_shower!(
         proposal_events = ProgressBar(proposal_events)
     end
     for (proposal_idx, proposal_event) in enumerate(proposal_events)
-        if ~should_do_corsika(proposal_event, plane,geo)
+        if ~should_do_corsika(proposal_event, geo)
+        #if ~should_do_corsika(proposal_event, plane,geo)
             continue
         end
         for (decay_idx,decay_event) in enumerate(proposal_event.decay_products)
