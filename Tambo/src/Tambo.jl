@@ -324,11 +324,11 @@ function shower_taus!(
     sim.config["corsika"] = config
     geo = Geometry(sim.config["geometry"])
     # TODO wrap this into a neat little constructor
-    plane = Plane(
-        geo.tambo_normal,
-        geo.tambo_coordinates,
-        geo
-    )
+    #plane = Plane(
+    #    geo.tambo_normal,
+    #    geo.tambo_coordinates,
+    #    geo
+    #)
     indices = Vector{Tuple{Int64, Int64}}()
     # TODO: this double for loop is duplicating work done in identify_taus_to_shower!
     for (proposal_idx, proposal_event) in zip(should_do_corsika_proposal_ids, proposal_events[should_do_corsika_proposal_ids])
@@ -378,11 +378,11 @@ function run_subshower!(
 
     sim.config["corsika"] = config
     geo = Geometry(sim.config["geometry"])
-    plane = Plane(
-        geo.tambo_normal,
-        geo.tambo_coordinates,
-        geo
-    )
+    #plane = Plane(
+    #    geo.tambo_normal,
+    #    geo.tambo_coordinates,
+    #    geo
+    #)
 
     # TODO: this is a hack, assumes that the proposal id is the index of the event in the array.
     # Should instead search through array for event with matching event_id
@@ -415,14 +415,14 @@ function run_airshower!( # TODO: obsolete?
     sim.config[outkey] = config
     geo = Geometry(sim.config["geometry"])
     # TODO wrap this into a neat little constructor
-    plane = Plane(
-        geo.tambo_normal,
-        geo.tambo_coordinates,
-        geo
-    )
+    #plane = Plane(
+    #    geo.tambo_normal,
+    #    geo.tambo_coordinates,
+    #    geo
+    #)
     indices = Vector{Tuple{Int64, Int64}}()
     for (proposal_idx, proposal_event) in enumerate(proposal_events)
-        if ~should_do_corsika(proposal_event, plane,geo)
+        if ~should_do_corsika(proposal_event, geo)
             continue
         end
         for (decay_idx,decay_event) in enumerate(proposal_event.decay_products)
