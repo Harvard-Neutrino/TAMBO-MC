@@ -6,7 +6,7 @@ run_number = 0
 [geometry]
 geo_spline_path = "/n/home02/thomwg11/tambo/TAMBO-MC/resources/tambo_spline.jld2"
 tambo_coordinates = [-15.622267, -72.279397] # Larger valley, lat, long in degrees
-plane_orientation = [0.507,0.108,0.855] # Larger valley
+plane_orientation = [0.5172072191801592, -0.03577867639105598, 0.8551120270137889] # Larger valley
 
 [injection]
 nu_pdg = 16

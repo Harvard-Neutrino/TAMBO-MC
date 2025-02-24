@@ -1,6 +1,3 @@
-using Distributions
-using Random
-
 function accept_all(e) :: Float64
     return 1.0
 end
@@ -130,7 +127,7 @@ function did_trigger(
 end
 
 function corsika_int_weight(
-    event::Tambo.CorsikaEvent,
+    event::CorsikaEvent,
     efficiencies
 )::Int
     seed = mod(hash(event), 2^32)
@@ -138,7 +135,7 @@ function corsika_int_weight(
 end
 
 function corsika_int_weight(
-    event::Tambo.CorsikaEvent,
+    event::CorsikaEvent,
     efficiencies,
     seed::Int
 ) :: Int
@@ -163,8 +160,9 @@ function corsika_int_weight(
 end
 
 function corsika_int_weight(
-    events::Vector{Tambo.CorsikaEvent},
+    events::Vector{CorsikaEvent},
     efficiencies
 ) :: Vector{Int}
     return [corsika_int_weight(event, efficiencies) for event in events]
 end
+

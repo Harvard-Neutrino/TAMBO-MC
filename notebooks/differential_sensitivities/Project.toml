@@ -1,5 +1,6 @@
 [deps]
 CairoMakie = "13f3f980-e62b-5c42-98c6-ff1f3baf88f0"
+CurveFit = "5a033b19-8c74-5913-a970-47c3779ef25c"
 FHist = "68837c9b-b678-4cd5-9925-8a54edc8f695"
 Glob = "c27321d9-0574-5035-807b-f59d2c89b15c"
 JLD2 = "033835bb-8acc-5ee8-8aae-3f567f8a3819"
