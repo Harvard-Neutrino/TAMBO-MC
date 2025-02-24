@@ -33,6 +33,7 @@ using Rotations: RotX, RotZ
 using StaticArrays: SVector, SMatrix 
 using TOML
 using Arrow
+using LibGit2
 
 include("units.jl")
 include("samplers/samplers.jl")
@@ -52,6 +53,46 @@ include("taurunner.jl")
 include("detector.jl")
 include("corsika.jl")
 include("serialization.jl")
+
+function __init__()
+    commit_hash = get_git_commit_hash()
+    println("Welcome to TAMBOSim version -0.1")
+    println("Git commit hash: $commit_hash")
+    println(raw"""
+              /\    //\
+             { `---'  }
+             {  O   O  }
+      _______{  \     /}________
+    /  \     `._`---'_/     /  \
+   /  |    ν_τ  `~.~`  ν_τ   |  \
+  /   |        _.-'-.        |   \
+ /    |     .'       `.     |    \
+/     |    /           \    |     \ """)
+println(raw"""
+    ████████╗ █████╗ ███╗   ███╗██████╗  ██████╗ 
+    ╚══██╔══╝██╔══██╗████╗ ████║██╔══██╗██╔═══██╗
+       ██║   ███████║██╔████╔██║██████╔╝██║   ██║
+       ██║   ██╔══██║██║╚██╔╝██║██╔══██╗██║   ██║
+       ██║   ██║  ██║██║ ╚═╝ ██║██████╔╝╚██████╔╝
+       ╚═╝   ╚═╝  ╚═╝╚═╝     ╚═╝╚═════╝  ╚═════╝ 
+                                                 """)
+end
+
+function get_git_commit_hash()
+    git_repo_path = ENV["TAMBOSIM_PATH"]
+
+    # # Open the Git repository located at the module's directory
+    repo = LibGit2.GitRepo(git_repo_path)
+            
+    # Get the OID (object ID) of the current HEAD reference
+    oid = LibGit2.head_oid(repo)
+        
+    # Convert the OID to a hex string representing the commit hash
+    commit_hash = LibGit2.string(oid)
+    
+    return commit_hash
+end
+
 
 @Base.kwdef mutable struct Simulation
     config::Dict{String, Any}
@@ -133,6 +174,7 @@ end
 function inject_ν!(
     sim::Simulation,
     config::Dict{String, Any},
+    simset_id::Int64,
     seed::Int64;
     outkey="injected_events",
     track_progress=true
@@ -151,9 +193,12 @@ function inject_ν!(
         println("Injecting neutrinos")
         itr = ProgressBar(itr)
     end
+
+    event_id_offset = simset_id * sim.config["steering"]["nevent"]
     for idx in itr
-        tr_seed = round(Int, rand()) + idx
-        event = inject_event(injector, tr_seed)
+        tr_seed = seed + idx
+        event_id = event_id_offset + idx
+        event = inject_event(injector, event_id, tr_seed)
         events[idx] = event
     end
     sim.results[outkey] = events
@@ -193,9 +238,10 @@ function propagate_τ!(
     end
     for (idx, injected_event) in enumerate(injected_events)
         event = propagator(
+            injected_event.event_id,
             injected_event.final_state,
             geo,
-            round(Int, rand()) + idx
+            seed + idx
         )
         events[idx] = event
     end
@@ -229,11 +275,11 @@ function identify_taus_to_shower!(
     sim.config[outkey] = config
     geo = Geometry(sim.config["geometry"])
     # TODO wrap this into a neat little constructor
-    plane = Plane(
-        geo.tambo_normal,
-        geo.tambo_coordinates,
-        geo
-    )
+    #plane = Plane(
+    #    geo.tambo_normal,
+    #    geo.tambo_coordinates,
+    #    geo
+    #)
 
     indices = Vector{Tuple{Int64, Int64}}()
 
@@ -242,15 +288,17 @@ function identify_taus_to_shower!(
         proposal_events = ProgressBar(proposal_events)
     end
     for (proposal_idx, proposal_event) in enumerate(proposal_events)
-        if ~should_do_corsika(proposal_event, plane,geo)
+        if ~should_do_corsika(proposal_event, geo)
+        #if ~should_do_corsika(proposal_event, plane,geo)
             continue
         end
         for (decay_idx,decay_event) in enumerate(proposal_event.decay_products)
             #wanted to keep indices lined up so checking one at at ime
             if check_neutrino(decay_event)
                 continue 
-            end 
-            push!(indices, (proposal_idx, decay_idx))
+            end
+            event_id = proposal_event.event_id
+            push!(indices, (event_id, decay_idx))
         end
     end
     sim.results[outkey] = indices
@@ -336,8 +384,11 @@ function run_subshower!(
         geo
     )
 
+    # TODO: this is a hack, assumes that the proposal id is the index of the event in the array.
+    # Should instead search through array for event with matching event_id
+    pseudo_proposal_id = mod(proposal_id, sim.config["steering"]["nevent"])
     corsika_run(
-        sim.results[proposal_events_key][proposal_id].decay_products[decay_id],
+        sim.results[proposal_events_key][pseudo_proposal_id].decay_products[decay_id],
         sim.config["corsika"],
         geo,
         proposal_id,

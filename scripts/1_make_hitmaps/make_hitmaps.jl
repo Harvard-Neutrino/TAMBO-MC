@@ -68,12 +68,8 @@ function parse_commandline()
             help = "Maximum altitude in m"
             arg_type = Float64
             required = false
-        "--simset"
-            help = "Simset"
-            arg_type = String
-            required = true
-        "--subsimset"
-            help = "Subsimset"
+        "--simset_id"
+            help = "Simset ID"
             arg_type = String
             required = true
         "--size"
@@ -98,7 +94,7 @@ function load_config(file_path::String)
 end
 
 function setup_configuration(args)
-    expected_arguments = ["basedir", "array_config", "injection_config", "simfile", "outfile", "deltas", "length", "size", "nparallel", "njob", "altmin", "altmax", "simset", "subsimset", "config"]
+    expected_arguments = ["basedir", "array_config", "injection_config", "simfile", "outfile", "deltas", "length", "size", "nparallel", "njob", "altmin", "altmax", "simset_id", "config"]
 
     # First check that either config file of CL arguments are provided, not both
     if !isnothing(args["array_config"]) && any(!isnothing, [args["deltas"], args["length"], args["size"], args["altmin"], args["altmax"]])
@@ -203,8 +199,7 @@ end
 
 
 function make_hitmap(
-    simset,
-    subsimset,
+    simset_id,
     event_number,
     modules,
     basedir,
@@ -229,7 +224,7 @@ function make_hitmap(
     end
 
     d = Dict{Int, Vector{Tambo.CorsikaEvent}}()
-    files = find_extant_files(simset, subsimset, event_number, basedir)
+    files = find_extant_files(simset_id, event_number, basedir)
     for file in files
         #CORSIKA8 sometimes doesn't finish b/c job times out 
         df = DataFrame()
@@ -312,11 +307,11 @@ function main()
 
     outfile = args["outfile"]
 
-    event_numbers = get_event_numbers(args["basedir"], args["simset"], args["subsimset"])[args["njob"]:args["nparallel"]:end]
+    event_numbers = get_event_numbers(args["basedir"], args["simset_id"])[args["njob"]:args["nparallel"]:end]
     hitmap = Dict()
     println("Processing events: ", event_numbers)
     for event_number in ProgressBar(event_numbers)
-        hitmap["$(event_number)"] = make_hitmap(args["simset"], args["subsimset"], event_number, modules, args["basedir"], xyzcorsika)
+        hitmap["$(event_number)"] = make_hitmap(args["simset_id"], event_number, modules, args["basedir"], xyzcorsika)
     end
 
     jldopen(outfile, "w") do jldf

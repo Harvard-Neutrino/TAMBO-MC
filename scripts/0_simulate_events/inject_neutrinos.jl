@@ -14,12 +14,8 @@ function parse_commandline()
             help = "Path to a TOML config file"
             arg_type = String
             default = nothing
-        "--simset"
+        "--simset_id"
             help = "Simulation set ID"
-            arg_type = Int
-            required = true
-        "--subsimset"
-            help = "Sub-simulation set ID"
             arg_type = Int
             required = true
         "--output"
@@ -38,18 +34,16 @@ function load_config(file_path::String)
 end
 
 function validate_output_filename(output_filename::String)
-    # Check that output filename adheres to specified <name>_xxxxx_yyyyy.jld2 format
-    #if match(r"^(.+)_\d{5}_\d{5}\((.jld2)|(.arrow))", output_filename) === nothing
-    if match(r"^(.+)_\d{5}_\d{5}\.((jld2)|(arrow))$", output_filename) === nothing
-        error("Output filename must adhere to format <name>_xxxxx_yyyyy.jld2")
+    # Check that output filename adheres to specified <name>_xxxxx.jld2 format
+    if match(r"^(.+)_\d{5}\.jld2$", output_filename) === nothing
+        error("Output filename must adhere to format <name>_xxxxx.jld2")
     end
 end
 
 function main()
     args = parse_commandline()
     config_filename = args["config"]
-    simset_ID = args["simset"]
-    subsimset_ID = args["subsimset"]
+    simset_id = args["simset_id"]
     output_filename = args["output"]
 
     validate_output_filename(output_filename)
@@ -62,10 +56,12 @@ function main()
     pinecone = sim.config["steering"]["pinecone"]
 
     seed!(pinecone)
-    seed = round(Int64, rand()) + 100000*simset_ID + subsimset_ID
+    # Max seed value is typemax(Int32) so we subtract 100_000 to avoid overflow.
+    # I'm assuming 100_000 is the largest value for the simset_id we'll ever use.
+    seed = rand(0:typemax(Int32)) - 100_000 + simset_id 
     seed!(seed)
 
-    inject_ν!(sim, sim.config["injection"], seed; track_progress=true)
+    inject_ν!(sim, sim.config["injection"], simset_id, seed)
     propagate_τ!(sim, sim.config["proposal"], seed)
     identify_taus_to_shower!(sim, sim.config["corsika"], seed)
 

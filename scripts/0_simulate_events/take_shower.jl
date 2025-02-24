@@ -27,12 +27,8 @@ function parse_commandline()
             help = "ID of the decay particle from the tau to simulate"
             arg_type = Int
             required = true
-        "--simset"
+        "--simset_id"
             help = "Simulation set ID"
-            arg_type = Int
-            required = true
-        "--subsimset"
-            help = "Sub-simulation set ID"
             arg_type = Int
             required = true
     end
@@ -54,8 +50,7 @@ function main()
     shower_dir = args["shower_dir"]
     proposal_id = args["proposal_id"]
     decay_id = args["decay_id"]
-    simset_ID = args["simset"]
-    subsimset_ID = args["subsimset"]
+    simset_id = args["simset_id"]
 
     sim = Simulation(config_filename, injection_filename)
 
@@ -65,7 +60,7 @@ function main()
     pinecone = sim.config["steering"]["pinecone"]
 
     seed!(pinecone)
-    seed = round(Int64, rand()) + 100000*simset_ID + subsimset_ID
+    seed = rand(1:typemax(Int64)) + simset_id
     seed!(seed)
 
     sim.config["corsika"]["shower_dir"] = shower_dir
