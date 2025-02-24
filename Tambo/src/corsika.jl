@@ -32,7 +32,7 @@ function corsika_run(
     azimuth::Float64, 
     inject_pos::SVector{3},
     intercept_pos::SVector{3}, 
-    #plane::SVector{3}, 
+    plane::SVector{3}, 
     obs_z::Float64, 
     thinning::Float64, 
     ecuts::SVector{4},
@@ -55,7 +55,7 @@ function corsika_run(
     #CORSIKA has an unintuitive way of doing things 
     #x_hat = N; y_hat = W for them
     #TAMBO x_hat = E; y_hat = N 
-    c_plane = RotZ(-π/2) * geo.plane
+    c_plane = RotZ(-π/2) * plane
     c_inject = RotZ(-π/2) * inject_pos
     c_intercept = RotZ(-π/2) * intercept_pos
 
@@ -107,7 +107,7 @@ function corsika_run(
     corsika_FLUFOR = config["FLUFOR"]
     return corsika_run(
         decay_event::Particle,
-        geo.plane,
+        #geo.plane,
         geo,
         thinning,
         ecuts,
