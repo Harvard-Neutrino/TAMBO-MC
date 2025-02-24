@@ -181,8 +181,7 @@ function inject_event(
 
     # Sample initial neutrino energy
     proposed_e_init = rand(power_law)
-    # Make particle and do tau regenerations
-    proposed_particle = Particle(ν_pdg, proposed_e_init, xb, direction, nothing)
+    proposed_particle = Particle(ν_pdg, proposed_e_init, xb, direction)
     particle_entry, physX = tr_propagate(proposed_particle, geo.tambo_offset.z, tr_seed)
     # Set energy of neutrino when enters the box
     e_final = rand(xs, particle_entry.energy)

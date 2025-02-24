@@ -14,7 +14,9 @@ export Simulation,
        run_subshower!,
        run_airshower!,
        oneweight,
-       save_simulation
+       save_simulation_to_arrow,
+       save_simulation_to_jld2
+
 
 using CoordinateTransformations: Translation, AffineMap, LinearMap
 using Dierckx: Spline2D
@@ -30,6 +32,7 @@ using Roots: find_zeros, find_zero
 using Rotations: RotX, RotZ
 using StaticArrays: SVector, SMatrix 
 using TOML
+using Arrow
 using LibGit2
 
 include("units.jl")
@@ -49,6 +52,7 @@ include("weightings.jl")
 include("taurunner.jl")
 include("detector.jl")
 include("corsika.jl")
+include("serialization.jl")
 
 function __init__()
     commit_hash = get_git_commit_hash()
@@ -488,27 +492,33 @@ function (s::Simulation)(; track_progress=true, should_run_corsika=false)
     end
 end
 
-function dump_to_file(s::Simulation, f::JLDFile)
-    #resultfields = [:injected_events, :proposal_events, :corsika_indices]
-    f["injected_events"] = s.results["injected_events"]
-    f["proposal_events"] = s.results["proposal_events"]
-    f["corsika_indices"] = s.results["corsika_indices"]
-    #f["config"] = Dict(
-    #    Dict(
-    #        fn => getfield(s, fn) for fn in fieldnames(SimulationConfig)
-    #        if fn ∉ resultfields
-    #    )
-    #)
-    f["config"] = s.config
-    return
-end
-
-function save_simulation(s::Simulation, path::String)
+function save_simulation_to_jld2(s::Simulation, path::String)
     @assert length(s.results["injected_events"]) == s.config["steering"]["nevent"]
     @assert length(s.results["proposal_events"]) == s.config["steering"]["nevent"]
     jldopen(path, "w") do file
-        dump_to_file(s, file)
+        file["injected_events"] = s.results["injected_events"]
+        file["proposal_events"] = s.results["proposal_events"]
+        file["corsika_indices"] = s.results["corsika_indices"]
+        file["config"] = s.config
     end
+end
+
+function save_simulation_to_arrow(s::Simulation, path::String)
+    @assert length(s.results["injected_events"]) == s.config["steering"]["nevent"]
+    @assert length(s.results["proposal_events"]) == s.config["steering"]["nevent"]
+    crska_idxs = Vector{Tuple{Int, Int}}[Tuple{Int, Int}[] for _ in 1:s.config["steering"]["nevent"]]
+    for (a, b) in s.results["corsika_indices"]
+        push!(crska_idxs[a], (a, b))
+    end
+    Arrow.write(
+        path,
+        (
+            proposal_events=s.results["proposal_events"],
+            injected_events=s.results["injected_events"],
+            corsika_indices=crska_idxs
+        ),
+        metadata=rec_flatten_dict(s.config)
+    )
 end
 
 end # module
