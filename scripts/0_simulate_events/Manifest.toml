@@ -1067,7 +1067,7 @@ version = "1.12.0"
 
 [[deps.Tambo]]
 deps = ["ArgParse", "Arrow", "CoordinateTransformations", "DataFrames", "Dierckx", "Distributions", "Glob", "HDF5", "Interpolations", "JLD2", "LinearAlgebra", "Parquet2", "ProgressBars", "PyCall", "QuadGK", "Random", "Roots", "Rotations", "StaticArrays", "StatsBase", "TOML", "Tables", "YAML"]
-path = "/n/home12/jlazar/TAMBO-MC/Tambo"
+path = "/n/home12/jlazar/TAMBO-MC//Tambo"
 uuid = "d9a96183-4919-46da-8188-64ea4e10e0ed"
 version = "0.1.0"
 

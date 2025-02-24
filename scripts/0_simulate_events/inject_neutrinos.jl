@@ -1,8 +1,6 @@
 using Pkg
 Pkg.activate(ENV["TAMBOSIM_PATH"] * "/scripts/0_simulate_events/")
 Pkg.develop(path=ENV["TAMBOSIM_PATH"] * "/Tambo")
-Pkg.add("ArgParse")
-#Pkg.activate(ENV["TAMBOSIM_PATH"] * "/Tambo")
 using Tambo
 using ArgParse
 using Random: seed!
