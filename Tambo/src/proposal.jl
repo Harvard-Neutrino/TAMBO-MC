@@ -46,6 +46,7 @@ struct Loss
 end
 
 struct ProposalResult
+    event_id::Int64
     stochastic_losses::Vector{Loss}
     continuous_losses::Loss
     did_decay::Bool
@@ -66,6 +67,7 @@ function Loss(int_type::Int, e::Float64, pp_position::PyObject)
 end
 
 function (prop::ProposalPropagator)(
+    event_id::Int64,
     particle::Particle,
     geo::Geometry,
     proposal_seed::Int
@@ -76,6 +78,7 @@ function (prop::ProposalPropagator)(
     t = Track(particle.position, particle.direction, geo.box)
     segments = computesegments(t, geo)
     secondaries = propagate(
+        event_id,
         particle,
         getfield.(segments, :medium_name),
         getfield.(segments, :density),
@@ -83,7 +86,7 @@ function (prop::ProposalPropagator)(
         prop.crosssection_dict,
         prop.particledef_dict,
     )
-    return ProposalResult(secondaries, particle)
+    return ProposalResult(event_id, secondaries, particle)
 end
 
 
@@ -98,7 +101,7 @@ end
 #    return [prop(event.final_state, geo) for event in events]
 #end
 
-function ProposalResult(secondaries, parent_particle)
+function ProposalResult(event_id, secondaries, parent_particle)
     if typeof(secondaries)==ProposalResult
         return secondaries
     end
@@ -143,7 +146,7 @@ function ProposalResult(secondaries, parent_particle)
         nothing
     )
     return ProposalResult(
-        losses, continuous_total, did_decay,
+        event_id, losses, continuous_total, did_decay,
         children, final_state#, final_pos, final_e
     )
 end
@@ -178,6 +181,7 @@ function make_propagator(
 end
 
 function propagate(
+    event_id::Int64,
     chargedlepton::Particle,
     media::Vector{String},
     densities::Vector{Float64},
@@ -188,6 +192,7 @@ function propagate(
     # Double hack. We should fix this
     if chargedlepton.energy==0
         return ProposalResult(
+            event_id,
             Loss[],
             Loss(-1, 0.0, SVector{3}([0,0,0])),
             false,

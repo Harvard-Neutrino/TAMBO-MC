@@ -15,7 +15,8 @@ checkpoint inject_neutrinos:
     resources:
         cpus_per_task=1,
         mem_mb=10000,
-        slurm_partition="sapphire,shared",
+        slurm_partition="arguelles_delgado",
+        #slurm_partition="sapphire,shared",
         runtime=8*60
     shell: # Purge old shower files and inject neutrinos
         f"""
@@ -35,7 +36,8 @@ rule take_shower:
     resources:
         cpus_per_task=1,
         mem_mb=10000,
-        slurm_partition="sapphire,shared",
+        slurm_partition="arguelles_delgado",
+        #slurm_partition="sapphire,shared",
         runtime=24*60
     shell:
         f"""
@@ -69,11 +71,12 @@ rule make_event_dicts: # Note: rule currently configured so that all showers mus
         get_injection_files,
         array_config = lambda wildcards: f'{TAMBOSIM_PATH}/resources/configuration_examples/{wildcards.array_config}.toml'
     output:
-        outfile = f"{TAMBO_DATA_PATH}/{{injection_config}}/event_dicts/{{array_config}}/event_dicts_{{injection_simset_id}}_{{event_dict_subset_id}}_{{event_dict_total_subsets}}.jld2"
+        outfile = f"{TAMBO_DATA_PATH}/{{injection_config}}/hitmaps/{{array_config}}/hitmaps_{{injection_simset_id}}_{{hitmap_subset_id}}_{{hitmap_total_subsets}}.jld2"
     resources:
         cpus_per_task=1,
         mem_mb=8000,
-        slurm_partition="sapphire,shared",
+        slurm_partition="arguelles_delgado",
+        #slurm_partition="sapphire,shared",
         runtime=240
     shell: 
        f"""
@@ -83,46 +86,48 @@ rule make_event_dicts: # Note: rule currently configured so that all showers mus
         --basedir {TAMBO_DATA_PATH}/{{wildcards.injection_config}} \
         --simfile {TAMBO_DATA_PATH}/{{wildcards.injection_config}}/{{wildcards.injection_config}}_{{wildcards.injection_simset_id}}.jld2 \
         --outfile {{output.outfile}} \
-        --njob {{wildcards.event_dict_subset_id}} \
-        --nparallel {{wildcards.event_dict_total_subsets}} \
-        --simset {{wildcards.injection_simset}}
+        --njob {{wildcards.hitmap_subset_id}} \
+        --nparallel {{wildcards.hitmap_total_subsets}} \
+        --simset_id {{wildcards.injection_simset_id}}
         """
 
 rule combine_event_dict_files:
     input:
-        # FIXME: update to handle different number of event dict files
-        event_dict_files = expand(f"{TAMBO_DATA_PATH}" + "/{{injection_config}}/event_dicts/{{array_config}}/event_dicts_{{injection_simset_id}}_{idx}_100.jld2", idx=range(1,101))
+        # FIXME: update to handle different number of hitmap files
+        hitmap_files = expand(f"{TAMBO_DATA_PATH}" + "/{{injection_config}}/hitmaps/{{array_config}}/hitmaps_{{injection_simset_id}}_{idx}_100.jld2", idx=range(1,101))
     output:
-        f"{TAMBO_DATA_PATH}/{{injection_config}}/event_dicts/{{array_config}}/event_dicts_{{injection_simset_id}}_full.jld2"
+        f"{TAMBO_DATA_PATH}/{{injection_config}}/hitmaps/{{array_config}}/hitmaps_{{injection_simset_id}}_full.jld2"
     resources:
         cpus_per_task=1,
         mem_mb=4000,
-        slurm_partition="sapphire,shared",
+        slurm_partition="arguelles_delgado",
+        #slurm_partition="sapphire,shared",
         runtime=60
     shell:
         f"""
-        julia {TAMBOSIM_PATH}/scripts/1_make_event_dicts/combine_event_dict_files.jl \
-        --hit_map_directory {TAMBO_DATA_PATH}/{{wildcards.injection_config}}/event_dicts/{{wildcards.array_config}}/ \
+        julia {TAMBOSIM_PATH}/scripts/1_make_hitmaps/combine_hitmap_files.jl \
+        --hitmap_directory {TAMBO_DATA_PATH}/{{wildcards.injection_config}}/hitmaps/{{wildcards.array_config}}/ \
         --simset_id {{wildcards.injection_simset_id}}
         """
 
 rule do_triggering:
     input:
         f"{TAMBO_DATA_PATH}/{{injection_config}}/injection/{{injection_config}}_{{injection_simset_id}}.jld2",
-        f"{TAMBO_DATA_PATH}/{{injection_config}}/event_dicts/{{array_config}}/event_dicts_{{injection_simset_id}}_full.jld2",
+        f"{TAMBO_DATA_PATH}/{{injection_config}}/hitmaps/{{array_config}}/hitmaps_{{injection_simset_id}}_full.jld2",
         trigger_config = lambda wildcards: f'{TAMBOSIM_PATH}/resources/configuration_examples/{wildcards.trigger_config}.toml'
     output:
         f"{TAMBO_DATA_PATH}/{{injection_config}}/triggered/{{array_config}}/{{trigger_config}}/triggered_events_{{injection_simset_id}}.jld2"
     resources:
         cpus_per_task=1,
         mem_mb=8000,
-        slurm_partition="sapphire,shared",
+        #slurm_partition="sapphire,shared",
+        slurm_partition="arguelles_delgado",
         runtime=240
     shell: 
         f"""
         julia {TAMBOSIM_PATH}/scripts/2_trigger_events/do_triggering.jl \
         --simfile {TAMBO_DATA_PATH}/{{wildcards.injection_config}}/injection/{{wildcards.injection_config}}_{{wildcards.injection_simset_id}}.jld2 \
-        --eventdictdir {TAMBO_DATA_PATH}/{{wildcards.injection_config}}/event_dicts/{{wildcards.array_config}}/ \
+        --hitmapdir {TAMBO_DATA_PATH}/{{wildcards.injection_config}}/hitmaps/{{wildcards.array_config}}/ \
         --simset_id {{wildcards.injection_simset_id}} \
         --trigger_config {{input.trigger_config}} \
         --outdir {TAMBO_DATA_PATH}/{{wildcards.injection_config}}/triggered/{{wildcards.array_config}}/{{wildcards.trigger_config}}/
