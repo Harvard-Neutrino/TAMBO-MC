@@ -43,8 +43,7 @@ function write_to_shared_file(sharedfilename, key, contenttowrite)
 end
 
 function get_event_numbers(basedir::String, simset::String, subsimset::String)
-    sims = glob("shower/*$(simset)_$(subsimset)/shower_*_?", basedir)
-    #sims = glob("showers/$(simset)_$(subsimset)/shower_*_?", basedir)
+    sims = glob("showers/$(simset)_$(subsimset)/shower_*_?", basedir)
     event_numbers = []
     for sim in sims
         event_number = parse(Int, split(sim, "_")[end-1])

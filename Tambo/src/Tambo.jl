@@ -23,8 +23,8 @@ using Dierckx: Spline2D
 using Distributions: Uniform, Poisson
 using JLD2: jldopen, JLDFile, load
 # TODO move h5 to jld2
-using HDF5
-using LinearAlgebra: norm
+using HDF5: h5open
+using LinearAlgebra: norm, dot
 using ProgressBars
 using PyCall: PyCall, PyNULL, PyObject
 using Random: seed!, rand
@@ -35,10 +35,11 @@ using TOML
 using Arrow
 
 include("units.jl")
-include("samplers/angularsamplers.jl")
-include("samplers/crosssections.jl")
-include("samplers/injectionvolumes.jl")
-include("samplers/powerlaws.jl")
+include("samplers/samplers.jl")
+#include("samplers/crosssections.jl")
+#include("samplers/injectionvolumes.jl")
+#include("samplers/powerlaws.jl")
+#include("samplers/injectionplane.jl")
 include("directions.jl")
 include("particles.jl")
 include("locations.jl")
@@ -63,6 +64,9 @@ include("serialization.jl")
 end
 
 function relativize!(d::Dict)
+    if "TAMBOSIM_PATH" ∉ keys(ENV)
+        return
+    end
     for (k, v) in pairs(d)
         if isa(v, String)
             d[k] = replace(v, "_TAMBOSIM_PATH_" => ENV["TAMBOSIM_PATH"])
@@ -94,7 +98,7 @@ function validate_config_file(config::Dict{String, Any})
         error("Unexpected keys found in geometry section of config file: ", unexpected_keys)
     end
 
-    expected_injection_keys = Set(["nu_pdg", "gamma", "gamma", "emin", "emax", "thetamin", "thetamax", "phimin", "phimax", "r_injection", "l_endcap", "xs_dir", "xs_model", "interaction", "track_progress"])
+    expected_injection_keys = Set(["nu_pdg", "gamma", "gamma", "emin", "emax", "thetamin", "thetamax", "phimin", "phimax", "r_injection", "l_endcap", "xs_dir", "xs_model", "interaction", "track_progress", "length", "width"])
     unexpected_keys = setdiff(Set(keys(config["injection"])), expected_injection_keys)
     if !isempty(unexpected_keys)
         error("Unexpected keys found in injection section of config file: ", unexpected_keys)
@@ -225,7 +229,7 @@ function identify_taus_to_shower!(
     sim.config[outkey] = config
     geo = Geometry(sim.config["geometry"])
     # TODO wrap this into a neat little constructor
-    plane = Tambo.Plane(
+    plane = Plane(
         geo.tambo_normal,
         geo.tambo_coordinates,
         geo
@@ -272,7 +276,7 @@ function shower_taus!(
     sim.config["corsika"] = config
     geo = Geometry(sim.config["geometry"])
     # TODO wrap this into a neat little constructor
-    plane = Tambo.Plane(
+    plane = Plane(
         geo.tambo_normal,
         geo.tambo_coordinates,
         geo
@@ -326,7 +330,7 @@ function run_subshower!(
 
     sim.config["corsika"] = config
     geo = Geometry(sim.config["geometry"])
-    plane = Tambo.Plane(
+    plane = Plane(
         geo.tambo_normal,
         geo.tambo_coordinates,
         geo
@@ -360,7 +364,7 @@ function run_airshower!( # TODO: obsolete?
     sim.config[outkey] = config
     geo = Geometry(sim.config["geometry"])
     # TODO wrap this into a neat little constructor
-    plane = Tambo.Plane(
+    plane = Plane(
         geo.tambo_normal,
         geo.tambo_coordinates,
         geo

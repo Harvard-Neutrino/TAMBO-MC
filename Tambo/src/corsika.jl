@@ -32,7 +32,7 @@ function corsika_run(
     azimuth::Float64, 
     inject_pos::SVector{3},
     intercept_pos::SVector{3}, 
-    plane::SVector{3}, 
+    #plane::SVector{3}, 
     obs_z::Float64, 
     thinning::Float64, 
     ecuts::SVector{4},
@@ -55,9 +55,9 @@ function corsika_run(
     #CORSIKA has an unintuitive way of doing things 
     #x_hat = N; y_hat = W for them
     #TAMBO x_hat = E; y_hat = N 
-    c_plane = RotZ(-π/2)*plane
-    c_inject = RotZ(-π/2)*inject_pos
-    c_intercept = RotZ(-π/2)*intercept_pos
+    c_plane = RotZ(-π/2) * geo.plane
+    c_inject = RotZ(-π/2) * inject_pos
+    c_intercept = RotZ(-π/2) * intercept_pos
 
     if azimuth < π/2 
         c_azimuth = 3π/2 + azimuth
@@ -91,9 +91,9 @@ function corsika_run(
     parallelize_corsika=parallelize_corsika
 )
     
-    plane_orientation = geo.tambo_normal
+    #plane_orientation = geo.tambo_normal
     tambo_origin = geo.tambo_coordinates
-    plane = Plane(plane_orientation, tambo_origin, geo)
+    #plane = Plane(plane_orientation, tambo_origin, geo)
     thinning = config["thinning"]
     ecuts = SVector{4}([
         config["em_ecut"] * units.GeV,
@@ -107,7 +107,7 @@ function corsika_run(
     corsika_FLUFOR = config["FLUFOR"]
     return corsika_run(
         decay_event::Particle,
-        plane,
+        geo.plane,
         geo,
         thinning,
         ecuts,
@@ -124,7 +124,7 @@ end
 
 function corsika_run(
     decay_event::Particle,
-    plane::Plane, 
+    #plane::Plane, 
     geo::Geometry,
     thinning::Float64,
     ecuts,
@@ -144,7 +144,7 @@ function corsika_run(
     azimuth = decay_event.direction.ϕ
     obs_z = geo.tambo_offset.z/ units.km
 
-    distance, point, dot = intersect(decay_event.position, decay_event.direction, plane)
+    distance, point, dot = intersect(decay_event.position, decay_event.direction, geo.plane)
     distance = distance/units.km
     intercept_pos = point/units.km 
     inject_pos = decay_event.position/units.km 
@@ -156,7 +156,7 @@ function corsika_run(
         azimuth,
         inject_pos,
         intercept_pos,
-        plane.n̂.proj,
+        geo.plane.n̂.proj,
         obs_z, 
         thinning,
         ecuts,
@@ -200,7 +200,7 @@ struct Hit
   event::CorsikaEvent
 end
 
-function check_inside_mtn(event, plane, geo; verbose=false)
+function check_inside_mtn(event, geo; verbose=false)
     decay_pos = event.propped_state.position
     if inside(decay_pos, geo) 
         if verbose
@@ -211,14 +211,14 @@ function check_inside_mtn(event, plane, geo; verbose=false)
     return true 
 end
 
-function check_right_direction(event, plane, geo; verbose=false)
+function check_right_direction(event, geo; verbose=false)
     """
     The particle has to travel backwards to reach the plane. 
     We don't want particles that have to travel backwards to reach the plane. 
     """
     decay_pos = event.propped_state.position
     propped_dir = event.propped_state.direction
-    distance, _, _ = intersect(decay_pos, propped_dir, plane) 
+    distance, _, _ = intersect(decay_pos, propped_dir, geo.plane) 
     if distance/units.m < 0
         if verbose
             println("negative distance")
@@ -228,7 +228,7 @@ function check_right_direction(event, plane, geo; verbose=false)
     return true 
 end
 
-function check_plane_dot(event, plane, geo; verbose=false)
+function check_plane_dot(event, geo; verbose=false)
     """
     The particle direction is in the same direction as the plane's normal vector. 
     To intercept with positive distance, the particle would have to be traveling from inside the mountain.  
@@ -236,7 +236,7 @@ function check_plane_dot(event, plane, geo; verbose=false)
 
     decay_pos = event.propped_state.position
     propped_dir = event.propped_state.direction
-    _, _, dot = intersect(decay_pos, propped_dir, plane) 
+    _, _, dot = intersect(decay_pos, propped_dir, geo.plane)
     if dot > 0 
         if verbose
             println("DOT > 0")
@@ -246,14 +246,14 @@ function check_plane_dot(event, plane, geo; verbose=false)
     return true 
 end
 
-function check_near_orthogonal(event, plane, geo; verbose=false)
+function check_near_orthogonal(event, geo; verbose=false)
     """
     Cutting near-orthogonal particle directions with the plane normal. 
     """
     decay_pos = event.propped_state.position
     propped_dir = event.propped_state.direction
     #plane = Tambo.Plane(minesite_normal_vec, minesite_coord, geo)      
-    _, _, dot = intersect(decay_pos, propped_dir, plane) 
+    _, _, dot = intersect(decay_pos, propped_dir, geo.plane) 
     if abs(dot) < 1e-3
         if verbose
             println("ORTHOGONAL")
@@ -263,14 +263,14 @@ function check_near_orthogonal(event, plane, geo; verbose=false)
     return true 
 end
 
-function check_z_intercept(event, plane, geo; verbose=false)
+function check_z_intercept(event, geo; verbose=false)
     """
     point[3] = z-intercept of particle and TAMBO plane. If the elevation in TAMBO coords is greater than 10km, cut. 
     """
     decay_pos = event.propped_state.position
     propped_dir = event.propped_state.direction
     #plane = Tambo.Plane(minesite_normal_vec, minesite_coord, geo)      
-    _, point, _ = intersect(decay_pos, propped_dir, plane) 
+    _, point, _ = intersect(decay_pos, propped_dir, geo.plane) 
     if point.z > 10 * units.km
         if verbose
             println("Z-intercept GREATER THAN 10km")
@@ -280,14 +280,14 @@ function check_z_intercept(event, plane, geo; verbose=false)
     return true 
 end
 
-function check_track_length(event, plane, geo; verbose=false, max_distance=20units.km)
+function check_track_length(event, geo; verbose=false, max_distance=20units.km)
     """
     If the distance length is greater than 20km between particle position and intercept with TAMBO plane, cut. 
     """
     decay_pos = event.propped_state.position
     propped_dir = event.propped_state.direction
     #plane = Tambo.Plane(minesite_normal_vec, minesite_coord, geo)      
-    distance, _, _ = intersect(decay_pos, propped_dir, plane) 
+    distance, _, _ = intersect(decay_pos, propped_dir, geo.plane)
     if distance > max_distance
         if verbose
             println("Distance length greater than 20km") 
@@ -297,10 +297,10 @@ function check_track_length(event, plane, geo; verbose=false, max_distance=20uni
     return true 
 end
 
-function check_intersections(event, plane, geo; verbose=false)
+function check_intersections(event, geo; verbose=false)
     decay_pos = event.propped_state.position
     propped_dir = event.propped_state.direction
-    _, point, _ = intersect(decay_pos, propped_dir, plane) 
+    _, point, _ = intersect(decay_pos, propped_dir)
     t = Track(decay_pos, point)
     intersections = intersect(t, geo)
 
@@ -315,7 +315,7 @@ function check_intersections(event, plane, geo; verbose=false)
     return true 
 end
 
-function check_passed_through_rock(event::ProposalResult, plane, geo; verbose=false, thresh=4units.km)
+function check_passed_through_rock(event::ProposalResult, geo; verbose=false, thresh=4units.km)
     track = Tambo.Track(
         event.continuous_losses.position,
         reverse(event.propped_state.direction),
@@ -348,14 +348,20 @@ function check_neutrino(daughter_particle::Particle; verbose = false)
     end 
 end
 
-function should_do_corsika(event::ProposalResult, plane::Plane, geo::Geometry, criteria::Array{Function}; verbose=false, check_mode=false)
+function should_do_corsika(
+    event::ProposalResult,
+    geo::Geometry,
+    criteria::Array{Function};
+    verbose=false,
+    check_mode=false
+)
     # Seems like we should do `check_mode` via dependency injection but weeeeeeeeeeee
     if check_mode
         b = Bool[]
     end
 
     for criterion in criteria
-        v = criterion(event, plane, geo; verbose=verbose)
+        v = criterion(event, geo; verbose=verbose)
         if check_mode
             push!(b, v)
         else
@@ -372,7 +378,12 @@ function should_do_corsika(event::ProposalResult, plane::Plane, geo::Geometry, c
     end
 end
 
-function should_do_corsika(event::ProposalResult, plane::Plane, geo::Geometry; verbose=false, check_mode=false)
+function should_do_corsika(
+    event::ProposalResult,
+    geo::Geometry;
+    verbose=false,
+    check_mode=false
+)
     checks = [
         check_inside_mtn,
         check_right_direction,
@@ -383,5 +394,5 @@ function should_do_corsika(event::ProposalResult, plane::Plane, geo::Geometry; v
         check_intersections,
         check_passed_through_rock,
     ]
-    return should_do_corsika(event, plane, geo, checks; verbose=verbose, check_mode=check_mode)
+    return should_do_corsika(event, geo, checks; verbose=verbose, check_mode=check_mode)
 end

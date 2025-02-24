@@ -6,9 +6,6 @@ using Glob
 using ArgParse
 using TOML
 
-
-include("trigger_defs.jl")
-
 interpolated_effs = load(ENV["TAMBOSIM_PATH"] * "/resources/detector_efficiencies/initial_IceTop_panel_interpolations.jld2")
 global interpolated_eff_gamma = interpolated_effs["gamma_interp"]
 global interpolated_eff_muon = interpolated_effs["muon_interp"]
@@ -22,8 +19,8 @@ function parse_commandline()
             arg_type = String
             #required = true
             #default = "/n/holylfs05/LABS/arguelles_delgado_lab/Lab/common_software/source/corsika8/corsika-work/Oct16th2023_WhitePaper_300k.jld2"
-        "--eventdictdir"
-            help = "Directory with all the event dicts inside"
+        "--hitmapdir"
+            help = "Directory with all the hitmaps inside"
             arg_type = String
             #default = "/n/holylfs05/LABS/arguelles_delgado_lab/Lab/TAMBO/will_misc/triggered_events/Jan7th2024_WhitePaper_300k_no_thin/"
             #required = true 
@@ -68,7 +65,7 @@ function load_config(file_path::String)
 end
 
 function setup_configuration(args)
-    expected_arguments = ["simfile", "eventdictdir", "outdir", "trigger_config", "trigger_type", "module_threshold", "event_threshold"]
+    expected_arguments = ["simfile", "hitmapdir", "outdir", "trigger_config", "trigger_type", "module_threshold", "event_threshold"]
 
     config_params = Dict()
 
@@ -111,7 +108,7 @@ function main()
     args = setup_configuration(args)
 
     sim_file = args["simfile"]
-    event_dicts_path = args["eventdictdir"]
+    hitmaps_path = args["hitmapdir"]
     simset_ID = args["simset"]
     subsimset_ID = args["subsimset"]
     outdir = args["outdir"]
@@ -121,28 +118,18 @@ function main()
 
     println("Configuration:")
     println("sim_file: $sim_file")
-    println("event_dicts_path: $event_dicts_path")
+    println("hitmaps_path: $hitmaps_path")
     println("outdir: $outdir")
     println("trigger_type: $trigger_type")
     println()
 
     
-    event_dicts = Dict{String, Any}()
-    try # TODO: bit of a hack. Should just require user to provide full event dict
-        event_dicts = load(event_dicts_path * "/event_dicts_$(simset_ID)_$(subsimset_ID)_full.jld2")["hit_map"]
-    catch ArgumentError
-        println("No full event dict found. Falling back to old behavior of combining all event dicts here.")
-        
-        include("../1_make_event_dicts/combine_event_dict_files.jl")
-        event_dict_files = get_filename_list(event_dicts_path, simset_ID, subsimset_ID)
-        for event_dict_file in event_dict_files
-            merge!(event_dicts, load(event_dict_file)["hit_map"])
-        end
-    end
+    hitmaps = Dict{String, Any}()
+    hitmaps = load(hitmaps_path * "/hitmaps_$(simset_ID)_$(subsimset_ID)_full.jld2")["hitmap"]
 
     triggered_event_ids = []
-    for (key, value) in event_dicts
-        if did_trigger(value, module_thresh, event_thresh, trigger_type)
+    for (key, value) in hitmaps
+        if Tambo.did_trigger(value, module_thresh, event_thresh, trigger_type)
             push!(triggered_event_ids, parse(Int, split(key, "/")[end]))
         end
     end

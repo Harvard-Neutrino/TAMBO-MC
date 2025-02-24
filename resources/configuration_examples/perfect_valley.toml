@@ -1,22 +1,22 @@
 [steering]
-nevent = 1000
-pinecone = 71
+nevent = 20000
+pinecone = 0
 run_number = 0
 
 [geometry]
-geo_spline_path = "_TAMBOSIM_PATH_/resources/tambo_spline.jld2"
-tambo_coordinates = [-15.622267, -72.279397] # Larger valley, lat, long in degrees
-plane_orientation = [0.5172072191801592, -0.03577867639105598, 0.8551120270137889] # Larger valley
+geo_spline_path = "_TAMBOSIM_PATH_/resources/perfect_valley_spline.jld2"
+tambo_coordinates = [0.0, -0.015738128103577786] # Latitude, Longitude in degrees of detector array center
+plane_orientation = [0.5655283556, 0, 0.8247288518]
 
 [injection]
 nu_pdg = 16
-gamma = 3.0
+gamma = 2.0
 emin = 3.0e5 # GeV
-emax = 1.0e6
+emax = 1.0e9
 thetamin = 0 # degrees
 thetamax = 117 # degrees
 phimin = 90 # degrees
-phimax = 290 # degrees
+phimax = 270 # degrees
 r_injection = 2000.0 # m
 l_endcap = 1000.0 # m
 xs_dir = "_TAMBOSIM_PATH_/resources/cross_sections/tables/"

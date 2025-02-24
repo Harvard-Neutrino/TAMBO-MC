@@ -1,8 +1,8 @@
-# Making `event_dicts`
+# Making `hitmaps`
 
-## First off, what is an `event_dict`, and why would you want to make one?
+## First off, what is a `hitmap`, and why would you want to make one?
 
-To answer the first question, an `event_dict` is a `Dict{DetectionModule, Vector{CorsikaEvent}}` mapping that tells you whether a particle from the `CORSIKA` simulation intersected a `DetectionModule` along its path.
+To answer the first question, an `hitmap` is a `Dict{DetectionModule, Vector{CorsikaEvent}}` mapping that tells you whether a particle from the `CORSIKA` simulation intersected a `DetectionModule` along its path.
 
 [!CAUTION]
 Our current intersection codde is a bit naive, and says that an intersection occured if and only if the particles intersection with the mountain is within the detection pannel.
