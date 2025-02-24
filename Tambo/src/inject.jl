@@ -199,7 +199,7 @@ function inject_event(
     else
         p_int, genX = closest_approach, floatmin()
     end
-    final_state = Particle(ν_pdg - sign(ν_pdg), e_final, p_int, direction, particle_entry)
+    final_state = Particle(ν_pdg - sign(ν_pdg), e_final, p_int, direction)
     # Now our generation column depth is the same as our physical column depth so we set them equal
     event = InjectionEvent(
         event_id,
