@@ -72,5 +72,5 @@ function tr_propagate(p::Particle, ztambo::Float64, seed::Int)
     θ_tr = p.direction.θ + ψ
     eout, X = run_taurunner(p, θ_tr, depth)
     xb′ -= SVector{3}([0, 0, ztambo + units.earthradius])
-    return Particle(p.pdg_mc, eout, xb′, p.direction, p.parent), X
+    return Particle(p.pdg_mc, eout, xb′, p.direction), X
 end

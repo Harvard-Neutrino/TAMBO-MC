@@ -300,7 +300,7 @@ end
 function check_intersections(event, geo; verbose=false)
     decay_pos = event.propped_state.position
     propped_dir = event.propped_state.direction
-    _, point, _ = intersect(decay_pos, propped_dir)
+    _, point, _ = intersect(decay_pos, propped_dir, geo.plane)
     t = Track(decay_pos, point)
     intersections = intersect(t, geo)
 

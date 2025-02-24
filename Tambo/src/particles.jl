@@ -3,7 +3,6 @@ struct Particle
     energy::Float64
     position::SVector{3, Float64}
     direction::Direction
-    parent::Union{Particle,Nothing}
 end
 
 const range_parameters = Dict(
