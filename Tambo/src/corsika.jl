@@ -392,7 +392,7 @@ function should_do_corsika(
         check_z_intercept,
         check_track_length,
         check_intersections,
-        check_passed_through_rock,
+        #check_passed_through_rock,
     ]
     return should_do_corsika(event, geo, checks; verbose=verbose, check_mode=check_mode)
 end

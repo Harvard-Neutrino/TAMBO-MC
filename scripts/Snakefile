@@ -15,8 +15,7 @@ checkpoint inject_neutrinos:
     resources:
         cpus_per_task=1,
         mem_mb=10000,
-        slurm_partition="arguelles_delgado",
-        #slurm_partition="sapphire,shared",
+        slurm_partition="sapphire,shared",
         runtime=8*60
     shell: # Purge old shower files and inject neutrinos
         f"""
@@ -35,9 +34,8 @@ rule take_shower:
         f"{TAMBO_DATA_PATH}/{{injection_config}}/showers/{{injection_simset_id}}/shower_{{take_shower_proposal_id}}_{{take_shower_decay_id}}/particles/particles.parquet"
     resources:
         cpus_per_task=1,
-        mem_mb=10000,
-        slurm_partition="arguelles_delgado",
-        #slurm_partition="sapphire,shared",
+        mem_mb=2000,
+        slurm_partition="sapphire,shared",
         runtime=24*60
     shell:
         f"""
@@ -66,7 +64,7 @@ def get_injection_files(wildcards):
         shower_files = expand(f"{TAMBO_DATA_PATH}" + "/{{injection_config}}/showers/{{injection_simset_id}}/shower_{proposal_ids[0]}_{proposal_ids[1]}/particles/particles.parquet", proposal_ids=lambda wildcards: get_particle_ids(wildcards))
         return shower_files
 
-rule make_hitmaps: # Note: rule currently configured so that all showers must be run, even if only a subset of them are needed for a specific him map file
+rule make_hitmaps: # Note: rule currently configured so that all showers must be run, even if only a subset of them are needed for a specific event dict file
     input:
         get_injection_files,
         array_config = lambda wildcards: f'{TAMBOSIM_PATH}/resources/configuration_examples/{wildcards.array_config}.toml'
@@ -75,8 +73,7 @@ rule make_hitmaps: # Note: rule currently configured so that all showers must be
     resources:
         cpus_per_task=1,
         mem_mb=8000,
-        slurm_partition="arguelles_delgado",
-        #slurm_partition="sapphire,shared",
+        slurm_partition="sapphire,shared",
         runtime=240
     shell: 
        f"""
@@ -100,8 +97,7 @@ rule combine_hitmap_files:
     resources:
         cpus_per_task=1,
         mem_mb=4000,
-        slurm_partition="arguelles_delgado",
-        #slurm_partition="sapphire,shared",
+        slurm_partition="sapphire,shared",
         runtime=60
     shell:
         f"""
@@ -120,8 +116,7 @@ rule do_triggering:
     resources:
         cpus_per_task=1,
         mem_mb=8000,
-        #slurm_partition="sapphire,shared",
-        slurm_partition="arguelles_delgado",
+        slurm_partition="sapphire,shared",
         runtime=240
     shell: 
         f"""
@@ -137,6 +132,6 @@ def get_hitmap_files(config):
     config = config + '.toml'
     with open(config) as f:
         config_dict = toml.load(f)
-    hitmaps_dir = config_dict['hitmapdir']
-    hitmaps_files = glob.glob(f'{hitmaps_dir}hitmaps_*.jld2')
-    return hitmaps_files
+    hitmap_dir = config_dict['eventdictdir']
+    hitmap_files = glob.glob(f'{hitmap_dir}hitmaps_*.jld2')
+    return hitmap_files

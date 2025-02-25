@@ -9,6 +9,10 @@ struct Track{T<:Number}
     end
 end
 
+struct TrackStartsOutsideBoxError <: Exception
+    message::String
+end
+
 function Track(fpoint::SVector{3})
     ipoint = SVector{3}([0, 0, 0])
     d = Direction(fpoint, ipoint)
@@ -66,7 +70,7 @@ end
 
 function Base.intersect(p::SVector{3}, d::Direction, box::Box)
     if !inside(p, box)
-        error("Track does not start inside the box")
+        throw(TrackStartsOutsideBoxError("Track does not start inside the box"))
     end
     edges = [box.c1, box.c2]
     λf = Inf
