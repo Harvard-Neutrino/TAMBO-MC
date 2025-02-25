@@ -1,3 +1,5 @@
+using Random: seed!
+
 function accept_all(e) :: Float64
     return 1.0
 end
@@ -139,7 +141,7 @@ function corsika_int_weight(
     efficiencies,
     seed::Int
 ) :: Int
-    Random.seed!(seed)
+    seed!(seed)
     efficiency = efficiencies[event.pdg]
 
     # First if statement is for case we're counting particle hit, not photons

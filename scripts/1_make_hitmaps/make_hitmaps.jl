@@ -300,7 +300,6 @@ function main()
         args["deltas"]units.m,
         args["altmin"]units.m,
         args["altmax"]units.m,
-        plane,
         geo,
         size
     )

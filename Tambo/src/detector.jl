@@ -63,6 +63,7 @@ function make_detector_array(
 )
 
     # Make a triangular grid in xy-plane
+    plane = geo.plane
 
     #leave this, something with rotation makes the lengths work out such that
     #the lengths along the x axis 

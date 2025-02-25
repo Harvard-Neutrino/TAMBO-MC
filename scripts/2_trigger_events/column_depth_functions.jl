@@ -1,5 +1,6 @@
 using StaticArrays
 using Rotations
+using Random
 
 function compute_column_depth(viewpoint, direction, geo, medium_name)
     track = Tambo.Track(viewpoint, direction, geo.box)
@@ -26,8 +27,9 @@ function compute_column_depth_probability(sim_file, event, resolution, thresold_
     resolution = deg2rad(resolution)
     
     geo = Tambo.Geometry(sim_file["config"]["geometry"])
-    tambo_coordinates = geo.tambo_coordinates
-    plane = Tambo.Plane(Tambo.Direction(sim_file["config"]["geometry"]["plane_orientation"]...), tambo_coordinates, geo)
+    #tambo_coordinates = geo.tambo_coordinates
+    #plane = Tambo.Plane(Tambo.Direction(sim_file["config"]["geometry"]["plane_orientation"]...), tambo_coordinates, geo)
+    plane = geo.plane
     #tambo_coord_degrees = Tambo.Coord((deg2rad.(config.config["geometry"]["tambo_coordinates"]))...)
     #plane = Tambo.Plane(Tambo.Direction(config.config["geometry"]["plane_orientation"]...), tambo_coord_degrees, geo)
 

@@ -53,6 +53,7 @@ include("taurunner.jl")
 include("detector.jl")
 include("corsika.jl")
 include("serialization.jl")
+include("triggers.jl")
 
 function __init__()
     commit_hash = get_git_commit_hash()
@@ -386,7 +387,11 @@ function run_subshower!(
 
     # TODO: this is a hack, assumes that the proposal id is the index of the event in the array.
     # Should instead search through array for event with matching event_id
-    pseudo_proposal_id = mod(proposal_id, sim.config["steering"]["nevent"])
+    if proposal_id == sim.config["steering"]["nevent"]
+        pseudo_proposal_id = sim.config["steering"]["nevent"]
+    else
+        pseudo_proposal_id = mod(proposal_id, sim.config["steering"]["nevent"])
+    end
     corsika_run(
         sim.results[proposal_events_key][pseudo_proposal_id].decay_products[decay_id],
         sim.config["corsika"],
