@@ -15,7 +15,9 @@ export Simulation,
        run_airshower!,
        oneweight,
        save_simulation_to_arrow,
-       save_simulation_to_jld2
+       save_simulation_to_jld2,
+       make_detector_array,
+       did_trigger
 
 
 using CoordinateTransformations: Translation, AffineMap, LinearMap
