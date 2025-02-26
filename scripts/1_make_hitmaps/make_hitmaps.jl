@@ -1,12 +1,12 @@
 using Pkg
+Pkg.activate("$(ENV["TAMBOSIM_PATH"])/scripts/1_make_hitmaps/")
+
 if "TAMBOSIM_PATH" ∈ keys(ENV)
     Pkg.develop(path="$(ENV["TAMBOSIM_PATH"])/Tambo")
 else
     Pkg.develop(path="../../Tambo/")
 end
 using Tambo
-
-Pkg.activate("$(ENV["TAMBOSIM_PATH"])/scripts/1_make_hitmaps/")
 
 using JLD2
 using StaticArrays
@@ -176,23 +176,23 @@ function add_hits!(d::Dict, og_df::DataFrame, modules)
 
         if isempty(df)
             continue 
-        else 
-            if !(m.idx in keys(d))
-                d[m.idx] = Tambo.CorsikaEvent[]
-            end
-            for particle in eachrow(df)
-                position = SVector{3}([particle.x,particle.y,particle.z])
-                push!(
-                    d[m.idx],
-                    Tambo.CorsikaEvent(
-                        particle.pdg,
-                        particle.kinetic_energy * units.GeV,
-                        position,
-                        particle.time * units.second,
-                        particle.weight
-                    )
+        end
+
+        if !(m.idx in keys(d))
+            d[m.idx] = Tambo.CorsikaEvent[]
+        end
+        for particle in eachrow(df)
+            position = SVector{3}([particle.x,particle.y,particle.z])
+            push!(
+                d[m.idx],
+                Tambo.CorsikaEvent(
+                    particle.pdg,
+                    particle.kinetic_energy * units.GeV,
+                    position,
+                    particle.time * units.second,
+                    particle.weight
                 )
-            end 
+            )
         end 
     end 
 end 
@@ -237,9 +237,9 @@ function make_hitmap(
 
         df = loadcorsika(select(df,Not("shower","nx","ny","nz")),xyzcorsika)
         df = filter(
-                e -> xmin < e.x && e.x < xmax && ymin < e.y && e.y < ymax,
-                df
-            )
+            e -> xmin < e.x && e.x < xmax && ymin < e.y && e.y < ymax,
+            df
+        )
         add_hits!(d, df, modules)
 
         #if necessary to avoid runaway RAM usage
@@ -265,9 +265,8 @@ function main()
     catch
         error("Config file not found. Currently only supports running config files in the resources/configuration_examples directory")
     end
-    geo = Tambo.Geometry(config.config["geometry"])
-    tambo_coord_degrees = Tambo.Coord((deg2rad.(config.config["geometry"]["tambo_coordinates"]))...)
-    plane = Tambo.Plane(Tambo.Direction(config.config["geometry"]["plane_orientation"]...), tambo_coord_degrees, geo)
+    geo = Geometry(config.config["geometry"])
+    #tambo_coord_degrees = Tambo.Coord((deg2rad.(config.config["geometry"]["tambo_coordinates"]))...)
     
     zcorsika = config.config["geometry"]["plane_orientation"]
     display("original zcorsika = $zcorsika")
@@ -295,12 +294,11 @@ function main()
         size = SVector{3}([4,4,0.03])units.m
     end 
 
-    modules = Tambo.make_detector_array(
+    modules = make_detector_array(
         args["length"]units.m,
         args["deltas"]units.m,
         args["altmin"]units.m,
         args["altmax"]units.m,
-        plane,
         geo,
         size
     )
