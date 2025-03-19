@@ -1,6 +1,6 @@
 struct Direction
-    θ::Float64
-    ϕ::Float64
+    theta::Float64
+    phi::Float64
     proj::SVector{3,Float64}
 end
 
@@ -38,6 +38,16 @@ end
 
 function Direction(pp_vector::PyObject)
     return Direction(pp_vector.x, pp_vector.y, pp_vector.z)
+end
+
+function Base.getproperty(d::Direction, field::Symbol)
+    if field==:θ
+        return d.theta
+    elseif field==:ϕ
+        return d.phi
+    else
+        return getfield(d, field)
+    end
 end
 
 function Base.show(io::IO, d::Direction)
