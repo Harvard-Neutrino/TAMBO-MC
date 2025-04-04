@@ -75,9 +75,7 @@ function sample_interaction_vertex(
 )
     track = Track(closest_approach, reverse(d), geo.box)
     segments = computesegments(track, geo)
-    #@show segments
     tot_X = endcapcolumndepth(track, endcap_distance, range, segments)
-    #@show tot_X
     X = rand(Uniform(0.0, tot_X))
     λ_int = inversecolumndepth(track, X, geo, segments)
     p_int = track(λ_int)
