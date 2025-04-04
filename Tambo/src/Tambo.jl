@@ -185,7 +185,7 @@ function inject_ν!(
     sim.config[outkey] = config
 
     seed!(seed)
-    track_progress = sim.config[outkey]["track_progress"]
+    #track_progress = sim.config[outkey]["track_progress"]
 
     geo = Geometry(sim.config["geometry"])
     injector = Injector(config, geo)
@@ -216,6 +216,21 @@ function inject_ν!(
     inject_ν!(sim, config; outkey=outkey, track_progress=track_progress)
 end
 
+function inject_ν!(
+    sim::Simulation;
+    outkey="injected_events",
+    track_progress=true
+)
+    inject_ν!(
+        sim,
+        sim.config["injection"],
+        sim.config["steering"]["run_number"],
+        sim.config["steering"]["pinecone"];
+        outkey=outkey,
+        track_progress=track_progress
+    )
+end
+
 function propagate_τ!(
     sim::Simulation,
     config::Dict{String, Any},
@@ -228,7 +243,7 @@ function propagate_τ!(
     sim.config[outkey] = config
 
     seed!(seed)
-    track_progress = sim.config[outkey]["track_progress"]
+    #track_progress = sim.config[outkey]["track_progress"]
 
     geo = Geometry(sim.config["geometry"])
     events = Vector{ProposalResult}(undef, sim.config["steering"]["nevent"])
@@ -261,6 +276,22 @@ function propagate_τ!(
     propagate_τ!(sim, config; inkey=inkey, outkey=outkey, track_progress=track_progress)
 end
 
+function propagate_τ!(
+    sim::Simulation;
+    inkey::String="injected_events",
+    outkey::String="proposal_events",
+    track_progress::Bool=true
+)
+    propagate_τ!(
+        sim,
+        sim.config["proposal"],
+        sim.config["steering"]["pinecone"];
+        inkey=inkey,
+        outkey=outkey,
+        track_progress=track_progress
+    )
+end
+
 function identify_taus_to_shower!(
     sim::Simulation,
     config::Dict{String, Any},
@@ -272,7 +303,7 @@ function identify_taus_to_shower!(
     relativize!(config)
     proposal_events = sim.results[inkey]
 
-    track_progress = sim.config["corsika"]["track_progress"]
+    #track_progress = sim.config["corsika"]["track_progress"]
     
     sim.config[outkey] = config
     geo = Geometry(sim.config["geometry"])
@@ -508,19 +539,25 @@ end
 function save_simulation_to_arrow(s::Simulation, path::String)
     @assert length(s.results["injected_events"]) == s.config["steering"]["nevent"]
     @assert length(s.results["proposal_events"]) == s.config["steering"]["nevent"]
-    crska_idxs = Vector{Tuple{Int, Int}}[Tuple{Int, Int}[] for _ in 1:s.config["steering"]["nevent"]]
-    for (a, b) in s.results["corsika_indices"]
-        push!(crska_idxs[a], (a, b))
-    end
-    Arrow.write(
-        path,
-        (
+    if "corsika_indices" ∈ keys(s.results)
+        crska_idxs = Vector{Tuple{Int, Int}}[Tuple{Int, Int}[] for _ in 1:s.config["steering"]["nevent"]]
+        for (a, b) in s.results["corsika_indices"]
+            push!(crska_idxs[a], (a, b))
+        end
+        savestuff = (
             proposal_events=s.results["proposal_events"],
             injected_events=s.results["injected_events"],
             corsika_indices=crska_idxs
-        ),
-        metadata=rec_flatten_dict(s.config)
-    )
+        )
+    else
+        savestuff = (
+            proposal_events=s.results["proposal_events"],
+            injected_events=s.results["injected_events"],
+        )
+    end
+
+
+    Arrow.write(path, savestuff, metadata=rec_flatten_dict(s.config))
 end
 
 end # module
