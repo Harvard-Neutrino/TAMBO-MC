@@ -57,7 +57,6 @@ function make_detector_array(
     ds::Real,
     altmin::Real,
     altmax::Real,
-    #plane::Plane,
     geo::Geometry,
     ext::SVector{3}
 )
@@ -67,10 +66,10 @@ function make_detector_array(
 
     #leave this, something with rotation makes the lengths work out such that
     #the lengths along the x axis 
-    xys = Tambo.make_triangle_grid(-2units.km, 2units.km, -array_length/2, array_length/2, ds)
+    xys = make_triangle_grid(-2units.km, 2units.km, -array_length/2, array_length/2, ds)
 
     # Rotate it to align with the mountain plain
-    r = RotZ(plane.n̂.ϕ) * RotY(plane.n̂.θ)
+    r = RotZ(geo.plane.n̂.ϕ) * RotY(geo.plane.n̂.θ)
     #RotY(-minesite_normal_vec.θ) * RotZ(-minesite_normal_vec.ϕ)
     xyzs = [r * xy for xy in xys]
     # Remove points that are too high in z
@@ -79,7 +78,7 @@ function make_detector_array(
     xyzs = filter(xyz -> zmin < xyz[3] && xyz[3] < zmax, xyzs)
     # Make the module list
     modules = SquareDetectionModule[]
-    rot = RotY(-plane.n̂.θ) * RotZ(-plane.n̂.ϕ) # This makes the
+    rot = RotY(-geo.plane.n̂.θ) * RotZ(-geo.plane.n̂.ϕ) # This makes the
     #ext = SVector{3}([1.875, 0.8, 0.03]) * units.m
     for (idx, xyz) in enumerate(xyzs)
         push!(modules, SquareDetectionModule(xyz, rot, ext, idx))
@@ -92,10 +91,9 @@ function make_detector_array(
     ds::Real,
     altmin::Real,
     altmax::Real,
-    #plane::Plane,
     geo::Geometry,
 )
     ext = SVector{3}([1.875, 0.8, 0.03]) * units.m
-    return make_triangle_grid(length, ds, altmin, altmax, plane, geo, ext)
+    return make_detector_array(length, ds, altmin, altmax, geo, ext)
 end
     

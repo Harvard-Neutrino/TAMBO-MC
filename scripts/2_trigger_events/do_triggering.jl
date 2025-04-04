@@ -127,7 +127,7 @@ function main()
 
     triggered_event_ids = []
     for (key, value) in hitmaps
-        if Tambo.did_trigger(value, module_thresh, event_thresh, trigger_type)
+        if did_trigger(value, module_thresh, event_thresh, trigger_type)
             push!(triggered_event_ids, parse(Int, split(key, "/")[end]))
         end
     end
