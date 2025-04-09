@@ -73,6 +73,5 @@ function loadcorsika(df,xyzcorsika)
     df.z = pos[:,3] .* units.m # z coord
     ts = df.time .* units.second # time
     ws = df.weight
-    #events = Tambo.CorsikaEvent.(ids, es, pos, ts, ws)
     return df
 end 
