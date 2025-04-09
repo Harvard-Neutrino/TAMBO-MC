@@ -184,7 +184,7 @@ function inject_ν!(
     sim.config[outkey] = config
 
     seed!(seed)
-    track_progress = sim.config[outkey]["track_progress"]
+    #track_progress = sim.config[outkey]["track_progress"]
 
     geo = Geometry(sim.config["geometry"])
     injector = Injector(config, geo)
