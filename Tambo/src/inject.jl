@@ -82,27 +82,6 @@ function sample_interaction_vertex(
     return p_int, tot_X
 end
 
-#function sample_interaction_vertex(
-#    plane::InjectionPlane,
-#    plane_position::SVector{3},
-#    d::Direction,
-#    range::Float64,
-#    geo::Geometry
-#)
-#    track = Track(plane_position, reverse(d), geo.box)
-#    segments = computesegments(track, geo)
-#    tot_X = minimum([range, totalcolumndepth(track, segments)])
-#    #if tot_X==0
-#    #    @show range
-#    #    @show segments
-#    #    @show plane_position
-#    #end
-#    X = rand(Uniform(0.0, tot_X))
-#    λ_int = inversecolumndepth(track, X, geo, segments)
-#    p_int = track(λ_int)
-#    return p_int, tot_X
-#end
-
 """
     endcapcolumndepth(t::Track, l_endcap::Float64, range::Float64, segments::Vector{Segment})
 
@@ -115,14 +94,10 @@ function endcapcolumndepth(
     segments::Vector{Segment}
 )
     cd = totalcolumndepth(t, segments)
-    #@show cd
     if t.norm <= l_endcap
         return cd
     end
     cd_endcap = minimum([columndepth(t, l_endcap / t.norm, segments) + range, cd])
-    #@show l_endcap / t.norm
-    #@show columndepth(t, l_endcap / t.norm, segments)
-    #@show cd_endcap
     return cd_endcap
 end
 
@@ -140,14 +115,11 @@ function determine_injection_start(
     start = closest_approach
     saw_air, no_endcap = false, false
     for segment in segments
-        if segment.medium_name=="Air"
-            if ~saw_air
-                start = segment.pstart
-            end
-            saw_air = true
-        elseif saw_air && segment.medium_name=="StandardRock"
+        saw_air = saw_air || segment.medium_name=="Air"
+        is_rock = segment.medium_name=="StandardRock"
+        right_side = dot(geo.plane.n̂.proj, segment.pstart) > 0
+        if saw_air && is_rock && right_side
             start = segment.pstart
-            l_endcap = 0.0
             break
         end
     end
@@ -185,8 +157,7 @@ function inject_event(
     e_final = rand(xs, particle_entry.energy)
 
     # Find where to start counting CD from
-    #injection_start, no_endcap = determine_injection_start(closest_approach, xb, geo)
-    injection_start, no_endcap = closest_approach, false
+    injection_start, no_endcap = determine_injection_start(closest_approach, xb, geo)
     l_endcap = cylinder.l_endcap
     if no_endcap
         l_endcap = 0.0
@@ -209,43 +180,3 @@ function inject_event(
     )
     return event
 end
-
-#function inject_event(
-#    ν_pdg::Int,
-#    power_law::PowerLaw,
-#    xs::CrossSection,
-#    anglesampler::UniformAngularSampler,
-#    plane::InjectionPlane,
-#    geo::Geometry,
-#    tr_seed::Int
-#)
-#    direction = Direction(rand(anglesampler)...)
-#    # Rotation to plane perpindicular to direction
-#    #rotator = (RotX(direction.θ) * RotZ(π / 2 - direction.ϕ))'
-#    #closest_approach = rotator * rand(injectionshape)
-#    plane_position = rand(plane)
-#    xb = intersect(plane_position, reverse(direction), geo.box)
-#
-#    proposed_e_init = rand(power_law)
-#    proposed_particle = Particle(ν_pdg, proposed_e_init, xb, direction, nothing)
-#    particle_entry, physX = tr_propagate(proposed_particle, geo.tambo_offset.z, tr_seed)
-#    e_final = rand(xs, particle_entry.energy)
-#
-#    range = lepton_range(e_final, ν_pdg - sign(ν_pdg))
-#    if range==0
-#        @show particle_entry
-#        p_int, genX = plane_position, 0.0
-#    else
-#        p_int, genX = sample_interaction_vertex(plane, plane_position, direction, range, geo)
-#    end
-#    final_state = Particle(ν_pdg - sign(ν_pdg), e_final, p_int, direction, particle_entry)
-#    # Now our generation column depth is the same as our physical column depth so we set them equal
-#    event = InjectionEvent(
-#        particle_entry,
-#        proposed_particle,
-#        final_state,
-#        genX,
-#        genX
-#    )
-#    return event
-#end
