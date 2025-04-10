@@ -92,6 +92,15 @@ end
 
 TBW
 """
+function probability(cylinder::SymmetricInjectionCylinder)
+    return 1 / (π * cylinder.r_injection^2)
+end
+
+"""
+    (cylinder::Injectioncylinder)(p::SVector{3})
+
+TBW
+"""
 function probability(cylinder::SymmetricInjectionCylinder, event)
     
     b = impact_parameter(event)

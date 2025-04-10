@@ -12,8 +12,9 @@ struct InjectionEvent
     entry_state::Particle
     initial_state::Particle
     final_state::Particle
-    physX::Float64
     genX::Float64
+    mc_weight::Float64
+    oneweight::Float64
 end
 
 function Injector(config::Dict, geo::Geometry)
@@ -169,14 +170,37 @@ function inject_event(
         p_int, genX = closest_approach, floatmin()
     end
     final_state = Particle(ν_pdg - sign(ν_pdg), e_final, p_int, direction)
-    # Now our generation column depth is the same as our physical column depth so we set them equal
+
+    mc_weight = 1 / p_mc(
+        proposed_e_init,
+        particle_entry.energy,
+        e_final,
+        direction.theta,
+        direction.phi,
+        p_int,
+        genX,
+        power_law,
+        xs,
+        anglesampler,
+        cylinder,
+        geo
+    )
+    oneweight = mc_weight * p_phys(
+        particle_entry.energy,
+        e_final,
+        genX,
+        p_int,
+        xs,
+        geo
+    )
+
     event = InjectionEvent(
         event_id,
         particle_entry,
         proposed_particle,
         final_state,
-        genX,
-        genX
+        mc_weight,
+        oneweight
     )
     return event
 end

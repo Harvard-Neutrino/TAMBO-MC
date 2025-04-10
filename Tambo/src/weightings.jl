@@ -1,4 +1,25 @@
 function p_mc(
+    egen::Real,
+    ein::Real,
+    eout::Real,
+    θ::Real,
+    ϕ::Real,
+    pos::SVector{3},
+    genX::Real,
+    pl::PowerLaw,
+    xs::CrossSection,
+    anglesampler::UniformAngularSampler,
+    injectionvolume::SymmetricInjectionCylinder,
+    geo::Geometry
+)
+    p = probability(pl, egen)
+    p *= probability(xs, ein, eout)
+    p *= probability(anglesampler, θ, ϕ)
+    p *= probability(injectionvolume)
+    p *= density(pos, geo) / event.genX
+end
+
+function p_mc(
     event::InjectionEvent,
     pl::PowerLaw,
     xs::CrossSection,
@@ -11,6 +32,21 @@ function p_mc(
     p *= density(event.final_state.position, geo) / event.genX
     p *= probability(xs, event)
     p *= probability(pl, event)
+    return p
+end
+
+function p_phys(
+    ein::Real,
+    eout::Real,
+    physX::Real,
+    pos::SVector{3},
+    xs::CrossSection,
+    geo::Geometry
+)
+    Miso = (938.27208816units.MeV + 939.5654133units.MeV) / 2
+    p = physX / Miso
+    p *= density(pos, geo) / event.physX
+    p *= xs.differential_xs(ein, eout)
     return p
 end
 
