@@ -193,12 +193,16 @@ function inject_event(
         xs,
         geo
     )
+    if isnan(oneweight)
+        oneweight = 0.0
+    end
 
     event = InjectionEvent(
         event_id,
         particle_entry,
         proposed_particle,
         final_state,
+        genX,
         mc_weight,
         oneweight
     )
