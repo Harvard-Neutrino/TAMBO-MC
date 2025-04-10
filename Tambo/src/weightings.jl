@@ -16,7 +16,7 @@ function p_mc(
     p *= probability(xs, ein, eout)
     p *= probability(anglesampler, θ, ϕ)
     p *= probability(injectionvolume)
-    p *= density(pos, geo) / event.genX
+    p *= density(pos, geo) / genX
 end
 
 function p_mc(
@@ -45,7 +45,7 @@ function p_phys(
 )
     Miso = (938.27208816units.MeV + 939.5654133units.MeV) / 2
     p = physX / Miso
-    p *= density(pos, geo) / event.physX
+    p *= density(pos, geo) / physX
     p *= xs.differential_xs(ein, eout)
     return p
 end
