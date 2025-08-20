@@ -6,4 +6,4 @@
 notebooks/output/*
 */.snakemake
 
-Tambo/Manifest.toml
+**/Manifest.toml

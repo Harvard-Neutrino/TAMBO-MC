@@ -38,11 +38,15 @@ function validate_output_filename(output_filename::String)
     end
 end
 
-function main()
-    args = parse_commandline()
-    config_filename = args["config"]
-    simset_id = args["simset_id"]
-    output_filename = args["output"]
+#function main()
+#    args = parse_commandline()
+#    config_filename = args["config"]
+#    simset_id = args["simset_id"]
+#    output_filename = args["output"]
+
+    config_filename = ENV["TAMBOSIM_PATH"] * "/resources/configuration_examples/perfect_valley_test.toml"
+    simset_id = 0
+    output_filename = "./test_00000.jld2"
 
     validate_output_filename(output_filename)
 
@@ -53,14 +57,19 @@ function main()
     # It is a pinecone because pinecones release seeds.
     pinecone = sim.config["steering"]["pinecone"]
 
-    seed!(pinecone)
-    # Max seed value is typemax(Int32) so we subtract 100_000 to avoid overflow.
-    # I'm assuming 100_000 is the largest value for the simset_id we'll ever use.
-    seed = rand(0:typemax(Int32)) - 100_000 + simset_id 
-    seed!(seed)
+    # Don't really want our different seeds to be right next to each otherwise
+    # we might get correlated results. Space out the seeds by seeding the RNG
+    # with pinecone + simset_id first and then drawing a random seed from that.
+    seed!(rand(pinecone + simset_id))
+    # Max seed value is typemax(Int32) so we subtract 1_000_000 to avoid overflow.
+    # I'm assuming 1_000_000 is the largest value for the simset_id we'll ever use.
+    seed = rand(0:typemax(Int32)) - 1_000_000 + simset_id 
 
+    seed!(seed)
     inject_ν!(sim, sim.config["injection"], simset_id, seed)
+    seed!(seed) # reseed to prevent dependence on number of events injected
     propagate_τ!(sim, sim.config["proposal"], seed)
+    seed!(seed) # reseed to prevent dependence on number of taus propagated
     identify_taus_to_shower!(sim, sim.config["corsika"], seed)
 
     # Create output directory if it does not exist
@@ -78,8 +87,8 @@ function main()
         save_simulation_to_arrow(sim, output_filename)
     end
 
-end
+#end
 
-if abspath(PROGRAM_FILE) == @__FILE__
-    main()
-end
+#if abspath(PROGRAM_FILE) == @__FILE__
+#    main()
+#end

@@ -54,18 +54,22 @@ function main()
     simset_id = args["simset_id"]
 
     sim = Simulation(config_filename, injection_filename)
+    sim.config["corsika"]["shower_dir"] = shower_dir
 
     # A single pinecone is used to generate a unique seed for each simulation
     # based on the simulation set ID and sub-simulation set ID.
     # It is a pinecone because pinecones release seeds.
     pinecone = sim.config["steering"]["pinecone"]
 
-    seed!(pinecone)
-    seed = rand(1:typemax(Int64)) + simset_id
+    # Don't really want our different seeds to be right next to each otherwise
+    # we might get correlated results. Space out the seeds by seeding the RNG
+    # with pinecone + simset_id first and then drawing a random seed from that.
+    seed!(rand(pinecone + simset_id))
+    # Max seed value is typemax(Int32) so we subtract 1_000_000 to avoid overflow.
+    # I'm assuming 1_000_000 is the largest value for the simset_id we'll ever use.
+    seed = rand(0:typemax(Int32)) - 1_000_000 + simset_id 
+    
     seed!(seed)
-
-    sim.config["corsika"]["shower_dir"] = shower_dir
-
     run_subshower!(sim, sim.config["corsika"], proposal_id, decay_id, seed)
 end
 

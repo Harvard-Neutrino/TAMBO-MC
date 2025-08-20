@@ -185,9 +185,6 @@ function inject_ν!(
     relativize!(config)
     sim.config[outkey] = config
 
-    seed!(seed)
-    #track_progress = sim.config[outkey]["track_progress"]
-
     geo = Geometry(sim.config["geometry"])
     injector = Injector(config, geo)
     events = Vector{InjectionEvent}(undef, sim.config["steering"]["nevent"])
@@ -243,9 +240,6 @@ function propagate_τ!(
     relativize!(config)
     sim.config[outkey] = config
 
-    seed!(seed)
-    #track_progress = sim.config[outkey]["track_progress"]
-
     geo = Geometry(sim.config["geometry"])
     events = Vector{ProposalResult}(undef, sim.config["steering"]["nevent"])
     propagator = ProposalPropagator(config)
@@ -296,7 +290,6 @@ end
 function identify_taus_to_shower!(
     sim::Simulation,
     config::Dict{String, Any},
-    seed::Int64;
     inkey="proposal_events",
     outkey="corsika_indices",
     track_progress=false
@@ -346,10 +339,6 @@ function shower_taus!(
     track_progress=false
 )
     relativize!(config)
-
-    # TODO: I think we should seed in the script calling this function,
-    # not in the function itself
-    seed!(sim.config["steering"]["seed"])
 
     # Get proposal event ids corrosponding to the taus that passed should_do_corsika
     should_do_corsika_proposal_ids = sort(unique([t[1] for t in sim.results[proposal_ids_key]]))
@@ -408,8 +397,6 @@ function run_subshower!(
 )
     relativize!(config)
 
-    seed!(seed)
-
     sim.config["corsika"] = config
     geo = Geometry(sim.config["geometry"])
     #plane = Plane(
@@ -435,101 +422,7 @@ function run_subshower!(
         parallelize_corsika=false
     )
 end
-
-function run_airshower!( # TODO: obsolete?
-    sim::Simulation,
-    config::Dict{String, Any};
-    outkey="corsika_indices",
-    inkey="proposal_events",
-    track_progress=false
-)
-    relativize!(config)
-    proposal_events = sim.results[inkey]
-
-    # TODO: I think we should seed in the script calling this function,
-    # not in the function itself
-    seed!(sim.config["steering"]["seed"])
     
-    sim.config[outkey] = config
-    geo = Geometry(sim.config["geometry"])
-    # TODO wrap this into a neat little constructor
-    #plane = Plane(
-    #    geo.tambo_normal,
-    #    geo.tambo_coordinates,
-    #    geo
-    #)
-    indices = Vector{Tuple{Int64, Int64}}()
-    for (proposal_idx, proposal_event) in enumerate(proposal_events)
-        if ~should_do_corsika(proposal_event, geo)
-            continue
-        end
-        for (decay_idx,decay_event) in enumerate(proposal_event.decay_products)
-            #wanted to keep indices lined up so checking one at at ime
-            if check_neutrino(decay_event)
-                continue 
-            end 
-
-            push!(indices, (proposal_idx, decay_idx))
-
-            if sim.config[outkey]["parallelize_corsika"]
-                continue 
-            end
-            corsika_run(
-                decay_event,
-                sim.config[outkey],
-                geo,
-                proposal_idx,
-                decay_idx;
-                parallelize_corsika=false
-            )
-        end
-    end
-    
-    if sim.config["corsika"]["parallelize_corsika"]
-        println(indices)
-        corsika_parallel(
-            proposal_events,
-            geo,
-            sim.config["corsika"],
-            indices
-        )
-    end 
-    sim.results[outkey] = indices
-end 
-
-function run_airshower!(sim::Simulation, config_file::String; outkey="corsika_indices", inkey="proposal_events", track_progress=false)
-    config = relativize!(TOML.parsefile(config_file))
-    run_airshower!(sim, config; outkey=outkey, inkey=inkey, track_progress=track_progress)
-end
-
-function (s::Simulation)(; track_progress=false, should_run_corsika=false)
-    # TODO: I think we should seed in the script calling this function,
-    # not in the function itself
-    seed!(s.config["steering"]["seed"])
-
-    if track_progress
-        println("Constructing geometry")
-    end
-    geo = Geometry(s.config["geometry"])
-
-    if track_progress
-        println("Injecting neutrinos")
-    end
-    inject_ν!(s, s.config["injected"], track_progress=track_progress)
-
-    if track_progress
-        println("Propagating taus")
-    end
-    propagate_τ!(s, s.config["proposal"], track_progress=track_progress)
-
-    if should_run_corsika
-        if track_progress
-            println("Running airshowers")
-        end
-        run_airshower!(s, s.config["corsika"], track_progress=track_progress)
-    end
-end
-
 function save_simulation_to_jld2(s::Simulation, path::String)
     @assert length(s.results["injected_events"]) == s.config["steering"]["nevent"]
     @assert length(s.results["proposal_events"]) == s.config["steering"]["nevent"]
