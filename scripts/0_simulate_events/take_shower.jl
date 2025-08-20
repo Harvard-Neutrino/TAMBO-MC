@@ -64,7 +64,7 @@ function main()
     # Don't really want our different seeds to be right next to each otherwise
     # we might get correlated results. Space out the seeds by seeding the RNG
     # with pinecone + simset_id first and then drawing a random seed from that.
-    seed!(rand(pinecone + simset_id))
+    seed!(pinecone + simset_id)
     # Max seed value is typemax(Int32) so we subtract 1_000_000 to avoid overflow.
     # I'm assuming 1_000_000 is the largest value for the simset_id we'll ever use.
     seed = rand(0:typemax(Int32)) - 1_000_000 + simset_id 

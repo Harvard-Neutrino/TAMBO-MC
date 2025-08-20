@@ -24,7 +24,6 @@ using CoordinateTransformations: Translation, AffineMap, LinearMap
 using Dierckx: Spline2D
 using Distributions: Uniform, Poisson
 using JLD2: jldopen, JLDFile, load
-# TODO move h5 to jld2
 using HDF5: h5open
 using LinearAlgebra: norm, dot
 using ProgressBars
@@ -331,58 +330,15 @@ function identify_taus_to_shower!(
     sim.results[outkey] = indices
 end
 
-function shower_taus!(
-    sim::Simulation,
-    config::Dict{String, Any};
-    proposal_ids_key="corsika_indices",
-    proposal_events_key="proposal_events",
-    track_progress=false
-)
-    relativize!(config)
-
-    # Get proposal event ids corrosponding to the taus that passed should_do_corsika
-    should_do_corsika_proposal_ids = sort(unique([t[1] for t in sim.results[proposal_ids_key]]))
-    proposal_events = sim.results[proposal_events_key]
-    
-    sim.config["corsika"] = config
-    geo = Geometry(sim.config["geometry"])
-    # TODO wrap this into a neat little constructor
-    #plane = Plane(
-    #    geo.tambo_normal,
-    #    geo.tambo_coordinates,
-    #    geo
-    #)
-    indices = Vector{Tuple{Int64, Int64}}()
-    # TODO: this double for loop is duplicating work done in identify_taus_to_shower!
-    for (proposal_idx, proposal_event) in zip(should_do_corsika_proposal_ids, proposal_events[should_do_corsika_proposal_ids])
-        for (decay_idx,decay_event) in enumerate(proposal_event.decay_products)
-            #wanted to keep indices lined up so checking one at at ime
-            push!(indices, (proposal_idx, decay_idx))
-
-            if sim.config["corsika"]["parallelize_corsika"]
-                continue 
-            end
-            corsika_run(
-                decay_event,
-                sim.config["corsika"],
-                geo,
-                proposal_idx,
-                decay_idx;
-                parallelize_corsika=false
-            )
+function get_proposal_event_using_event_id(sim::Simulation, event_id::Int64)
+    proposal_events = sim.results["proposal_events"]
+    for pe in proposal_events
+        if pe.event_id == event_id
+            return pe
         end
     end
-    
-    if sim.config["corsika"]["parallelize_corsika"]
-        println(indices)
-        corsika_parallel(
-            proposal_events,
-            geo,
-            sim.config["corsika"],
-            indices
-        )
-    end 
-end 
+    error("No proposal event found with event_id: $event_id")
+end
 
 function run_subshower!(
     sim::Simulation,
@@ -405,15 +361,12 @@ function run_subshower!(
     #    geo
     #)
 
-    # TODO: this is a hack, assumes that the proposal id is the index of the event in the array.
-    # Should instead search through array for event with matching event_id
-    if proposal_id == sim.config["steering"]["nevent"]
-        pseudo_proposal_id = sim.config["steering"]["nevent"]
-    else
-        pseudo_proposal_id = mod(proposal_id, sim.config["steering"]["nevent"])
-    end
+    println("looking for proposal event with ID $proposal_id")
+    proposal_event = get_proposal_event_using_event_id(sim, proposal_id)
+    println("got proposal event:")
+    println(proposal_event)
     corsika_run(
-        sim.results[proposal_events_key][pseudo_proposal_id].decay_products[decay_id],
+        proposal_event.decay_products[decay_id],
         sim.config["corsika"],
         geo,
         proposal_id,
