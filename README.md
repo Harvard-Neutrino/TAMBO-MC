@@ -9,8 +9,9 @@ Alright, let's get things moving!
 ### [0.1] Jump into Julia
 The code reies mostly on the Julia language so you will need to install that. This was developed using Julia version 1.11. Get that one if you can, but more recent versions should work fine. You can find precompiled Julia version for many systems [here](https://julialang.org/downloads/). While this will by default install the most recent version of Julia, installing Julia in this way will also install [Juliaup](https://github.com/JuliaLang/juliaup), a Julia version manager. Version 1.11 can then be installed with the command `juliaup add 1.11`; you can make this version the default that runs when calling `julia` with the command `juliaup default 1.11`
 
-If you are new to Julia, it’s borderline life-changing, but there are definitely some differences from Python. To run the code, you won't need anything advanced, but it might be good to dip you toes into some of the basics. When I started with Julia, I had a decent handle on Python, and I used [these resources](https://github.com/JuliaAcademy/JuliaTutorials) to fill in the gaps. There were still some growing pains, but I felt it gave me enough information to get started.
-Also, I highly recommend joining the [Julia Slack](https://julialang.org/slack/). It is very active, and everyone there is extremely helpful.
+If you are new to Julia, it’s borderline life-changing, but there are definitely some differences from Python. To run the code, you won't need anything advanced, but it might be good to dip you toes into some of the basics. When I started with Julia, I had a decent handle on Python, and I used [these resources](https://github.com/JuliaAcademy/JuliaTutorials) to fill in the gaps. There were still some growing pains, but I felt it gave me enough information to get started. The Julia manual also has a dedicated page on
+[difference from Python](https://docs.julialang.org/en/v1/manual/noteworthy-differences/#Noteworthy-differences-from-Python).
+Also, I highly recommend joining the [Julia Slack](https://julialang.org/slack/). It is very active, and everyone there is extremely helpful. 
 
 ### [0.2] CORSIKA 8
 TAMBOSim also relies on the new C++ implementation of CORSIKA, CORSIKA 8. We assume here that you have installed and built CORSIKA 8.
