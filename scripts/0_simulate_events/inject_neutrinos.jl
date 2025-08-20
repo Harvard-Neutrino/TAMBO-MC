@@ -1,6 +1,7 @@
+project_dir = (@__DIR__) * "/../../"
 using Pkg
-Pkg.activate(ENV["TAMBOSIM_PATH"] * "/scripts/0_simulate_events/")
-Pkg.develop(path=ENV["TAMBOSIM_PATH"] * "/Tambo")
+Pkg.activate(project_dir * "/scripts/0_simulate_events/")
+Pkg.develop(path=project_dir * "/Tambo")
 using Tambo
 using ArgParse
 using Random: seed!

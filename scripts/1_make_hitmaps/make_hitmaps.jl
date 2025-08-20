@@ -1,13 +1,9 @@
+project_dir = (@__DIR__) * "/../../"
 using Pkg
-Pkg.activate("$(ENV["TAMBOSIM_PATH"])/scripts/1_make_hitmaps/")
+Pkg.activate("$(project_dir)/scripts/1_make_hitmaps/")
+Pkg.develop(path="$(project_dir)/Tambo")
 
-if "TAMBOSIM_PATH" ∈ keys(ENV)
-    Pkg.develop(path="$(ENV["TAMBOSIM_PATH"])/Tambo")
-else
-    Pkg.develop(path="../../Tambo/")
-end
 using Tambo
-
 using JLD2
 using StaticArrays
 using ArgParse
