@@ -1,7 +1,6 @@
 project_dir = (@__DIR__) * "/../../"
 using Pkg
-Pkg.activate(project_dir * "/scripts/0_simulate_events/")
-Pkg.develop(path=project_dir * "/Tambo")
+Pkg.activate(project_dir)
 using Tambo
 using ArgParse
 using Random: seed!

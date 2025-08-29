@@ -1,6 +1,6 @@
 project_dir = (@__DIR__) * "/../../"
 using Pkg
-Pkg.activate("$(project_dir)/Tambo")
+Pkg.activate(project_dir)
 using Tambo
 using JLD2
 using Glob
