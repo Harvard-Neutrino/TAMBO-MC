@@ -1,6 +1,6 @@
+project_dir = (@__DIR__) * "/../../"
 using Pkg
-Pkg.activate(ENV["TAMBOSIM_PATH"] * "/scripts/0_simulate_events/")
-Pkg.develop(path=ENV["TAMBOSIM_PATH"] * "/Tambo")
+Pkg.activate(project_dir)
 using Tambo
 using ArgParse
 using Random: seed!
@@ -53,15 +53,20 @@ function main()
     # It is a pinecone because pinecones release seeds.
     pinecone = sim.config["steering"]["pinecone"]
 
-    seed!(pinecone)
-    # Max seed value is typemax(Int32) so we subtract 100_000 to avoid overflow.
-    # I'm assuming 100_000 is the largest value for the simset_id we'll ever use.
-    seed = rand(0:typemax(Int32)) - 100_000 + simset_id 
-    seed!(seed)
+    # Don't really want our different seeds to be right next to each otherwise
+    # we might get correlated results. Space out the seeds by seeding the RNG
+    # with pinecone + simset_id first and then drawing a random seed from that.
+    seed!(pinecone + simset_id)
+    # Max seed value is typemax(Int32) so we subtract 1_000_000 to avoid overflow.
+    # I'm assuming 1_000_000 is the largest value for the simset_id we'll ever use.
+    seed = rand(0:typemax(Int32)) - 1_000_000 + simset_id 
 
+    seed!(seed)
     inject_ν!(sim, sim.config["injection"], simset_id, seed)
+    seed!(seed) # reseed to prevent dependence on number of events injected
     propagate_τ!(sim, sim.config["proposal"], seed)
-    identify_taus_to_shower!(sim, sim.config["corsika"], seed)
+    seed!(seed) # reseed to prevent dependence on number of taus propagated
+    identify_taus_to_shower!(sim, sim.config["corsika"])
 
     # Create output directory if it does not exist
     output_dir = dirname(output_filename)

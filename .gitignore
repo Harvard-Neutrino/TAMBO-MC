@@ -4,6 +4,6 @@
 *.ipynb_checkpoints
 *Untitled*.ipynb
 notebooks/output/*
-*/.snakemake
+**/.snakemake
 
-Tambo/Manifest.toml
+**/Manifest.toml

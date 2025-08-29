@@ -37,11 +37,6 @@ function run_taurunner(p, θ:: Float64, depth:: Float64)
     return tr_d.energy * units.eV, track.x_to_X(earth, tr_d.decay_position)[1]
 end
 
-function tr_propagate(ps::Vector{Particle}, ztambo::Float64)
-    seed = 925
-    return tr_propagate(ps, ztambo, 925)
-end
-
 function tr_propagate(ps::Vector{Particle}, ztambo::Float64, seed::Int)
     # Check that TR variables have been initiailized
     if chord == PyNULL() 
@@ -50,7 +45,7 @@ function tr_propagate(ps::Vector{Particle}, ztambo::Float64, seed::Int)
         tr.Casino.pp.RandomGenerator.get().set_seed(seed)
     end 
     
-    return tr_propagate.(ps, ztambo)
+    return tr_propagate.(ps, ztambo, seed)
 end
 
 function tr_propagate(p::Particle, ztambo::Float64, seed::Int)
