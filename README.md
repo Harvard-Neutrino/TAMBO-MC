@@ -1,5 +1,8 @@
 # Hola y bienvenidos.
-Welcome to TAMBOSim! This quickstart guide will show you how to install TAMBOSim and run your first TAMBO simulation. Some of the functions and utilities we will go over have docstrings in the code, but many others do not. With that in mind, if things don't work, or there is a change you would like to see, or something is just annoying but you don't know what the fix would look like, please feel free to create an [issue in the GitHub repo](https://github.com/Harvard-Neutrino/TAMBO-MC/issues). You should also feel free to email [Jeff Lazar](mailto:jlazar@icecube.wisc.edu) or [Will Thompson](mailto:will_thompson@g.harvard.edu). Lastly, if you feel up to it, you can fork this repo, make the change, and initiate a pull request yourself.
+Welcome to TAMBOSim! This quickstart guide will show you how to install TAMBOSim and run your first TAMBO simulation. Some of the functions and utilities we will go over have docstrings in the code, but many others do not. With that in mind, if things don't work, or there is a change you would like to see, or something is just annoying but you don't know what the fix would look like, please feel free to create an [issue in the GitHub repo](https://github.com/Harvard-Neutrino/TAMBO-MC/issues). You should also feel free to email [Jeff Lazar](mailto:jlazar@icecube.wisc.edu) or [Will Thompson](mailto:will_thompson@g.harvard.edu). If you feel up to it, you can fork this repo, make the change, and initiate a pull request yourself.
+
+Lastly, please don’t hesitate to get in contact with us if you run into any problems along the way. We’d love to help you get your simulation running.
+
 Alright, let's get things moving!
 
 ## [0] Prerequisites
