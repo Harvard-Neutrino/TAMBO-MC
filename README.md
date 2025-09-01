@@ -13,7 +13,7 @@ If you are new to Julia, it’s borderline life-changing, but there are definite
 Also, I highly recommend joining the [Julia Slack](https://julialang.org/slack/). It is very active, and everyone there is extremely helpful.
 
 ### [0.2] CORSIKA 8
-TAMBOSim also relies on the new C++ implementation of CORSIKA, CORSIKA 8. We assume here that you have installed and build CORSIKA 8.
+TAMBOSim also relies on the new C++ implementation of CORSIKA, CORSIKA 8. We assume here that you have installed and built CORSIKA 8.
 
 ## [1] Installing Dependencies
 The physics of TAMBOSim relies primarily on three external software packages: PROPOSAL, TauRunner, and CORSIKA. PROPOSAL and TauRunner can both be run using Python. Of course we are using Julia, not Python, so we will interface with these packages using the Julia package PyCall. CORSIKA, in contrast, is written in C++. TAMBOSim interfaces directly with the CORSIKA executable, so it must be compiled directly, which will be covered later in this section.
@@ -25,6 +25,7 @@ We’ll assume that you have a relatively recent version of Python installed. We
 
 ### [1.2] PROPOSAL
 PROPOSAL is the library that we use to propoagate charged leptons and is easiest to install using pip. Run `pip install proposal` to install it.
+
 ### [1.3] TauRunner
 TauRunner is used to propagate high-energy tau neturinos thought the Earth, taking into account the effects of [tau regeneration](https://doi.org/10.48550/arXiv.hep-ph/9804354).  To install it, you will need to directly clone the TauRunner repo. After cloning the repo, install TauRunner by running `pip install /path/to/TauRunner`.
 
@@ -48,8 +49,8 @@ We also need to tell `TAMBOSim` where to find `CORSIKA` and files needed by `COR
 Now that many of our dependencies and much of the environment is ready to go, we’ll now setup the Juila TAMBOSim package. Go ahead and clone TAMBOSim from the repo on GitHub. We’ll assume you clone it into `/path/to/TAMBOSim/`.Now launch up a Julia REPL session and setup the TAMBO environment by running
 ```julia-repl
 julia> using Pkg
-julia> Pkg.activate(ENV["TAMBOSIM_PATH"] * "/Tambo")
-  Activating project at "/path/to/TAMBO-MC/Tambo"
+julia> Pkg.activate(ENV["TAMBOSIM_PATH"])
+  Activating project at "/path/to/TAMBO-MC
 julia> Pkg.resolve()
 ...
 julia> Pkg.instantiate() 
@@ -63,7 +64,7 @@ julia> using Tambo
 ### [2.3] PyCall
 Now you can work on getting these Python packages to play nice with Julia. 
 
-Start an interactive Julia session with `julia` and activate the TAMBOSim project environment as above (`using Pkg; Pkg.activate(ENV["PYTHON"] * “/Tambo”)`. 
+Start an interactive Julia session with `julia` and activate the TAMBOSim project environment as above (`using Pkg; Pkg.activate(ENV["PYTHON"])`. 
 
 To get PyCall working, first run `ENV["PYTHON"]="/path/to/tambo_env/bin/python"` (you can get this path by running `which python` on the command line while inside your TAMBO venv). This tells PyCall which Python executable it should use. Now run `using Tambo; Pkg.build("PyCall")` to build PyCall. After this completes, you’ll need to exit and reënter Julia for the changes to take effect. After reëntry, reactivate the TAMBOSim Julia environment and execute `using PyCall; tr = pyimport("taurunner")`. If this succeeds, the PyCall installation was successful!
 
