@@ -7,7 +7,7 @@ Alright, let's get things moving!
 
 ## [0] Prerequisites
 ### [0.1] Jump into Julia
-The code reies mostly on the Julia language so you will need to install that. This was developed using Julia version 1.11.1. Get that one if you can, but more recent versions should work fine. You can find precompiled Julia version for many systems [here](https://julialang.org/downloads/). While this will by default install the most recent version of Julia, installing Julia in this way will also install [Juliaup](https://github.com/JuliaLang/juliaup), a Julia version manager. Version 1.11.1 can then be installed with the command `juliaup add 1.11.1`; you can make this version the default that runs when calling `julia` with the command `juliaup default 1.11.1`
+The code reies mostly on the Julia language so you will need to install that. This was developed using Julia version 1.11. Get that one if you can, but more recent versions should work fine. You can find precompiled Julia version for many systems [here](https://julialang.org/downloads/). While this will by default install the most recent version of Julia, installing Julia in this way will also install [Juliaup](https://github.com/JuliaLang/juliaup), a Julia version manager. Version 1.11 can then be installed with the command `juliaup add 1.11`; you can make this version the default that runs when calling `julia` with the command `juliaup default 1.11`
 
 If you are new to Julia, it’s borderline life-changing, but there are definitely some differences from Python. To run the code, you won't need anything advanced, but it might be good to dip you toes into some of the basics. When I started with Julia, I had a decent handle on Python, and I used [these resources](https://github.com/JuliaAcademy/JuliaTutorials) to fill in the gaps. There were still some growing pains, but I felt it gave me enough information to get started.
 Also, I highly recommend joining the [Julia Slack](https://julialang.org/slack/). It is very active, and everyone there is extremely helpful.
@@ -21,7 +21,7 @@ The physics of TAMBOSim relies primarily on three external software packages: PR
 We have found that the most straightforward way to get the Python dependencies to play nice in TAMBOSim is by setting up a clean Python virtual environment, or venv. Let’s do that first.
 
 ### [1.1] Python venv
-We’ll assume that you have a relatively recent version of Python installed. We have found that version 3.12.4 works well. Create a fresh venv by running `python -m venv /path/to/tambo_venv`. Go ahead and activate this venv using `source /path/to/tambo_venv/bin/activate`.
+We’ll assume that you have a relatively recent version of Python installed. We have found that version 3.12.4 works well, but other relatively modern versions should work fine too. Create a fresh venv by running `python -m venv /path/to/tambo_venv`. Go ahead and activate this venv using `source /path/to/tambo_venv/bin/activate`.
 
 ### [1.2] PROPOSAL
 PROPOSAL is the library that we use to propoagate charged leptons and is easiest to install using pip. Run `pip install proposal` to install it.
