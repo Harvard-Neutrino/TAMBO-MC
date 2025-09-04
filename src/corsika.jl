@@ -70,10 +70,10 @@ function corsika_run(
     ENV["FLUFOR"] = corsika_FLUFOR
 
     if parallelize_corsika 
-        corsika_parallel_exec = "$corsika_path --pdg $pdg --energy $energy --zenith $zenith --azimuth $c_azimuth --xpos $(c_inject[1]) --ypos $(c_inject[2]) --zpos $(c_inject[3]) -f $outdir/shower_$total_index --xdir $(c_plane[1]) --ydir $(c_plane[2]) --zdir $(c_plane[3]) --observation-height $obs_z --force-interaction --x-intercept $(c_intercept[1]) --y-intercept $(c_intercept[2]) --z-intercept $(c_intercept[3]) --emcut $emcut --photoncut $photoncut --mucut $mucut --hadcut $hadcut --emthin $thinning"
+        corsika_parallel_exec = "$corsika_path --pdg $pdg --energy $energy --zenith $zenith --azimuth $c_azimuth --xpos $(c_inject[1]) --ypos $(c_inject[2]) --zpos $(c_inject[3]) -f $outdir/shower_$total_index --xdir $(c_plane[1]) --ydir $(c_plane[2]) --zdir $(c_plane[3]) --observation-height $obs_z --x-intercept $(c_intercept[1]) --y-intercept $(c_intercept[2]) --z-intercept $(c_intercept[3]) --emcut $emcut --photoncut $photoncut --mucut $mucut --hadcut $hadcut --emthin $thinning"
         run(`sbatch --time=$time $corsika_sbatch_path $corsika_parallel_exec`)
     else 
-        corsika_exec = `$corsika_path --pdg $pdg --energy $energy --zenith $zenith --azimuth $c_azimuth  --xpos $(c_inject[1]) --ypos $(c_inject[2]) --zpos $(c_inject[3]) -f $outdir/shower_$total_index --xdir $(c_plane[1]) --ydir $(c_plane[2]) --zdir $(c_plane[3]) --observation-height $obs_z --force-interaction --x-intercept $(c_intercept[1]) --y-intercept $(c_intercept[2]) --z-intercept $(c_intercept[3]) --emcut $emcut --photoncut $photoncut --mucut $mucut --hadcut $hadcut --emthin $thinning --seed $seed`
+        corsika_exec = `$corsika_path --pdg $pdg --energy $energy --zenith $zenith --azimuth $c_azimuth  --xpos $(c_inject[1]) --ypos $(c_inject[2]) --zpos $(c_inject[3]) -f $outdir/shower_$total_index --xdir $(c_plane[1]) --ydir $(c_plane[2]) --zdir $(c_plane[3]) --observation-height $obs_z --x-intercept $(c_intercept[1]) --y-intercept $(c_intercept[2]) --z-intercept $(c_intercept[3]) --emcut $emcut --photoncut $photoncut --mucut $mucut --hadcut $hadcut --emthin $thinning --seed $seed`
         if isdir("$outdir/shower_$total_index")
             rm("$outdir/shower_$total_index", recursive=true) # CORSIKA doesn't like overwriting files, so we'll do it for them
         end
