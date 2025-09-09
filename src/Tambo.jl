@@ -38,10 +38,6 @@ using LibGit2
 
 include("units.jl")
 include("samplers/samplers.jl")
-#include("samplers/crosssections.jl")
-#include("samplers/injectionvolumes.jl")
-#include("samplers/powerlaws.jl")
-#include("samplers/injectionplane.jl")
 include("directions.jl")
 include("particles.jl")
 include("locations.jl")

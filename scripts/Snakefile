@@ -4,6 +4,8 @@ import h5py
 import numpy as np
 from os import environ
 
+slurm_partition = "sapphire,shared"
+
 TAMBOSIM_PATH = environ['TAMBOSIM_PATH']
 TAMBO_DATA_PATH = environ['TAMBO_DATA_PATH']
 
@@ -15,7 +17,7 @@ checkpoint inject_neutrinos:
     resources:
         cpus_per_task=1,
         mem_mb=10000,
-        slurm_partition="sapphire,shared",
+        slurm_partition=slurm_partition,
         runtime=8*60
     shell: # Purge old shower files and inject neutrinos
         f"""
@@ -35,7 +37,7 @@ rule take_shower:
     resources:
         cpus_per_task=1,
         mem_mb=2000,
-        slurm_partition="sapphire,shared",
+        slurm_partition=slurm_partition,
         runtime=24*60
     shell:
         f"""
@@ -73,7 +75,7 @@ rule make_hitmaps: # Note: rule currently configured so that all showers must be
     resources:
         cpus_per_task=1,
         mem_mb=8000,
-        slurm_partition="sapphire,shared",
+        slurm_partition=slurm_partition,
         runtime=240
     shell: 
        f"""
@@ -97,7 +99,7 @@ rule combine_hitmap_files:
     resources:
         cpus_per_task=1,
         mem_mb=4000,
-        slurm_partition="sapphire,shared",
+        slurm_partition=slurm_partition,
         runtime=60
     shell:
         f"""
@@ -116,7 +118,7 @@ rule do_triggering:
     resources:
         cpus_per_task=1,
         mem_mb=8000,
-        slurm_partition="sapphire,shared",
+        slurm_partition=slurm_partition,
         runtime=240
     shell: 
         f"""

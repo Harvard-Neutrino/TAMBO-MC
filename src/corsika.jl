@@ -45,6 +45,28 @@ function corsika_run(
     seed::Int64; 
     parallelize_corsika=parallelize_corsika
     )
+
+    # print out all function arguments
+    println("Running CORSIKA with the following parameters:")
+    println("pdg: $pdg")
+    println("energy: $energy eV")
+    println("zenith: $zenith rad")
+    println("azimuth: $azimuth rad")
+    println("inject_pos: $(inject_pos) km")
+    println("intercept_pos: $(intercept_pos) km")
+    println("plane: $(plane)")
+    println("obs_z: $(obs_z) km")
+    println("thinning: $thinning")
+    println("ecuts: $(ecuts/units.GeV) GeV")
+    println("corsika_path: $corsika_path")
+    println("corsika_FLUPRO: $corsika_FLUPRO")
+    println("corsika_FLUFOR: $corsika_FLUFOR")
+    println("outdir: $outdir")
+    println("proposal_index: $proposal_index")
+    println("decay_index: $decay_index")
+    println("seed: $seed")
+
+    exit()
     
     #convert to CORSIKA internal units of GeV
     emcut, photoncut, mucut, hadcut = ecuts/units.GeV 
@@ -77,6 +99,7 @@ function corsika_run(
         if isdir("$outdir/shower_$total_index")
             rm("$outdir/shower_$total_index", recursive=true) # CORSIKA doesn't like overwriting files, so we'll do it for them
         end
+        println("Executing CORSIKA command: $corsika_exec")
         run(corsika_exec)
     end 
 end 
