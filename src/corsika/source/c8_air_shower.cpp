@@ -137,6 +137,43 @@ template <typename T>
 using MyExtraEnv =
     GladstoneDaleRefractiveIndex<MediumPropertyModel<UniformMagneticField<T>>>;
 
+
+  // define TAMBO atmospheric model
+  typedef std::array<AtmosphereLayerParameters, 5> AtmosphereParameters;
+
+  template <typename TEnvironmentInterface, template <typename> typename TExtraEnv,
+          typename TEnvironment, typename... TArgs>
+  void create_5layer_colca_atmosphere(TEnvironment& env,
+                                      Point const& center, TArgs... args) {
+
+    auto builder = make_layered_spherical_atmosphere_builder<
+          TEnvironmentInterface, TExtraEnv>::create(center, constants::EarthRadius::Mean,
+                                                  std::forward<TArgs>(args)...);
+
+      builder.setNuclearComposition(standardAirComposition);
+
+      std::array<AtmosphereParameters,
+               static_cast<uint8_t>(
+                   AtmosphereId::LastAtmosphere)> constexpr atmosphereParameterList{
+		                             {{{{3.8_km, grammage(1208.0663), 1045629.03_cm},
+                                                {9.7_km, grammage(1148.2458), 963788.26_cm},
+                                                {26.5_km, grammage(1182.7783), 770343.77_cm},
+                                                {100_km, grammage(1510.0311), 701471.17_cm},
+                                                {112.8_km, grammage(1), 1e9_cm}}}}};
+      auto const params = atmosphereParameterList[0];
+
+
+      for (int i = 0; i < 4; ++i) {
+        builder.addExponentialLayer(params[i].offset, params[i].scaleHeight,
+                                    params[i].altitude);
+      }
+      builder.addLinearLayer(params[4].offset, params[4].scaleHeight, params[4].altitude);
+
+      builder.assemble(env);
+  }
+  // end defining TAMBO atmospheric model
+
+
 int main(int argc, char** argv) {
 
   // the main command line description
@@ -375,8 +412,9 @@ int main(int argc, char** argv) {
 
   // build an atmosphere with Keilhauer's parametrization of the
   // US standard atmosphere into `env`
-  create_5layer_atmosphere<EnvironmentInterface, MyExtraEnv>(
-      env, AtmosphereId::ColcaValley2022Jan, center, 1.000327, surface_, Medium::AirDry1Atm,
+
+  create_5layer_colca_atmosphere<EnvironmentInterface, MyExtraEnv>(
+      env, center, 1.000327, surface_, Medium::AirDry1Atm,
       MagneticFieldVector{rootCS, 22.7266_uT, -2.5322_nT, -4.2859_nT});
 
   /* === END: SETUP ENVIRONMENT AND ROOT COORDINATE SYSTEM === */
