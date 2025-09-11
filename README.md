@@ -7,7 +7,7 @@ Alright, let's get things moving!
 
 ## [0] Prerequisites
 ### [0.1] Jump into Julia
-The code reies mostly on the Julia language so you will need to install that. This was developed using Julia version 1.11. Get that one if you can, but more recent versions should work fine. You can find precompiled Julia version for many systems [here](https://julialang.org/downloads/). While this will by default install the most recent version of Julia, installing Julia in this way will also install [Juliaup](https://github.com/JuliaLang/juliaup), a Julia version manager. Version 1.11 can then be installed with the command `juliaup add 1.11`; you can make this version the default that runs when calling `julia` with the command `juliaup default 1.11`
+The code reies mostly on the Julia language so you will need to install that. This was developed using Julia version 1.11. Get that one if you can, but more recent versions should work fine. You can find instructions for installing Julia [here](https://julialang.org/install/). 
 
 If you are new to Julia, it’s borderline life-changing, but there are definitely some differences from Python. To run the code, you won't need anything advanced, but it might be good to dip you toes into some of the basics. When I started with Julia, I had a decent handle on Python, and I used [these resources](https://github.com/JuliaAcademy/JuliaTutorials) to fill in the gaps. There were still some growing pains, but I felt it gave me enough information to get started. The Julia manual also has a dedicated page on
 [difference from Python](https://docs.julialang.org/en/v1/manual/noteworthy-differences/#Noteworthy-differences-from-Python).
@@ -15,7 +15,7 @@ If you are new to Julia, it’s borderline life-changing, but there are definite
 Also, I highly recommend joining the [Julia Slack](https://julialang.org/slack/). It is very active, and everyone there is extremely helpful. 
 
 ### [0.2] CORSIKA 8
-TAMBOSim also relies on the new C++ implementation of CORSIKA, CORSIKA 8. We assume here that you have installed and built CORSIKA 8.
+TAMBOSim also relies on the new C++ implementation of CORSIKA, CORSIKA 8. We assume here that you have installed and built CORSIKA 8; you can find instructions for doing so [here](https://gitlab.iap.kit.edu/AirShowerPhysics/corsika).
 
 ## [1] Installing Dependencies
 The physics of TAMBOSim relies primarily on three external software packages: PROPOSAL, TauRunner, and CORSIKA. PROPOSAL and TauRunner can both be run using Python. Of course we are using Julia, not Python, so we will interface with these packages using the Julia package PyCall. CORSIKA, in contrast, is written in C++. TAMBOSim interfaces directly with the CORSIKA executable, so it must be compiled directly, which will be covered later in this section.
@@ -29,9 +29,32 @@ We’ll assume that you have a relatively recent version of Python installed. We
 PROPOSAL is the library that we use to propoagate charged leptons and is easiest to install using pip. Run `pip install proposal` to install it.
 
 ### [1.3] TauRunner
-TauRunner is used to propagate high-energy tau neturinos thought the Earth, taking into account the effects of [tau regeneration](https://doi.org/10.48550/arXiv.hep-ph/9804354).  To install it, you will need to directly clone the TauRunner repo. After cloning the repo, install TauRunner by running `pip install /path/to/TauRunner`.
+TauRunner is used to propagate high-energy tau neturinos thought the Earth, taking into account the effects of [tau regeneration](https://doi.org/10.48550/arXiv.hep-ph/9804354).  To install it, you will need to directly clone the [TauRunner repo](https://github.com/icecube/TauRunner.git). After cloning the repo, install TauRunner by running `pip install /path/to/TauRunner`.
 
-You can test that the TauRunner install was successful by running `import taurunner`. Note that the first time you actually propagate a tau PROPOSAL will first need to build its cross section tables. This can take several minutes, so don’t worry if there’s a delay.
+### [1.4] CORSIKA TAMBO application
+In addition to building and installing CORISKA8, you will need to build the specific CORSIKA application that is used to simulate air showers in TAMBOSim. This ships with TAMBOSim, so go ahead and clone this repo. Next, navigate to `/path/to/TAMBOSim/src/corsika/`. In this directory, execute the following:
+```
+mkdir build
+
+export CORSIKA_PREFIX=/path/to/corsika8/top/level/directory
+export CONAN_DEPENDENCIES=${CORSIKA_PREFIX}/corsika-install/lib/cmake/dependencies
+export FLUPRO=/path/to/fluka/top/level/directory
+export FLUFOR=<name of FORTRAN you built CORSIKA against, like gfortran>
+export WITH_FLUKA=ON
+
+cmake -DCMAKE_TOOLCHAIN_FILE=${CONAN_DEPENDENCIES}/conan_toolchain.cmake \
+    -DCMAKE_PREFIX_PATH=${CONAN_DEPENDENCIES} \
+    -DCMAKE_POLICY_DEFAULT_CMP0091=NEW \
+    -DCMAKE_BUILD_TYPE=RelWithDebInfo \
+    -Dcorsika_DIR=${CORSIKA_PREFIX}/corsika-build \
+    -DWITH_FLUKA=ON \
+    -S $PWD/source \
+    -B $PWD/build
+
+cd build
+make
+```
+This will build our CORSIKA executable, named `c8_air_shower`.
 
 ## 2. Setting up the Julia environment
 ### [2.1] Configuring Your Environment
@@ -40,15 +63,14 @@ After downloading and seting up the required packages as described above, we now
 You should also define environemental variables that specify where `TAMBOSim` is installed and where your top-level data directory for all `TAMBOSim` simulations is located. In a shell, run
 ```
 export TAMBOSIM_PATH=/path/to/TAMBOSim
-export TAMBO_DATA_PATH=/path/to/TAMBOSim/data/TAMBO_data
+export TAMBO_DATA_PATH=/path/to/data
 ```
 We also need to tell `TAMBOSim` where to find `CORSIKA` and files needed by `CORSIKA`. This information is handled within a simulation configuration file. Open up the config file at `$TAMBOSIM_PATH/resources/configuration_examples/fast_test.toml` and edit
-* `corsika_path` to point to your `CORSIKA8` executable
 * `FLUPRO` to point to the version of `FLUKA` for `CORSIKA` to use
 * `FLUFOR` to point to the version of `FORTRAN` used by `FLUKA`
 
 ### [2.2] Precompile `TAMBOSim`
-Now that many of our dependencies and much of the environment is ready to go, we’ll now setup the Juila TAMBOSim package. Go ahead and clone TAMBOSim from the repo on GitHub. We’ll assume you clone it into `/path/to/TAMBOSim/`.Now launch up a Julia REPL session and setup the TAMBO environment by running
+Now that many of our dependencies and much of the environment is ready to go, we’ll now setup the Juila TAMBOSim package. Launch up a Julia REPL session and setup the TAMBO environment by running
 ```julia-repl
 julia> using Pkg
 julia> Pkg.activate(ENV["TAMBOSIM_PATH"])
@@ -68,7 +90,7 @@ Now you can work on getting these Python packages to play nice with Julia.
 
 Start an interactive Julia session with `julia` and activate the TAMBOSim project environment as above (`using Pkg; Pkg.activate(ENV["PYTHON"])`. 
 
-To get PyCall working, first run `ENV["PYTHON"]="/path/to/tambo_env/bin/python"` (you can get this path by running `which python` on the command line while inside your TAMBO venv). This tells PyCall which Python executable it should use. Now run `using Tambo; Pkg.build("PyCall")` to build PyCall. After this completes, you’ll need to exit and reënter Julia for the changes to take effect. After reëntry, reactivate the TAMBOSim Julia environment and execute `using PyCall; tr = pyimport("taurunner")`. If this succeeds, the PyCall installation was successful!
+To get PyCall working, first run `ENV["PYTHON"]="/path/to/tambo_env/bin/python"` (you can get this path by running `which python` on the command line while inside your TAMBO venv). This tells PyCall which Python executable it should use. Now run `using Tambo; Pkg.build("PyCall")` to build PyCall. After this completes, you’ll need to exit and reënter Julia for the changes to take effect. After reëntry, reactivate the TAMBOSim Julia environment and execute `using PyCall; pyimport("taurunner")`. If this succeeds, the PyCall installation was successful!
 
 Note: when setting the `PYTHON` Julia environmental variable, `~` is not automatically expanded into your home directory. This means if you do not manually replace `~` with the path to your home directory, PyCall will fail to find your Python install. For I so love the users of TAMBOSim, that I sacrificed hours of my life figuring out this excentricity so that you shall not suffer as I did.
 
@@ -81,9 +103,7 @@ Several examples on how to use `TAMBOSim` can be found in the `examples/` direct
 
 `TAMBOSim` makes use of the `Snakemake` workflow management system. More details on `Snakemake` can be found [here](https://snakemake.github.io). By default, `TAMBOSim` will output the results of the simulation to a directory with the name of the config file in the `TAMBO_DATA_PATH` directory. For example, the name of the config file we will use here is `fast_test.toml`, so the output files will be written to `TAMBO_DATA_PATH/fast_test/`. Go ahead and create and change to this directory, creating it if needed.
 
-Before running a full simulation, it’s helpful to first create the needed PROPOSAL tables. This is most easily done by running a dummy simulation with the command `julia $TAMBOSIM_PATH/scripts/0_simulate_events/inject_neutrinos.jl —config $TAMBOSIM_PATH/resources/configuration_examples/setup_PROPOSAL_tables.toml —simset_id 00000 —output $TAMBO_DATA_PATH/test.jld2`. Feel free to remove this output file afterwards.
-
-To do a full run of `TAMBOSim`, execute `snakemake -p --cores 1 -s $TAMBOSIM_PATH/scripts/Snakefile $TAMBO_DATA_PATH/test_TAMBOSim/triggered/2300_3700_5000_150_small/whitepaper_trigger/triggered_events_00000.jld2`. This will launch the full simulation chain, where `TAMBOSim` will:
+To do a full run of `TAMBOSim`, execute `snakemake -p --cores 1 -s $TAMBOSIM_PATH/scripts/Snakefile $TAMBO_DATA_PATH/fast_test/triggered/2300_3700_5000_150_small/whitepaper_trigger/triggered_events_00000.jld2`. Feel free to change the number of cores to suit your machine. This will launch the full simulation chain, where `TAMBOSim` will:
 * Inject tau neutrinos into the simulation volume using `TauRunner` and compute the location of the associated tau lepton decay with `PROPOSAL`
 * Simulate the tau-induced air shower using `CORSIKA`
 * Identify events that trigger the detector array
