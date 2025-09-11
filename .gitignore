@@ -7,3 +7,5 @@ notebooks/output/*
 **/.snakemake
 
 **/Manifest.toml
+
+src/corsika/build/

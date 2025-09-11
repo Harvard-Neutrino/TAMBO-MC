@@ -32,4 +32,5 @@ YAML = "ddb6d928-2868-570f-bddf-ab3f9cf99eb6"
 [compat]
 ArgParse = "1.2.0"
 Arrow = "2.8.0"
+Distributions = "0.25.120"
 LibGit2 = "1.11.0"
