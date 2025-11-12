@@ -149,34 +149,48 @@ function validate_config_file(config::Dict{String, Any})
 end
 
 function add_hits!(d::Dict, og_df::DataFrame, modules)
-    rmax = maximum([norm(m.extent) for m in modules])
+    rmax = maximum([norm(m.extent) for m in modules]) # TODO: check if should keep
     for m in modules
         df = copy(og_df)
        
+        # shift coordinate frame so origin is at module center
         df.x .-= m.pos[1]
         df.y .-= m.pos[2]
         df.z .-= m.pos[3]
 
-        filter!([:x,:y,:z] => (x,y,z) -> abs(x) <= rmax && abs(y) <= rmax && abs(z) <=rmax, df)
+        # FIXME: should only be done after rotation to module frame
+        #filter!([:x,:y,:z] => (x,y,z) -> abs(x) <= rmax && abs(y) <= rmax && abs(z) <=rmax, df)
         
         if isempty(df)
             continue 
         end
 
+        #for particle in eachrow(df)
+        #    particle[[:x,:y,:z]] = m.rot * Vector(particle[[:x,:y,:z]])
+        #end 
+
+        #filter!([:x,:y,:z] => (x,y,z) -> all(abs.([x,y,z]) .< m.extent / 2), df)
+
+        df_particles_hit_detector = DataFrame()
         for particle in eachrow(df)
-            particle[[:x,:y,:z]] = m.rot * Vector(particle[[:x,:y,:z]])
-        end 
+            particle_pos = SVector{3}([particle.x, particle.y, particle.z])
+            particle_dir = normalize(SVector{3}([particle.nx, particle.ny, particle.nz]))
+            det_nhat = geo.plane.n̂.proj
+            uaxis = SVector{3}([1.0, 0.0, 0.0]) # width dimension is along x axis, or "it's a rectangle, not a diamond"
+            
+            if particle_hits_detector(particle_pos, particle_dir, m.pos, det_nhat, m.extent.x, m.extent.y, uaxis)
+                push!(df_particles_hit_detector, particle)
+            end
+        end
 
-        filter!([:x,:y,:z] => (x,y,z) -> all(abs.([x,y,z]) .< m.extent / 2), df)
-
-        if isempty(df)
-            continue 
+        if isempty(df_particles_hit_detector)
+            continue
         end
 
         if !(m.idx in keys(d))
             d[m.idx] = Tambo.CorsikaEvent[]
         end
-        for particle in eachrow(df)
+        for particle in eachrow(df_particles_hit_detector)
             position = SVector{3}([particle.x,particle.y,particle.z])
             push!(
                 d[m.idx],
@@ -205,6 +219,7 @@ function make_hitmap(
     ymax=nothing
 )
    
+    # FIXME: this definition of bounds not necessarily correct if modules not flat in plane
     if isnothing(xmin)
         xmin = minimum([m.pos.x for m in modules])
     end
@@ -227,10 +242,11 @@ function make_hitmap(
             df = DataFrame(Parquet2.Dataset(file))
         catch
             println("This file can't be read (maybe job timed out): $file")
+            # FIXME: don't continue here. Should halt program if missing shower file
             continue
         end
 
-        df = loadcorsika(select(df,Not("shower","nx","ny","nz")),xyzcorsika)
+        df = loadcorsika(select(df,Not("shower")),xyzcorsika)
         df = filter(
             e -> xmin < e.x && e.x < xmax && ymin < e.y && e.y < ymax,
             df
