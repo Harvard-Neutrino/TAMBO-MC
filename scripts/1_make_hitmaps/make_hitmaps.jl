@@ -154,9 +154,10 @@ function add_hits!(d::Dict, og_df::DataFrame, modules)
         df = copy(og_df)
        
         # shift coordinate frame so origin is at module center
-        df.x .-= m.pos[1]
-        df.y .-= m.pos[2]
-        df.z .-= m.pos[3]
+        # TODO: is this redundant with later transformations?
+        #df.x .-= m.pos[1]
+        #df.y .-= m.pos[2]
+        #df.z .-= m.pos[3]
 
         # FIXME: should only be done after rotation to module frame
         #filter!([:x,:y,:z] => (x,y,z) -> abs(x) <= rmax && abs(y) <= rmax && abs(z) <=rmax, df)
@@ -175,7 +176,7 @@ function add_hits!(d::Dict, og_df::DataFrame, modules)
         for particle in eachrow(df)
             particle_pos = SVector{3}([particle.x, particle.y, particle.z])
             particle_dir = normalize(SVector{3}([particle.nx, particle.ny, particle.nz]))
-            det_nhat = geo.plane.n̂.proj
+            det_nhat = Tambo.Direction(90.0*units.degree, 0.0*units.degree).proj
             uaxis = SVector{3}([1.0, 0.0, 0.0]) # width dimension is along x axis, or "it's a rectangle, not a diamond"
             
             if particle_hits_detector(particle_pos, particle_dir, m.pos, det_nhat, m.extent.x, m.extent.y, uaxis)

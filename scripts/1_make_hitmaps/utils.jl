@@ -134,6 +134,7 @@ function particle_hits_detector(
     if hitpt === nothing
         return false
     end
+    #println("Hit point: ", hitpt)
  
     # 2. Detector local coordinates
     (u, v) = detector_local_coords(hitpt, center, n, uaxis)
