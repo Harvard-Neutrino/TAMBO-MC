@@ -120,6 +120,30 @@ Notice that the way Snakemake figures out what config file to used is based on t
 
 Would you like to simulate your own custom geometry? We’re working on a script to allow a user to create custom geographies, but it’s still in the works. For now, email  [Will Thompson](mailto:will_thompson@g.harvard.edu) and he’ll be able to spin up a spline for you to use.
 
+## 4. Running the Code with OSG 
+Sometimes you'll need more compute power than what is available on fasrc or in your local cluster. 
+Fortunately, we can run simulation with OSG which is a pool of computing resources from many institutions across the world. 
+Here you can run 100k+ jobs. 
+
+### [4.1] Getting an OSG account. 
+
+### [4.2] Setting up OSG ssh for easy access 
+Follow the instructions here for logging in via SSH key pair authentication: https://portal.osg-htc.org/documentation/overview/account_setup/comanage-access/. 
+In `.ssh/` you can edit your `config` to include 
+```
+Host osg 
+Hostname your.hostname.org
+User your-username
+IdentityFile /path/to/.ssh/your-ssh-key
+ForwardX11 yes 
+ForwardAgent yes
+ForwardX11Trusted yes
+```
+Make sure your ssh-key pub file is readable (`chmod 600 your-ssh-key.pub`). 
+Then for an extra layer of convenience, so that you don't have to provide your SSH key password, you can type `ssh-add ~/.ssh/your-ssh-key`.
+Now, when you type `ssh osg` it should immediately take you to `/home/username`. 
+
 ## Citation
 Tell people how to cite us.
+
 
