@@ -126,6 +126,9 @@ Fortunately, we can run simulation with OSG which is a pool of computing resourc
 Here you can run 100k+ jobs. 
 
 ### [4.1] Getting an OSG account. 
+Everyone who needs an account should apply for their own account! https://portal.osg-htc.org/application
+
+They can list in the notes that they're working with the "Harvard_Delgado" project, and it will help streamline the process. The OSG people need to meet with any new users. If you have a large group who are all applying for accounts, we can set up one big meeting to get everyone onboarded as well.
 
 ### [4.2] Setting up OSG ssh for easy access 
 Follow the instructions here for logging in via SSH key pair authentication: https://portal.osg-htc.org/documentation/overview/account_setup/comanage-access/. 
