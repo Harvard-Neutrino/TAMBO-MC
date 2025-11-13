@@ -70,6 +70,10 @@ function parse_commandline()
         "--size"
             help = "size of modules"
             arg_type = String 
+        "--panel-elevation-angle"
+            help = "Elevation angle of the detector panels in degrees"
+            arg_type = Float64
+            required = false
         "--array_config"
             help = "Path to a TOML config file"
             arg_type = String
@@ -89,16 +93,16 @@ function load_config(file_path::String)
 end
 
 function setup_configuration(args)
-    expected_arguments = ["basedir", "array_config", "injection_config", "simfile", "outfile", "deltas", "length", "size", "nparallel", "njob", "altmin", "altmax", "simset_id", "config"]
+    expected_arguments = ["basedir", "array_config", "injection_config", "simfile", "outfile", "deltas", "length", "size", "nparallel", "njob", "altmin", "altmax", "simset_id", "config", "panel-elevation-angle"]
 
     # First check that either config file of CL arguments are provided, not both
-    if !isnothing(args["array_config"]) && any(!isnothing, [args["deltas"], args["length"], args["size"], args["altmin"], args["altmax"]])
-        error("If providing a config file, cannot provide any of deltas, length, size, altmin, altmax")
+    if !isnothing(args["array_config"]) && any(!isnothing, [args["deltas"], args["length"], args["size"], args["altmin"], args["altmax"], args["panel-elevation-angle"]])
+        error("If providing a config file, cannot provide any of deltas, length, size, altmin, altmax, panel-elevation-angle via command line arguments")
     end
 
     # If using CLI, check that all required arguments are provided
-    if isnothing(args["array_config"]) && any(isnothing, [args["deltas"], args["length"], args["size"], args["altmin"], args["altmax"]])
-        error("If not providing a config file, must provide all of deltas, length, size, altmin, altmax")
+    if isnothing(args["array_config"]) && any(isnothing, [args["deltas"], args["length"], args["size"], args["altmin"], args["altmax"], args["panel-elevation-angle"]])
+        error("If not providing a config file, must provide all of deltas, length, size, altmin, altmax, panel-elevation-angle via command line arguments")
     end
     
     config_params = Dict()
@@ -141,14 +145,14 @@ function validate_config_file(config::Dict{String, Any})
     # Check that only expected configuration parameters are present
     # so user doesn't think they're setting parameters they aren't
 
-    expected_keys = Set(["length", "deltas", "altmin", "altmax", "size"])
+    expected_keys = Set(["length", "deltas", "altmin", "altmax", "size", "panel-elevation-angle"])
     unexpected_keys = setdiff(Set(keys(config)), expected_keys)
     if !isempty(unexpected_keys)
         error("Unexpected keys found in config file: ", unexpected_keys)
     end
 end
 
-function add_hits!(d::Dict, og_df::DataFrame, modules)
+function add_hits!(d::Dict, og_df::DataFrame, modules, panel_elevation_angle)
     rmax = maximum([norm(m.extent) for m in modules]) # TODO: check if should keep
     for m in modules
         df = copy(og_df)
@@ -176,7 +180,7 @@ function add_hits!(d::Dict, og_df::DataFrame, modules)
         for particle in eachrow(df)
             particle_pos = SVector{3}([particle.x, particle.y, particle.z])
             particle_dir = normalize(SVector{3}([particle.nx, particle.ny, particle.nz]))
-            det_nhat = Tambo.Direction(90.0*units.degree, 0.0*units.degree).proj
+            det_nhat = Tambo.Direction(panel_elevation_angle, 0.0*units.degree).proj
             uaxis = SVector{3}([1.0, 0.0, 0.0]) # width dimension is along x axis, or "it's a rectangle, not a diamond"
             
             if particle_hits_detector(particle_pos, particle_dir, m.pos, det_nhat, m.extent.x, m.extent.y, uaxis)
@@ -213,7 +217,8 @@ function make_hitmap(
     event_number,
     modules,
     basedir,
-    xyzcorsika;
+    xyzcorsika,
+    panel_elevation_angle;
     xmax=nothing,
     xmin=nothing,
     ymin=nothing,
@@ -252,7 +257,7 @@ function make_hitmap(
             e -> xmin < e.x && e.x < xmax && ymin < e.y && e.y < ymax,
             df
         )
-        add_hits!(d, df, modules)
+        add_hits!(d, df, modules, panel_elevation_angle)
 
         #if necessary to avoid runaway RAM usage
         #GC.gc()
@@ -269,6 +274,7 @@ function main()
     args = parse_commandline()
     args = setup_configuration(args)
     
+    panel_elevation_angle = args["panel-elevation-angle"] * units.degree
 
     config = nothing
     try 
@@ -321,7 +327,7 @@ function main()
     hitmap = Dict()
     println("Processing events: ", event_numbers)
     for event_number in ProgressBar(event_numbers)
-        hitmap["$(event_number)"] = make_hitmap(args["simset_id"], event_number, modules, args["basedir"], xyzcorsika)
+        hitmap["$(event_number)"] = make_hitmap(args["simset_id"], event_number, modules, args["basedir"], xyzcorsika, panel_elevation_angle)
     end
 
     jldopen(outfile, "w") do jldf
@@ -331,7 +337,8 @@ function main()
             "deltas" => args["deltas"] * units.m,
             "detector_size" => args["size"],
             "altmin" => args["altmin"] * units.m,
-            "altmax" => args["altmax"] * units.m
+            "altmax" => args["altmax"] * units.m,
+            "panel_elevation_angle" => panel_elevation_angle
         )
     end
 end
